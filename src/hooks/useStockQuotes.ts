@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { STOCKS } from '../data/stocks';
 
-const SYMBOLS = STOCKS.map(s => s.sym).join(',');
+const SYMBOLS = STOCKS.map(s => s.sym);
 const REFRESH_MS = 30_000;
 
 export interface QuoteData {
@@ -9,13 +9,6 @@ export interface QuoteData {
   price: number;
   chg: number;
   chgPct: number;
-}
-
-interface YahooQuote {
-  symbol: string;
-  regularMarketPrice?: number;
-  regularMarketChange?: number;
-  regularMarketChangePercent?: number;
 }
 
 export function useStockQuotes() {
@@ -30,22 +23,21 @@ export function useStockQuotes() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(
-        `/api/quotes?symbols=${SYMBOLS}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`
+      const results = await Promise.all(
+        SYMBOLS.map(async sym => {
+          const res = await fetch(`/api/chart/${sym}?interval=1d&range=1d`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const meta = data?.chart?.result?.[0]?.meta;
+          if (!meta) throw new Error(`no data for ${sym}`);
+          const price: number = meta.regularMarketPrice ?? 0;
+          const prevClose: number = meta.chartPreviousClose ?? price;
+          const chg = +(price - prevClose).toFixed(2);
+          const chgPct = prevClose ? +((chg / prevClose) * 100).toFixed(2) : 0;
+          return { sym, price, chg, chgPct };
+        })
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const results: YahooQuote[] = data?.quoteResponse?.result ?? [];
-      if (!results.length) throw new Error('empty response');
-
-      setQuotes(
-        results.map(r => ({
-          sym: r.symbol,
-          price: r.regularMarketPrice ?? 0,
-          chg: r.regularMarketChange ?? 0,
-          chgPct: r.regularMarketChangePercent ?? 0,
-        }))
-      );
+      setQuotes(results);
       setLastUpdated(new Date());
     } catch {
       setError(true);

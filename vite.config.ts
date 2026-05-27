@@ -5,12 +5,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api/quotes': {
+      '/api/chart': {
         target: 'https://query1.finance.yahoo.com',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/quotes/, '/v7/finance/quote'),
+        rewrite: (path) => path.replace(/^\/api\/chart/, '/v8/finance/chart'),
         headers: {
-          'User-Agent': 'Mozilla/5.0',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
       },
     },
