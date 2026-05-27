@@ -21,13 +21,13 @@ export const PORT: Holding[] = [
 ];
 
 export const LB: LeaderboardEntry[] = [
-  { rank: 1, name: 'Marcus Johnson', school: 'Lincoln High School', xp: 3240, level: 'Wall Street Pro' },
-  { rank: 2, name: 'Priya Patel', school: 'Jefferson Academy', xp: 2980, level: 'Fund Manager' },
-  { rank: 3, name: 'DeShawn Williams', school: 'MLK Jr. High', xp: 2750, level: 'Fund Manager' },
-  { rank: 4, name: 'Aaliyah Chen', school: 'Eastside Prep', xp: 2340, level: 'Senior Analyst' },
-  { rank: 5, name: 'Carlos Rivera', school: 'City View Academy', xp: 1980, level: 'Junior Analyst' },
-  { rank: 6, name: 'Jasmine Brooks', school: 'Westfield High', xp: 1620, level: 'Junior Analyst' },
-  { rank: 7, name: 'Tyler Nguyen', school: 'Lincoln High School', xp: 1200, level: 'Trader' },
+  { rank: 1, name: 'Marcus Johnson', school: 'Lincoln High School', xp: 3240, level: 'Wall Street Pro', returnPct: 14.2 },
+  { rank: 2, name: 'Priya Patel', school: 'Jefferson Academy', xp: 2980, level: 'Fund Manager', returnPct: 11.8 },
+  { rank: 3, name: 'DeShawn Williams', school: 'MLK Jr. High', xp: 2750, level: 'Fund Manager', returnPct: 10.1 },
+  { rank: 4, name: 'Aaliyah Chen', school: 'Eastside Prep', xp: 2340, level: 'Senior Analyst', returnPct: 9.6 },
+  { rank: 5, name: 'Carlos Rivera', school: 'City View Academy', xp: 1980, level: 'Junior Analyst', returnPct: 8.9 },
+  { rank: 6, name: 'Jasmine Brooks', school: 'Westfield High', xp: 1620, level: 'Junior Analyst', returnPct: 7.2 },
+  { rank: 7, name: 'Tyler Nguyen', school: 'Lincoln High School', xp: 1200, level: 'Trader', returnPct: 5.3 },
 ];
 
 export const STUDENTS: Student[] = [

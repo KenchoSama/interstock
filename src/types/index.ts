@@ -30,6 +30,7 @@ export interface LeaderboardEntry {
   school: string;
   xp: number;
   level: string;
+  returnPct?: number;
 }
 
 export interface Student {
