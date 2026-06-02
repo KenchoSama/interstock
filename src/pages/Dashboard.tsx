@@ -124,9 +124,9 @@ export default function Dashboard() {
         {/* Main content */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div className="card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <div className="section-title" style={{ margin: 0 }}>Portfolio Performance</div>
+            <div className="card" style={{ overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'nowrap', minWidth: 0 }}>
+                <div className="section-title" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, marginRight: 8 }}>Portfolio Performance</div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {TF_OPTIONS.map(tf => (
                     <button
@@ -146,7 +146,7 @@ export default function Dashboard() {
                     No holdings yet. Start trading to build your portfolio.
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: 12 }}>
                     {user.portfolio.slice(0, 4).map(h => {
                       const stock = STOCKS.find(s => s.sym === h.sym);
                       const price = stock ? stock.price : h.price;

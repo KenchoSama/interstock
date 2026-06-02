@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InterStock — Page Map</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      padding: 48px 32px;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 40px;
+      border-bottom: 1px solid #2d3748;
+      padding-bottom: 20px;
+    }
+
+    header h1 { font-size: 26px; font-weight: 800; color: #fff; }
+    header h1 span { color: #4ade80; }
+    header p { font-size: 13px; color: #718096; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .role-card {
+      background: #1a1f2e;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .role-header {
+      padding: 14px 18px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .role-student  .role-header { background: #1a2e1a; color: #4ade80; border-bottom: 1px solid #2d4a2d; }
+    .role-admin-school .role-header { background: #1a2535; color: #60a5fa; border-bottom: 1px solid #1e3a5f; }
+    .role-parent   .role-header { background: #2e1a2e; color: #c084fc; border-bottom: 1px solid #4a1d6e; }
+    .role-partner  .role-header { background: #2e2a1a; color: #fbbf24; border-bottom: 1px solid #5a4a10; }
+    .role-admin    .role-header { background: #2e1a1a; color: #f87171; border-bottom: 1px solid #5a2020; }
+    .role-staff    .role-header { background: #1a2a2e; color: #38bdf8; border-bottom: 1px solid #1a4a5a; }
+    .shared-card   .role-header { background: #222222; color: #94a3b8; border-bottom: 1px solid #333; }
+
+    .role-body { padding: 14px 18px; }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #4a5568;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin: 14px 0 6px;
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    .page-item {
+      display: flex;
+      flex-direction: column;
+      padding: 6px 0;
+      border-bottom: 1px solid #1e2535;
+    }
+    .page-item:last-child { border-bottom: none; }
+
+    .page-name {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .page-name .icon { font-size: 14px; }
+
+    .page-id {
+      font-size: 10px;
+      color: #4a5568;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      margin-left: 21px;
+      margin-top: 2px;
+    }
+
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-left: 21px;
+      margin-top: 5px;
+    }
+
+    .link-chip {
+      font-size: 10px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: #4ade80;
+    }
+
+    .lock-chip {
+      font-size: 9px;
+      background: #2d2510;
+      border: 1px solid #5a4a10;
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: #fbbf24;
+      margin-left: 21px;
+      margin-top: 4px;
+      display: inline-block;
+    }
+
+    .legend {
+      margin-top: 32px;
+      padding: 16px 20px;
+      background: #1a1f2e;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #718096; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    @media print {
+      body { background: #fff; color: #000; padding: 24px; }
+      .role-card { border: 1px solid #ccc; break-inside: avoid; }
+      .role-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Inter<span>Stock</span></h1>
+    <p>Page Map &amp; Navigation Structure</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- STUDENT -->
+    <div class="role-card role-student" style="grid-column: span 2;">
+      <div class="role-header">👨‍🎓 Student</div>
+      <div class="role-body">
+
+        <div class="section-label">Home</div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🏠</span> Dashboard</div>
+          <div class="page-id">dashboard</div>
+          <div class="links">
+            <span class="link-chip">→ game</span>
+            <span class="link-chip">→ level-game</span>
+            <span class="link-chip">→ portfolio</span>
+            <span class="link-chip">→ ai</span>
+            <span class="link-chip">→ leaderboard</span>
+            <span class="link-chip">→ mentors</span>
+          </div>
+        </div>
+
+        <div class="section-label">Trading</div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📊</span> Portfolio</div>
+          <div class="page-id">portfolio</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🔍</span> Fundamentals</div>
+          <div class="page-id">fundamentals</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📈</span> Options</div>
+          <div class="page-id">options</div>
+          <span class="lock-chip">🔒 XP locked</span>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">⚡</span> Futures</div>
+          <div class="page-id">futures</div>
+          <span class="lock-chip">🔒 XP locked</span>
+        </div>
+
+        <div class="section-label">Learn</div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📚</span> Lessons</div>
+          <div class="page-id">lessons</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🎯</span> Scenario Challenge</div>
+          <div class="page-id">game</div>
+          <div class="links"><span class="link-chip">→ game-play</span></div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">▶</span> GamePlay</div>
+          <div class="page-id">game-play</div>
+          <div class="links"><span class="link-chip">→ game-result</span></div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🏁</span> GameResult</div>
+          <div class="page-id">game-result</div>
+          <div class="links"><span class="link-chip">→ game</span></div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🗺️</span> Level Up Game</div>
+          <div class="page-id">level-game</div>
+          <span class="lock-chip">🔒 XP locked</span>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🎓</span> Diplomas</div>
+          <div class="page-id">diplomas</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🏦</span> Build an ETF</div>
+          <div class="page-id">etf</div>
+          <span class="lock-chip">🔒 XP locked</span>
+        </div>
+
+        <div class="section-label">School</div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📝</span> Assignments</div>
+          <div class="page-id">assignments</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🏆</span> Compete</div>
+          <div class="page-id">compete</div>
+          <span class="lock-chip">🔒 XP locked</span>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📋</span> Leaderboard</div>
+          <div class="page-id">leaderboard</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">✈️</span> Field Trips</div>
+          <div class="page-id">field-trips</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">💼</span> Internships</div>
+          <div class="page-id">interns</div>
+          <span class="lock-chip">🔒 XP locked</span>
+        </div>
+
+        <div class="section-label">Profile</div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🏅</span> Achievements</div>
+          <div class="page-id">achievements</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">👤</span> Profile</div>
+          <div class="page-id">profile</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🤖</span> FinBot AI</div>
+          <div class="page-id">ai</div>
+          <span class="lock-chip">🔒 XP locked</span>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">❓</span> Help &amp; FAQ</div>
+          <div class="page-id">help</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SCHOOL ADMIN -->
+    <div class="role-card role-admin-school">
+      <div class="role-header">🏫 School Admin</div>
+      <div class="role-body">
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🏫</span> Dashboard</div>
+          <div class="page-id">school-dash</div>
+          <div class="links">
+            <span class="link-chip">→ assignments</span>
+            <span class="link-chip">→ school-perf</span>
+            <span class="link-chip">→ support</span>
+          </div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📊</span> Performance</div>
+          <div class="page-id">school-perf</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📝</span> Assignments</div>
+          <div class="page-id">assignments</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">💬</span> Support</div>
+          <div class="page-id">support</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PARENT -->
+    <div class="role-card role-parent">
+      <div class="role-header">👨‍👧 Parent</div>
+      <div class="role-body">
+        <div class="page-item">
+          <div class="page-name"><span class="icon">👨‍👧</span> My Child</div>
+          <div class="page-id">parent</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">💬</span> Support</div>
+          <div class="page-id">support</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PARTNER -->
+    <div class="role-card role-partner">
+      <div class="role-header">🤝 Partner</div>
+      <div class="role-body">
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🤝</span> Dashboard</div>
+          <div class="page-id">partner-dash</div>
+          <div class="links">
+            <span class="link-chip">→ mentors</span>
+            <span class="link-chip">→ sponsorships</span>
+            <span class="link-chip">→ support</span>
+          </div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">👩‍🏫</span> Mentors</div>
+          <div class="page-id">mentors</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">💰</span> Sponsorships</div>
+          <div class="page-id">sponsorships</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">💬</span> Support</div>
+          <div class="page-id">support</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div class="role-card role-admin">
+      <div class="role-header">⚙️ Admin</div>
+      <div class="role-body">
+        <div class="page-item">
+          <div class="page-name"><span class="icon">⚙️</span> Dashboard</div>
+          <div class="page-id">admin-dash</div>
+          <div class="links"><span class="link-chip">→ cra</span></div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📋</span> CRA Report</div>
+          <div class="page-id">cra</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">💬</span> Support</div>
+          <div class="page-id">support</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAFF -->
+    <div class="role-card role-staff">
+      <div class="role-header">🧑‍💼 Staff</div>
+      <div class="role-body">
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📚</span> Training</div>
+          <div class="page-id">staff-training</div>
+          <div class="links"><span class="link-chip">→ cert-exam</span></div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">🎓</span> Certification</div>
+          <div class="page-id">cert-exam</div>
+          <div class="links"><span class="link-chip">→ staff-training</span></div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📝</span> Assignments</div>
+          <div class="page-id">staff-assign</div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">💬</span> Support</div>
+          <div class="page-id">support</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHARED -->
+    <div class="role-card shared-card">
+      <div class="role-header">🔗 Shared Pages</div>
+      <div class="role-body">
+        <div class="page-item">
+          <div class="page-name"><span class="icon">📝</span> Assignments</div>
+          <div class="page-id">assignments</div>
+          <div class="links">
+            <span class="link-chip" style="color:#94a3b8">student</span>
+            <span class="link-chip" style="color:#94a3b8">school_admin</span>
+          </div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">👩‍🏫</span> Mentors</div>
+          <div class="page-id">mentors</div>
+          <div class="links">
+            <span class="link-chip" style="color:#94a3b8">student</span>
+            <span class="link-chip" style="color:#94a3b8">partner</span>
+          </div>
+        </div>
+        <div class="page-item">
+          <div class="page-name"><span class="icon">💬</span> Support</div>
+          <div class="page-id">support</div>
+          <div class="links">
+            <span class="link-chip" style="color:#94a3b8">all roles</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div> Student</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div> School Admin</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#c084fc"></div> Parent</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div> Partner</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div> Admin</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#38bdf8"></div> Staff</div>
+    <div class="legend-item" style="margin-left:auto; color:#4a5568; font-size:11px">→ chips = SET_VIEW navigation links &nbsp;|&nbsp; 🔒 = XP gated</div>
+  </div>
+
+</body>
+</html>
