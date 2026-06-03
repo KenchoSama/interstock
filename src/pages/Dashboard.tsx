@@ -5,6 +5,9 @@ import { DIPLOMA_COURSES } from '../data/courses';
 import { genPrices, lineChart } from '../utils/charts';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
+const ETF_COLORS = ['var(--gr)', '#4d9fff', '#f9c74f', '#a855f7', '#f97316'];
+const SP500_YTD = 10.8;
+const ETF_XP_REQUIRED = 1500;
 
 const TF_OPTIONS = ['1D', '1W', '1M', '6M', '1Y'] as const;
 type TfOption = typeof TF_OPTIONS[number];
@@ -71,6 +74,15 @@ export default function Dashboard() {
   const myRank = LB.findIndex(e => (e.returnPct ?? 0) < myReturnPct) + 1 || LB.length + 1;
   const assignedMentor = state.mentors.find(m => m.available) ?? state.mentors[0];
   const mentorInitials = assignedMentor.name.split(' ').map(n => n[0]).join('').slice(0, 2);
+
+  const etfLocked = user.xp < ETF_XP_REQUIRED;
+  const etfReturn = state.etf
+    ? parseFloat((state.etf.holdings.reduce((sum, h) => {
+        const stock = STOCKS.find(s => s.sym === h.sym);
+        return sum + (stock ? stock.chgPct * (h.weight / 100) * 8 : 0);
+      }, 0) + 8).toFixed(1))
+    : 0;
+  const etfAlpha = parseFloat((etfReturn - SP500_YTD).toFixed(1));
 
   return (
     <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -225,6 +237,125 @@ export default function Dashboard() {
                   {diplomasEarned} of {diplomasTotal} diplomas earned
                 </div>
               </div>
+            </div>
+
+            {/* Build an ETF card */}
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div className="section-title" style={{ margin: 0 }}>🏦 Build an ETF</div>
+                {!etfLocked && (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => dispatch({ type: 'SET_VIEW', view: 'etf' })}
+                  >
+                    {state.etf ? 'Edit →' : 'Open →'}
+                  </button>
+                )}
+              </div>
+
+              {etfLocked ? (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>
+                    <span>XP to unlock</span>
+                    <span style={{ color: 'var(--gr)', fontWeight: 600 }}>{user.xp.toLocaleString()} / 1,500</span>
+                  </div>
+                  <div className="progress-bar" style={{ marginBottom: 12 }}>
+                    <div className="progress-fill" style={{ width: `${(user.xp / ETF_XP_REQUIRED) * 100}%` }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 12 }}>
+                    {['📊 Diversification', '📈 vs S&P 500', '🏆 Compete'].map(tag => (
+                      <span key={tag} style={{
+                        fontSize: 10, padding: '3px 8px', borderRadius: 20,
+                        background: 'var(--surface2)', color: 'var(--text3)',
+                        border: '1px solid var(--border)',
+                      }}>{tag}</span>
+                    ))}
+                  </div>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%', opacity: 0.45, cursor: 'not-allowed', fontSize: 13 }}
+                    disabled
+                  >
+                    🔒 Unlocks at 1,500 XP — {ETF_XP_REQUIRED - user.xp} XP away
+                  </button>
+                </div>
+              ) : state.etf ? (
+                <>
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>"{state.etf.name}"</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                      {state.etf.ticker} · {state.etf.holdings.length} holdings
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+                    {[
+                      { label: 'ETF Return', value: `+${etfReturn}%`, color: 'var(--gr)' },
+                      { label: 'S&P 500', value: `+${SP500_YTD}%`, color: 'var(--gr)' },
+                      { label: 'Alpha', value: `${etfAlpha >= 0 ? '+' : ''}${etfAlpha}%`, color: etfAlpha >= 0 ? 'var(--gr)' : 'var(--red)' },
+                    ].map(m => (
+                      <div key={m.label} style={{
+                        background: 'var(--bg3)', borderRadius: 'var(--radius)',
+                        padding: '8px 10px', border: '1px solid var(--border)',
+                      }}>
+                        <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 3 }}>{m.label}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: m.color, fontFamily: 'monospace' }}>{m.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {state.etf.holdings.slice(0, 4).map((h, i) => {
+                      const stock = STOCKS.find(s => s.sym === h.sym);
+                      const color = ETF_COLORS[i % ETF_COLORS.length];
+                      return (
+                        <div key={h.sym}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color, minWidth: 42, fontFamily: 'monospace' }}>{h.sym}</span>
+                              {stock && <span style={{ fontSize: 10, color: 'var(--text3)' }}>{stock.name}</span>}
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 600, color, fontFamily: 'monospace' }}>{h.weight}%</span>
+                          </div>
+                          <div className="progress-bar" style={{ height: 4 }}>
+                            <div className="progress-fill" style={{ width: `${h.weight}%`, background: color }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {state.etf.holdings.length > 4 && (
+                      <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center' as const }}>
+                        +{state.etf.holdings.length - 4} more holdings
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 14 }}>
+                    Build your own virtual ETF — set stock allocations, track performance vs the S&amp;P 500, and compete for review by institutional partners.
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 14 }}>
+                    {[
+                      { label: '📊 Diversification', bg: 'var(--gr-dim)', border: 'var(--gr)', color: 'var(--gr)' },
+                      { label: '📈 vs S&P 500', bg: 'var(--blue-dim)', border: 'var(--blue)', color: 'var(--blue)' },
+                      { label: '🏆 Compete', bg: 'rgba(249,199,79,0.12)', border: 'var(--yellow)', color: 'var(--yellow)' },
+                    ].map(tag => (
+                      <span key={tag.label} style={{
+                        fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 500,
+                        background: tag.bg, border: `1px solid ${tag.border}`, color: tag.color,
+                      }}>{tag.label}</span>
+                    ))}
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', fontSize: 13 }}
+                    onClick={() => dispatch({ type: 'SET_VIEW', view: 'etf' })}
+                  >
+                    🏦 Create Your ETF (+100 XP)
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

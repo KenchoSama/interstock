@@ -10,7 +10,7 @@ const INITIAL_DIPLOMAS = DIPLOMA_COURSES.map(c => ({
   earned: false,
 }));
 
-function makeUser(name: string, xp = 1450): AppState['u'][Role] {
+function makeUser(name: string, xp = 1600): AppState['u'][Role] {
   return {
     name,
     email: `${name.toLowerCase().replace(' ', '.')}@interstock.edu`,
