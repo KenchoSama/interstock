@@ -81,7 +81,7 @@ export function lineChart(
   prices: number[],
   width = 400,
   height = 120,
-  color = '#00d4a8',
+  _color = '#00d4a8',
 ): string {
   if (prices.length < 2) return '';
   const min = Math.min(...prices);
