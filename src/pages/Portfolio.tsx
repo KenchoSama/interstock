@@ -3,6 +3,11 @@ import { useApp } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
 import { genPrices, lineChart } from '../utils/charts';
 
+const CHART_RANGES = ['1D', '5D', '1M', 'YTD', '1Y', '5Y'] as const;
+type ChartRange = typeof CHART_RANGES[number];
+
+const TV_SYMBOLS = ['AAPL', 'TSLA', 'NVDA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'SPY', 'QQQ'];
+
 export default function Portfolio() {
   const { state, dispatch } = useApp();
   const user = state.u[state.role];
@@ -10,6 +15,8 @@ export default function Portfolio() {
 
   const [localQty, setLocalQty] = useState(qty);
   const [tradeMsg, setTradeMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [chartRange, setChartRange] = useState<ChartRange>('1Y');
+  const [tvSym, setTvSym] = useState('AAPL');
 
   const selectedStock = STOCKS.find(s => s.sym === sym) ?? STOCKS[0];
 
@@ -20,11 +27,18 @@ export default function Portfolio() {
     }, 0);
   }, [user.portfolio]);
 
+  const totalInvested = useMemo(() => {
+    return user.portfolio.reduce((sum, h) => sum + h.shares * h.avg, 0);
+  }, [user.portfolio]);
+
+  const pnl = portfolioValue - totalInvested;
+  const totalValue = portfolioValue + user.cash;
+  const pnlPct = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0;
+
   const chartPrices = useMemo(() => genPrices(selectedStock.price, 60, 0.02), [sym]);
-  const chartSvg = lineChart(chartPrices, 400, 140);
+  const chartSvg = lineChart(chartPrices, 580, 160);
 
   const cost = localQty * selectedStock.price;
-
   const holding = user.portfolio.find(h => h.sym === sym);
 
   function executeTrade() {
@@ -48,116 +62,170 @@ export default function Portfolio() {
     setTimeout(() => setTradeMsg(null), 3000);
   }
 
+  const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
   return (
     <div className="page-body">
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="section-title">Holdings</div>
+      {/* Top stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <div className="stat-card">
+          <div className="stat-label">TOTAL VALUE</div>
+          <div className="stat-value">${fmt(totalValue)}</div>
+          <div className={pnlPct >= 0 ? 'up' : 'dn'} style={{ fontSize: 13, marginTop: 4 }}>
+            {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">INVESTED</div>
+          <div className="stat-value">${fmt(totalInvested)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">CASH</div>
+          <div className="stat-value">${fmt(user.cash)}</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>Available</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">P&amp;L</div>
+          <div className={`stat-value ${pnl >= 0 ? 'up' : 'dn'}`}>
+            {pnl >= 0 ? '+' : '-'}${fmt(Math.abs(pnl))}
+          </div>
+        </div>
+      </div>
 
-          <div className="table-wrap" style={{ marginBottom: 16 }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Symbol</th>
-                  <th>Shares</th>
-                  <th>Avg Cost</th>
-                  <th>Price</th>
-                  <th>Gain / Loss</th>
-                  <th>Total Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {user.portfolio.length === 0 ? (
+      {/* Main layout */}
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+
+        {/* Left column */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Holdings table */}
+          <div className="card">
+            <div className="section-title" style={{ marginBottom: 12 }}>HOLDINGS</div>
+            <div className="table-wrap">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text3)', padding: '24px 16px' }}>
-                      No holdings yet. Use the trade panel to buy your first stock.
-                    </td>
+                    <th>TICKER</th>
+                    <th>SHARES</th>
+                    <th>AVG COST</th>
+                    <th>CURRENT</th>
+                    <th>VALUE</th>
+                    <th>RETURN</th>
                   </tr>
-                ) : (
-                  user.portfolio.map(h => {
-                    const stock = STOCKS.find(s => s.sym === h.sym);
-                    const price = stock ? stock.price : h.price;
-                    const gainDollar = (price - h.avg) * h.shares;
-                    const gainPct = ((price - h.avg) / h.avg) * 100;
-                    const totalVal = price * h.shares;
-                    return (
-                      <tr key={h.sym}>
-                        <td>
-                          <div style={{ fontWeight: 700 }}>{h.sym}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{stock?.name ?? ''}</div>
-                        </td>
-                        <td>{h.shares}</td>
-                        <td>${h.avg.toFixed(2)}</td>
-                        <td>${price.toFixed(2)}</td>
-                        <td>
-                          <div className={gainDollar >= 0 ? 'up' : 'dn'}>
-                            {gainDollar >= 0 ? '+' : ''}${Math.abs(gainDollar).toFixed(2)}
-                          </div>
-                          <div className={gainPct >= 0 ? 'up' : 'dn'} style={{ fontSize: 11 }}>
-                            {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
-                          </div>
-                        </td>
-                        <td style={{ fontWeight: 600 }}>${totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div className="stat-card" style={{ flex: 1 }}>
-              <div className="stat-label">Cash Balance</div>
-              <div className="stat-value">${user.cash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            </div>
-            <div className="stat-card" style={{ flex: 1 }}>
-              <div className="stat-label">Portfolio Value</div>
-              <div className="stat-value">${portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            </div>
-            <div className="stat-card" style={{ flex: 1 }}>
-              <div className="stat-label">Total Account</div>
-              <div className="stat-value">${(portfolioValue + user.cash).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                </thead>
+                <tbody>
+                  {user.portfolio.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text3)', padding: '24px 16px' }}>
+                        No holdings yet. Use the trade panel to buy your first stock.
+                      </td>
+                    </tr>
+                  ) : (
+                    user.portfolio.map(h => {
+                      const stock = STOCKS.find(s => s.sym === h.sym);
+                      const price = stock ? stock.price : h.price;
+                      const gainPct = ((price - h.avg) / h.avg) * 100;
+                      const totalVal = price * h.shares;
+                      return (
+                        <tr key={h.sym}>
+                          <td style={{ fontWeight: 700, color: 'var(--gr)' }}>{h.sym}</td>
+                          <td>{h.shares}</td>
+                          <td>${h.avg.toFixed(2)}</td>
+                          <td>${price.toFixed(2)}</td>
+                          <td>${fmt(totalVal)}</td>
+                          <td className={gainPct >= 0 ? 'up' : 'dn'}>
+                            {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div className="card" style={{ marginTop: 20 }}>
+          {/* Portfolio chart */}
+          <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div className="section-title" style={{ margin: 0 }}>
-                {sym} Price Chart
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                ${selectedStock.price.toFixed(2)}
-                <span className={selectedStock.chg >= 0 ? 'up' : 'dn'} style={{ marginLeft: 8 }}>
-                  {selectedStock.chg >= 0 ? '+' : ''}{selectedStock.chg.toFixed(2)} ({selectedStock.chgPct.toFixed(2)}%)
-                </span>
+              <div className="section-title" style={{ margin: 0 }}>PORTFOLIO CHART</div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {CHART_RANGES.map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setChartRange(r)}
+                    style={{
+                      padding: '3px 9px',
+                      fontSize: 12,
+                      borderRadius: 6,
+                      background: chartRange === r ? 'var(--gr)' : 'var(--surface)',
+                      color: chartRange === r ? '#000' : 'var(--text2)',
+                      fontWeight: chartRange === r ? 700 : 400,
+                    }}
+                  >
+                    {r}
+                  </button>
+                ))}
               </div>
             </div>
             <div className="chart-wrap" dangerouslySetInnerHTML={{ __html: chartSvg }} />
+            <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
+              {chartRange} &nbsp;
+              <span className={pnlPct >= 0 ? 'up' : 'dn'} style={{ fontWeight: 600 }}>
+                {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}% return
+              </span>
+              &nbsp; · Paper portfolio · $10K start
+            </div>
+          </div>
+
+          {/* Live Chart - TradingView */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div className="section-title" style={{ margin: 0 }}>LIVE CHART — TRADINGVIEW</div>
+              <span style={{
+                fontSize: 11, padding: '2px 8px',
+                background: 'var(--red)', color: '#fff',
+                borderRadius: 4, fontWeight: 700, letterSpacing: 1,
+              }}>
+                LIVE
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+              {TV_SYMBOLS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setTvSym(s)}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: 12,
+                    borderRadius: 6,
+                    background: tvSym === s ? 'var(--gr)' : 'var(--surface)',
+                    color: tvSym === s ? '#000' : 'var(--text2)',
+                    fontWeight: tvSym === s ? 700 : 400,
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <iframe
+              key={tvSym}
+              src={`https://s.tradingview.com/widgetembed/?symbol=${tvSym}&interval=D&theme=dark&style=1&locale=en&toolbar_bg=0c1a27&hide_side_toolbar=0`}
+              style={{ width: '100%', height: 340, border: 'none', borderRadius: 8 }}
+              allowFullScreen
+            />
           </div>
         </div>
 
-        <div style={{ width: 300, flexShrink: 0 }}>
+        {/* Right sidebar - Place Trade */}
+        <div style={{ width: 260, flexShrink: 0 }}>
           <div className="trade-panel">
-            <div className="trade-tabs">
-              <button
-                className={`trade-tab ${tradeAction === 'buy' ? 'active buy' : ''}`}
-                onClick={() => dispatch({ type: 'SET_TRADE_ACTION', action: 'buy' })}
-              >
-                Buy
-              </button>
-              <button
-                className={`trade-tab ${tradeAction === 'sell' ? 'active sell' : ''}`}
-                onClick={() => dispatch({ type: 'SET_TRADE_ACTION', action: 'sell' })}
-              >
-                Sell
-              </button>
-            </div>
+            <div className="section-title" style={{ marginBottom: 14 }}>PLACE TRADE</div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, display: 'block', marginBottom: 6 }}>
-                Stock
+              <label style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Symbol
               </label>
               <select
                 style={{ width: '100%' }}
@@ -166,14 +234,43 @@ export default function Portfolio() {
               >
                 {STOCKS.map(s => (
                   <option key={s.sym} value={s.sym}>
-                    {s.sym} — ${s.price.toFixed(2)}
+                    {s.sym} — ${s.price.toFixed(2)} ({s.chgPct >= 0 ? '+' : ''}{s.chgPct.toFixed(1)}%)
                   </option>
                 ))}
               </select>
             </div>
 
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+              <button
+                style={{
+                  padding: '10px',
+                  borderRadius: 8,
+                  background: tradeAction === 'buy' ? 'var(--gr)' : 'var(--surface)',
+                  color: tradeAction === 'buy' ? '#000' : 'var(--text2)',
+                  fontWeight: 700,
+                  fontSize: 13,
+                }}
+                onClick={() => dispatch({ type: 'SET_TRADE_ACTION', action: 'buy' })}
+              >
+                ▲ BUY
+              </button>
+              <button
+                style={{
+                  padding: '10px',
+                  borderRadius: 8,
+                  background: tradeAction === 'sell' ? 'var(--red)' : 'var(--surface)',
+                  color: tradeAction === 'sell' ? '#fff' : 'var(--text2)',
+                  fontWeight: 700,
+                  fontSize: 13,
+                }}
+                onClick={() => dispatch({ type: 'SET_TRADE_ACTION', action: 'sell' })}
+              >
+                ▼ SELL
+              </button>
+            </div>
+
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, display: 'block', marginBottom: 6 }}>
+              <label style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Quantity
               </label>
               <input
@@ -197,25 +294,26 @@ export default function Portfolio() {
               fontSize: 13,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ color: 'var(--text3)' }}>Price per share</span>
+                <span style={{ color: 'var(--text3)' }}>Symbol</span>
+                <span style={{ color: 'var(--gr)', fontWeight: 600 }}>{sym} — {selectedStock.name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ color: 'var(--text3)' }}>Last Price</span>
                 <span>${selectedStock.price.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ color: 'var(--text3)' }}>Shares</span>
-                <span>{localQty}</span>
+                <span style={{ color: 'var(--text3)' }}>Change</span>
+                <span className={selectedStock.chgPct >= 0 ? 'up' : 'dn'}>
+                  {selectedStock.chgPct >= 0 ? '+' : ''}{selectedStock.chgPct.toFixed(1)}%
+                </span>
               </div>
               <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                <span style={{ color: 'var(--text2)' }}>Total Cost</span>
-                <span style={{ color: tradeAction === 'buy' ? 'var(--red)' : 'var(--gr)' }}>
-                  {tradeAction === 'buy' ? '-' : '+'}${cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span style={{ color: 'var(--text2)' }}>Order Total</span>
+                <span style={{ color: 'var(--gr)', fontSize: 15 }}>
+                  ${cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
-              {tradeAction === 'sell' && holding && (
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
-                  You own {holding.shares} shares
-                </div>
-              )}
             </div>
 
             {tradeMsg && (
@@ -233,27 +331,22 @@ export default function Portfolio() {
             )}
 
             <button
-              className={`btn ${tradeAction === 'buy' ? 'btn-primary' : 'btn-danger'}`}
-              style={{ width: '100%' }}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: 10,
+                background: tradeAction === 'buy' ? 'var(--gr)' : 'var(--red)',
+                color: tradeAction === 'buy' ? '#000' : '#fff',
+                fontWeight: 700,
+                fontSize: 14,
+              }}
               onClick={executeTrade}
             >
-              {tradeAction === 'buy' ? `Buy ${localQty} Share${localQty !== 1 ? 's' : ''}` : `Sell ${localQty} Share${localQty !== 1 ? 's' : ''}`}
+              {tradeAction === 'buy' ? `▲ BUY ${sym}` : `▼ SELL ${sym}`}
             </button>
 
-            <div style={{ marginTop: 16, padding: '12px', background: 'var(--bg3)', borderRadius: 'var(--radius)' }}>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {selectedStock.sym} Info
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 0', fontSize: 12 }}>
-                <span style={{ color: 'var(--text3)' }}>Sector</span>
-                <span style={{ textAlign: 'right' }}>{selectedStock.sector}</span>
-                <span style={{ color: 'var(--text3)' }}>Mkt Cap</span>
-                <span style={{ textAlign: 'right' }}>{selectedStock.mktCap}</span>
-                <span style={{ color: 'var(--text3)' }}>P/E</span>
-                <span style={{ textAlign: 'right' }}>{selectedStock.pe}x</span>
-                <span style={{ color: 'var(--text3)' }}>Beta</span>
-                <span style={{ textAlign: 'right' }}>{selectedStock.beta}</span>
-              </div>
+            <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+              💡 Paper trading — virtual money only
             </div>
           </div>
         </div>

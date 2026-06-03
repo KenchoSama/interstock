@@ -12,9 +12,9 @@ const NAV: Record<Role, NavItem[]> = {
   student: [
     { id: 'dashboard', label: 'Dashboard', icon: '🏠', section: 'Home' },
     { id: 'portfolio', label: 'Portfolio', icon: '📊', section: 'Trading' },
-    { id: 'fundamentals', label: 'Fundamentals', icon: '🔍' },
-    { id: 'options', label: 'Options', icon: '📈' },
-    { id: 'futures', label: 'Futures', icon: '⚡' },
+    { id: 'fundamentals', label: 'Stock Analysis', icon: '🔍' },
+    { id: 'options', label: 'Options', icon: '⚡' },
+    { id: 'futures', label: 'Futures', icon: '📈' },
     { id: 'lessons', label: 'Lessons', icon: '📚', section: 'Learn' },
     { id: 'game', label: 'Scenario Challenge', icon: '🎯' },
     { id: 'level-game', label: 'Level Up Game', icon: '🗺️' },

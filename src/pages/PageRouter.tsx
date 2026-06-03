@@ -2,7 +2,7 @@ import { useApp } from '../state/AppContext';
 
 import Dashboard from './Dashboard';
 import Portfolio from './Portfolio';
-import Fundamentals from './Fundamentals';
+import Fundamentals from './StockAnalysis';
 import Options from './Options';
 import Futures from './Futures';
 import Lessons from './Lessons';

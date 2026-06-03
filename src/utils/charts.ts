@@ -29,6 +29,54 @@ export function genCandles(base: number, count = 30, volatility = 0.025): Candle
   return candles;
 }
 
+export function candleChart(
+  candles: Candle[],
+  width = 540,
+  height = 160,
+): string {
+  if (candles.length === 0) return '';
+  const pad = { top: 8, bottom: 8, left: 4, right: 4 };
+  const w = width - pad.left - pad.right;
+  const h = height - pad.top - pad.bottom;
+
+  const allLows  = candles.map(c => c.low);
+  const allHighs = candles.map(c => c.high);
+  const min = Math.min(...allLows);
+  const max = Math.max(...allHighs);
+  const range = max - min || 1;
+
+  const n = candles.length;
+  const slotW = w / n;
+  const bodyW = Math.max(2, slotW * 0.55);
+
+  const toY = (v: number) => pad.top + h - ((v - min) / range) * h;
+
+  const rects: string[] = [];
+  const wicks: string[] = [];
+
+  candles.forEach((c, i) => {
+    const x = pad.left + i * slotW + slotW / 2;
+    const isUp = c.close >= c.open;
+    const color = isUp ? '#00d4a8' : '#ff4d6d';
+
+    const bodyTop    = toY(Math.max(c.open, c.close));
+    const bodyBottom = toY(Math.min(c.open, c.close));
+    const bodyH      = Math.max(1, bodyBottom - bodyTop);
+
+    wicks.push(
+      `<line x1="${x}" y1="${toY(c.high)}" x2="${x}" y2="${toY(c.low)}" stroke="${color}" stroke-width="1.2"/>`
+    );
+    rects.push(
+      `<rect x="${(x - bodyW / 2).toFixed(1)}" y="${bodyTop.toFixed(1)}" width="${bodyW.toFixed(1)}" height="${bodyH.toFixed(1)}" fill="${color}" rx="1"/>`
+    );
+  });
+
+  return `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+  ${wicks.join('\n  ')}
+  ${rects.join('\n  ')}
+</svg>`;
+}
+
 export function lineChart(
   prices: number[],
   width = 400,

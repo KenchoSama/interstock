@@ -100,7 +100,8 @@ input:focus, textarea:focus, select:focus {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
   font-size: 18px;
   color: var(--gr);
   letter-spacing: -0.5px;

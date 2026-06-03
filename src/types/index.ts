@@ -155,6 +155,9 @@ export interface GameLevel {
   id: number;
   name: string;
   description: string;
+  icon: string;
+  type: 'normal' | 'boss' | 'bonus' | 'advanced';
+  difficulty: 'easy' | 'medium' | 'hard' | 'expert';
   xpReward: number;
   questions: LevelQuestion[];
 }

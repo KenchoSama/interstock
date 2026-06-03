@@ -1,10 +1,20 @@
 import type { GameLevel } from '../types';
 
+export const PASS_THRESHOLD = 67; // %
+
+export function calcStars(pct: number): number {
+  if (pct === 100) return 3;
+  if (pct >= 67)   return 2;
+  if (pct >= 50)   return 1;
+  return 0;
+}
+
 export const LEVEL_GAME: GameLevel[] = [
   {
     id: 1,
     name: 'Market Basics',
     description: 'Master the fundamentals of stocks and markets',
+    icon: '📊', type: 'normal', difficulty: 'easy',
     xpReward: 100,
     questions: [
       {
@@ -28,6 +38,7 @@ export const LEVEL_GAME: GameLevel[] = [
     id: 2,
     name: 'Reading the Tape',
     description: 'Learn to interpret stock quotes and market data',
+    icon: '📈', type: 'normal', difficulty: 'easy',
     xpReward: 150,
     questions: [
       {
@@ -51,6 +62,7 @@ export const LEVEL_GAME: GameLevel[] = [
     id: 3,
     name: 'Fundamental Analysis',
     description: 'Evaluate companies using financial metrics',
+    icon: '🔍', type: 'normal', difficulty: 'medium',
     xpReward: 200,
     questions: [
       {
@@ -74,6 +86,7 @@ export const LEVEL_GAME: GameLevel[] = [
     id: 4,
     name: 'Technical Analysis',
     description: 'Read charts and identify patterns',
+    icon: '📉', type: 'normal', difficulty: 'medium',
     xpReward: 250,
     questions: [
       {
@@ -97,6 +110,7 @@ export const LEVEL_GAME: GameLevel[] = [
     id: 5,
     name: 'Risk & Diversification',
     description: 'Manage portfolio risk like a pro',
+    icon: '🛡️', type: 'normal', difficulty: 'medium',
     xpReward: 300,
     questions: [
       {
@@ -120,6 +134,7 @@ export const LEVEL_GAME: GameLevel[] = [
     id: 6,
     name: 'Options Basics',
     description: 'Understand calls, puts, and derivatives',
+    icon: '📋', type: 'boss', difficulty: 'hard',
     xpReward: 400,
     questions: [
       {
@@ -143,6 +158,7 @@ export const LEVEL_GAME: GameLevel[] = [
     id: 7,
     name: 'Portfolio Management',
     description: 'Build and rebalance like a fund manager',
+    icon: '💼', type: 'advanced', difficulty: 'hard',
     xpReward: 500,
     questions: [
       {
@@ -166,6 +182,7 @@ export const LEVEL_GAME: GameLevel[] = [
     id: 8,
     name: 'Futures & Commodities',
     description: 'Explore futures contracts and commodity markets',
+    icon: '⚡', type: 'advanced', difficulty: 'hard',
     xpReward: 600,
     questions: [
       {
@@ -189,6 +206,7 @@ export const LEVEL_GAME: GameLevel[] = [
     id: 9,
     name: 'Macro & Economics',
     description: 'Connect global economics to market movements',
+    icon: '🌍', type: 'boss', difficulty: 'hard',
     xpReward: 750,
     questions: [
       {
@@ -212,6 +230,7 @@ export const LEVEL_GAME: GameLevel[] = [
     id: 10,
     name: 'Wall Street Pro',
     description: 'Advanced strategies used by institutional investors',
+    icon: '🏆', type: 'boss', difficulty: 'expert',
     xpReward: 1000,
     questions: [
       {

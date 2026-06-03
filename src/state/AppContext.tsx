@@ -414,20 +414,8 @@ function defaultView(role: Role): string {
   return defaults[role];
 }
 
-export function isLocked(view: string, xp: number): boolean {
-  const XP_REQ: Record<string, number> = {
-    fundamentals: 100,
-    options: 200,
-    futures: 500,
-    diplomas: 1200,
-    etf: 1500,
-    assignments: 1000,
-    compete: 2000,
-    leaderboard: 2500,
-    'field-trips': 3000,
-    interns: 2500,
-  };
-  return (XP_REQ[view] ?? 0) > xp;
+export function isLocked(_view: string, _xp: number): boolean {
+  return false;
 }
 
 export function getLevelName(xp: number): string {

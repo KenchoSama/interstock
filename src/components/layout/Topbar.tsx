@@ -17,7 +17,8 @@ export default function Topbar() {
   return (
     <div className="topbar">
       <div className="topbar-logo">
-        Inter<span>Stock</span>
+        <div style={{width:40,height:40,background:'var(--gr)',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--m)',fontSize:18,fontWeight:700,color:'#000'}}>IS</div>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: '#f0f8ff', letterSpacing: 2 }}>INTERSTOCK</span>
       </div>
 
       <div className="topbar-ticker-wrap">
