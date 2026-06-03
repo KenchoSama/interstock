@@ -116,7 +116,7 @@ function MapView() {
   const totalStars     = Object.values(starsMap).reduce((a: number, b) => a + (b as number), 0);
 
   return (
-    <>
+    <div className="page-body">
       {/* Tip banner */}
       <div style={{
         display: 'flex', alignItems: 'flex-start', gap: 10,
@@ -255,7 +255,7 @@ function MapView() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -463,6 +463,7 @@ function ResultView() {
   }
 
   return (
+    <div className="page-body">
     <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', padding: '32px 0' }}>
 
       {/* Level name */}
@@ -543,6 +544,7 @@ function ResultView() {
           {passed && hasNext ? 'Next Level →' : 'Back to Map'}
         </button>
       </div>
+    </div>
     </div>
   );
 }

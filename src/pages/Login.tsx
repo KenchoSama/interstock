@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../state/AppContext';
+import { supabase } from '../lib/supabase';
 import type { Role } from '../types';
 
 const ROLE_CODES: Record<string, Role> = {
@@ -20,13 +21,22 @@ const ROLE_LABELS: Record<Role, string> = {
   staff: 'Staff',
 };
 
+type AuthMode = 'code' | 'email';
+
 export default function Login() {
   const { dispatch } = useApp();
+  const [mode, setMode] = useState<AuthMode>('code');
   const [code, setCode] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [demoRole, setDemoRole] = useState<Role>('student');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
-  function handleLogin() {
+  function handleCodeLogin() {
     const role = ROLE_CODES[code.trim().toLowerCase()];
     if (role) {
       dispatch({ type: 'LOGIN', role });
@@ -39,29 +49,127 @@ export default function Login() {
     dispatch({ type: 'LOGIN', role: demoRole });
   }
 
+  async function handleEmailAuth() {
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    if (isSignUp) {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName, role: 'student' } }
+      });
+      if (error) {
+        setError(error.message);
+      } else {
+        setMessage('Check your email to confirm your account, then sign in.');
+      }
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setError(error.message);
+      } else if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+        dispatch({ type: 'LOGIN', role: (profile?.role as Role) ?? 'student' });
+      }
+    }
+    setLoading(false);
+  }
+
   return (
     <div className="login-wrap">
       <div className="login-card">
         <div className="login-logo">Inter<span>Stock</span></div>
         <div className="login-tagline">Financial Literacy for the Next Generation</div>
 
-        <label className="login-label">Access Code</label>
-        <input
-          className="login-input"
-          type="password"
-          placeholder="Enter your access code"
-          value={code}
-          onChange={e => { setCode(e.target.value); setError(''); }}
-          onKeyDown={e => e.key === 'Enter' && handleLogin()}
-          autoFocus
-        />
+        {/* Mode toggle */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          <button
+            className={`role-chip ${mode === 'code' ? 'active' : ''}`}
+            onClick={() => { setMode('code'); setError(''); }}
+          >
+            Access Code
+          </button>
+          <button
+            className={`role-chip ${mode === 'email' ? 'active' : ''}`}
+            onClick={() => { setMode('email'); setError(''); }}
+          >
+            Email
+          </button>
+        </div>
 
-        <button className="login-btn" onClick={handleLogin}>
-          Sign In →
-        </button>
+        {/* Access code mode */}
+        {mode === 'code' && (
+          <>
+            <label className="login-label">Access Code</label>
+            <input
+              className="login-input"
+              type="password"
+              placeholder="Enter your access code"
+              value={code}
+              onChange={e => { setCode(e.target.value); setError(''); }}
+              onKeyDown={e => e.key === 'Enter' && handleCodeLogin()}
+              autoFocus
+            />
+            <button className="login-btn" onClick={handleCodeLogin}>
+              Sign In →
+            </button>
+          </>
+        )}
+
+        {/* Email mode */}
+        {mode === 'email' && (
+          <>
+            {isSignUp && (
+              <>
+                <label className="login-label">Full Name</label>
+                <input
+                  className="login-input"
+                  type="text"
+                  placeholder="Your full name"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                />
+              </>
+            )}
+            <label className="login-label">Email</label>
+            <input
+              className="login-input"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setError(''); }}
+            />
+            <label className="login-label">Password</label>
+            <input
+              className="login-input"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setError(''); }}
+              onKeyDown={e => e.key === 'Enter' && handleEmailAuth()}
+            />
+            <button className="login-btn" onClick={handleEmailAuth} disabled={loading}>
+              {loading ? 'Please wait...' : isSignUp ? 'Create Account →' : 'Sign In →'}
+            </button>
+            <button
+              style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', marginTop: 8 }}
+              onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}
+            >
+              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+            </button>
+          </>
+        )}
 
         {error && <div className="login-error">{error}</div>}
+        {message && <div style={{ color: '#4ade80', fontSize: 13, marginTop: 8 }}>{message}</div>}
 
+        {/* Demo section */}
         <div style={{ marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
             Demo — sign in as:
