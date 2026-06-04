@@ -6,7 +6,7 @@ export default function Support() {
 
   if (submitted) {
     return (
-      <div>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         <div className="page-header"><div className="page-title">Support 💬</div></div>
         <div className="page-body">
           <div className="card" style={{ textAlign: 'center', padding: 48, maxWidth: 480 }}>
@@ -23,7 +23,7 @@ export default function Support() {
   }
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div className="page-header">
         <div>
           <div className="page-title">Support 💬</div>

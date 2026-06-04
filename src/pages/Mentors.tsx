@@ -5,7 +5,7 @@ export default function Mentors() {
   const mentors = state.mentors;
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       <div className="page-header">
         <div>
           <div className="page-title">Mentors 👩‍🏫</div>

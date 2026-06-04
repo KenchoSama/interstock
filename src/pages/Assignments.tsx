@@ -34,7 +34,7 @@ export default function Assignments() {
   const [submissions, setSubmissions] = useState<Record<string, string>>({});
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div className="page-header">
         <div>
           <div className="page-title">Assignments 📝</div>

@@ -9,7 +9,7 @@ export default function Leaderboard() {
   const myRank = LB.findIndex(e => e.xp < myXp) + 1 || LB.length + 1;
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div className="page-header">
         <div>
           <div className="page-title">Leaderboard 📋</div>

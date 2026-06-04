@@ -5,7 +5,7 @@ export default function PartnerDash() {
   const { dispatch } = useApp();
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       <div className="page-header">
         <div>
           <div className="page-title">Partner Dashboard 🤝</div>

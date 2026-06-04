@@ -2,7 +2,7 @@ import { STUDENTS } from '../data';
 
 export default function SchoolPerf() {
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div className="page-header">
         <div>
           <div className="page-title">Performance Report 📊</div>

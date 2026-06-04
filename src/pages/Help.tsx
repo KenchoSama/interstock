@@ -5,7 +5,7 @@ export default function Help() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div className="page-header">
         <div>
           <div className="page-title">Help & FAQ ❓</div>

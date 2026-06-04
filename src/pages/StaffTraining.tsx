@@ -68,7 +68,7 @@ export default function StaffTraining() {
   ).length;
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       <div className="page-header">
         <div>
           <div className="page-title">Staff Training 📚</div>
