@@ -81,7 +81,7 @@ export function lineChart(
   prices: number[],
   width = 400,
   height = 120,
-  _color = '#00d4a8',
+  color?: string,
 ): string {
   if (prices.length < 2) return '';
   const min = Math.min(...prices);
@@ -104,10 +104,10 @@ export function lineChart(
   const area = `M${firstPt[0]},${height} L${polyline} L${lastPt[0]},${height} Z`;
 
   const isUp = prices[prices.length - 1] >= prices[0];
-  const lineColor = isUp ? '#00d4a8' : '#ff4d6d';
-  const fillColor = isUp ? 'rgba(0,212,168,0.08)' : 'rgba(255,77,109,0.08)';
+  const lineColor = color ?? (isUp ? '#00d4a8' : '#ff4d6d');
+  const fillColor = color ? 'rgba(0,230,118,0.08)' : (isUp ? 'rgba(0,212,168,0.08)' : 'rgba(255,77,109,0.08)');
 
-  return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.3"/>

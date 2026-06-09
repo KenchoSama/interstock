@@ -44,7 +44,7 @@ export default function ETF() {
   const alpha = parseFloat((etfReturn - SP500_RETURN).toFixed(1));
 
   const chartPrices = useMemo(() => genPrices(100, 90, 0.012), []);
-  const chartSvg    = lineChart(chartPrices, 520, 80);
+  const chartSvg    = lineChart(chartPrices, 520, 160);
 
   const donutSegments = holdings.map((h, i) => ({
     label: h.sym,
@@ -218,10 +218,10 @@ export default function ETF() {
             </div>
 
             {/* Performance panel */}
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', minHeight: 400 }}>
               {panelHeader('Performance vs S&P 500')}
 
-              <div style={{ padding: '14px 16px' }}>
+              <div style={{ padding: '20px 24px' }}>
                 {/* 3 metric cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
                   {[
@@ -244,14 +244,13 @@ export default function ETF() {
                 </div>
 
                 {/* Line chart */}
-                <div className="chart-wrap" style={{ height: 80 }} dangerouslySetInnerHTML={{ __html: chartSvg }} />
+                <div className="chart-wrap" style={{ height: 160, overflow: 'hidden' }} dangerouslySetInnerHTML={{ __html: chartSvg }} />
 
                 {/* Submit button */}
                 <button
                   className="btn btn-primary"
                   style={{ width: '100%', marginTop: 14, padding: 13, fontSize: 13, fontWeight: 600 }}
                   onClick={handleSubmit}
-                  disabled={total !== 100 || !etfName}
                 >
                   {submitted
                     ? '✓ ETF Submitted — Partners can see your work'

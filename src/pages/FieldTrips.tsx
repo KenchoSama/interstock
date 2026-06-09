@@ -1,5 +1,48 @@
 import { useApp } from '../state/AppContext';
-import { TRIPS } from '../data';
+
+const FIELD_TRIPS = [
+  {
+    id: 'ft1',
+    category: 'Financial Partner',
+    icon: '🏛',
+    title: 'Partner Institution Visit',
+    desc: 'Trading floor tour, meet analysts',
+    date: 'May 3',
+    spots: 10,
+    enrolled: 3,
+    reqText: 'Top 10 + Grade 10+',
+    minGrade: 10,
+    xpRequired: 1000,
+  },
+  {
+    id: 'ft2',
+    category: 'Partner Exchange',
+    icon: '📊',
+    title: 'Options Exchange Floor Tour',
+    desc: 'Live options demo, meet market makers',
+    date: 'May 17',
+    spots: 20,
+    enrolled: 11,
+    reqText: 'Level 2 + Quiz 98%+ + G11+',
+    minGrade: 11,
+    xpRequired: 1500,
+  },
+  {
+    id: 'ft3',
+    category: 'Partner Firm',
+    icon: '💎',
+    title: 'Partner Firm Tour',
+    desc: 'Exclusive institutional partner tour',
+    date: 'Jun 5',
+    spots: 5,
+    enrolled: 1,
+    reqText: 'Top 3 Nationally + Grade 12',
+    minGrade: 12,
+    xpRequired: 3000,
+  },
+];
+
+const USER_GRADE = 11;
 
 export default function FieldTrips() {
   const { state, dispatch } = useApp();
@@ -9,57 +52,171 @@ export default function FieldTrips() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div className="page-header">
         <div>
-          <div className="page-title">Field Trips ✈️</div>
-          <div className="page-subtitle">Exclusive visits to Wall Street firms and financial institutions</div>
+          <div className="page-title">Field Trips</div>
+          <div className="page-subtitle">Exclusive visits to partner firms and financial institutions</div>
         </div>
       </div>
-      <div className="page-body">
-        {xp < 3000 && (
-          <div className="card" style={{ background: 'var(--red-dim)', borderColor: 'var(--red)', marginBottom: 20 }}>
-            <div style={{ color: 'var(--red)', fontWeight: 600 }}>🔒 Field Trips require 3,000 XP</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>
-              You have {xp.toLocaleString()} XP. Keep earning to unlock these exclusive experiences!
-            </div>
-          </div>
-        )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {TRIPS.map(trip => {
-            const spotsLeft = trip.spots - trip.enrolled;
-            const full = spotsLeft <= 0;
+      <div className="page-body">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+          {FIELD_TRIPS.map(trip => {
+            const xpMet = xp >= trip.xpRequired;
+            const gradeMet = USER_GRADE >= trip.minGrade;
+            const eligible = xpMet && gradeMet;
+
             return (
-              <div key={trip.id} className="card" style={{ opacity: xp < 3000 ? 0.5 : 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                      <span style={{ fontSize: 20 }}>{trip.type === 'Virtual' ? '💻' : '🏛️'}</span>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 16 }}>{trip.title}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text2)' }}>{trip.company}</div>
+              <div
+                key={trip.id}
+                className="card"
+                style={{ padding: 0, overflow: 'hidden' }}
+              >
+                {/* Card header */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid var(--border)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text2)' }}>
+                    <span style={{ fontSize: 16 }}>{trip.icon}</span>
+                    {trip.category}
+                  </div>
+                  {eligible ? (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '3px 10px',
+                        borderRadius: 20,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: 'rgba(0,230,118,0.12)',
+                        color: '#00e676',
+                        border: '1px solid rgba(0,230,118,0.3)',
+                      }}
+                    >
+                      ✓ ELIGIBLE
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '3px 10px',
+                        borderRadius: 20,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: 'var(--surface2)',
+                        color: 'var(--text3)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      LOCKED
+                    </span>
+                  )}
+                </div>
+
+                {/* Body */}
+                <div style={{ padding: '16px 16px 0' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                    {trip.title}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+                    {trip.desc}
+                  </div>
+
+                  {/* Date / Spots info boxes */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                    <div
+                      style={{
+                        background: 'var(--surface2)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 8,
+                        padding: '8px 12px',
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
+                        Date
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{trip.date}</div>
+                    </div>
+                    <div
+                      style={{
+                        background: 'var(--surface2)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 8,
+                        padding: '8px 12px',
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
+                        Spots
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+                        {trip.enrolled}/{trip.spots}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
-                      <span>📅 {trip.date}</span>
-                      <span>👥 {trip.enrolled}/{trip.spots} enrolled</span>
-                      <span className={`badge ${trip.type === 'Virtual' ? 'badge-blue' : 'badge-green'}`}>{trip.type}</span>
+                  </div>
+
+                  {/* Requirements box */}
+                  <div
+                    style={{
+                      background: 'var(--surface2)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      padding: '10px 12px',
+                      marginBottom: 14,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Requirements:</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#00e676', marginBottom: 10 }}>
+                      {trip.reqText}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>Min Grade:</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: gradeMet ? '#00e676' : 'var(--red)' }}>
+                        Grade {trip.minGrade}+ {gradeMet ? '✓' : '✗'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>XP Required:</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: xpMet ? '#00e676' : 'var(--red)' }}>
+                        {trip.xpRequired.toLocaleString()} {xpMet ? '✓' : '✗'}
+                      </span>
                     </div>
                   </div>
-                  <div>
-                    {full ? (
-                      <span className="badge badge-red">Full</span>
-                    ) : (
-                      <button
-                        className="btn btn-primary btn-sm"
-                        disabled={xp < 3000}
-                        onClick={() => dispatch({ type: 'ADD_XP', amount: 50 })}
-                      >
-                        Enroll ({spotsLeft} left)
-                      </button>
-                    )}
-                  </div>
                 </div>
-                <div className="progress-bar" style={{ marginTop: 12 }}>
-                  <div className="progress-fill" style={{ width: `${(trip.enrolled / trip.spots) * 100}%` }} />
+
+                {/* Footer — button or locked message */}
+                <div style={{ padding: '0 16px 16px' }}>
+                  {eligible ? (
+                    <button
+                      className="btn btn-primary"
+                      style={{
+                        width: '100%',
+                        background: 'linear-gradient(90deg, #00b891, #00e676)',
+                        color: '#07111c',
+                        fontWeight: 700,
+                      }}
+                      onClick={() => dispatch({ type: 'ADD_XP', amount: 25 })}
+                    >
+                      ✓ Register Interest
+                    </button>
+                  ) : (
+                    <div
+                      style={{
+                        textAlign: 'center',
+                        fontSize: 13,
+                        color: 'var(--text3)',
+                        padding: '10px 0',
+                      }}
+                    >
+                      🔒 Requirements Not Met
+                    </div>
+                  )}
                 </div>
               </div>
             );

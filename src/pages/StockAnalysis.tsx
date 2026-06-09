@@ -49,7 +49,7 @@ function StockSelector({ stocks, selected, onChange }: {
   return (
     <div className="card" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 20 }}>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 22, fontWeight: 800 }}>{selected.sym}</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: '#ffc107' }}>{selected.sym}</div>
         <div style={{ fontSize: 13, color: 'var(--text2)' }}>{selected.name}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -227,7 +227,7 @@ function EarningsCalendar() {
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '7px 10px', background: 'var(--bg3)', borderRadius: 8,
           }}>
-            <span style={{ fontWeight: 700, color: 'var(--gr)', fontSize: 13, width: 50 }}>{e.sym}</span>
+            <span style={{ fontWeight: 700, color: '#ffc107', fontSize: 13, width: 50 }}>{e.sym}</span>
             <span style={{ fontSize: 12, color: 'var(--text2)' }}>{e.date}</span>
             <span style={{ fontSize: 12, color: 'var(--text3)' }}>Est. EPS {e.est}</span>
           </div>

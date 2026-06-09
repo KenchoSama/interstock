@@ -170,7 +170,7 @@ export default function Dashboard() {
                           background: 'var(--bg3)', borderRadius: 'var(--radius)',
                           border: '1px solid var(--border)',
                         }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{h.sym}</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#ffc107', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{h.sym}</div>
                           <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
                             ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>

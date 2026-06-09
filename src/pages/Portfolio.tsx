@@ -36,7 +36,7 @@ export default function Portfolio() {
   const pnlPct = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0;
 
   const chartPrices = useMemo(() => genPrices(selectedStock.price, 60, 0.02), [sym]);
-  const chartSvg = lineChart(chartPrices, 580, 160);
+  const chartSvg = lineChart(chartPrices, 580, 160, '#00e676');
 
   const cost = localQty * selectedStock.price;
   const holding = user.portfolio.find(h => h.sym === sym);
@@ -129,12 +129,12 @@ export default function Portfolio() {
                       const totalVal = price * h.shares;
                       return (
                         <tr key={h.sym}>
-                          <td style={{ fontWeight: 700, color: 'var(--gr)' }}>{h.sym}</td>
+                          <td style={{ fontWeight: 700, color: '#ffc107' }}>{h.sym}</td>
                           <td>{h.shares}</td>
                           <td>${h.avg.toFixed(2)}</td>
                           <td>${price.toFixed(2)}</td>
                           <td>${fmt(totalVal)}</td>
-                          <td className={gainPct >= 0 ? 'up' : 'dn'}>
+                          <td style={{ color: gainPct >= 0 ? '#00e676' : 'var(--red)', fontWeight: 600 }}>
                             {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
                           </td>
                         </tr>
@@ -245,7 +245,7 @@ export default function Portfolio() {
                 style={{
                   padding: '10px',
                   borderRadius: 8,
-                  background: tradeAction === 'buy' ? 'var(--gr)' : 'var(--surface)',
+                  background: tradeAction === 'buy' ? '#00e676' : 'var(--surface)',
                   color: tradeAction === 'buy' ? '#000' : 'var(--text2)',
                   fontWeight: 700,
                   fontSize: 13,
@@ -295,7 +295,7 @@ export default function Portfolio() {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ color: 'var(--text3)' }}>Symbol</span>
-                <span style={{ color: 'var(--gr)', fontWeight: 600 }}>{sym} — {selectedStock.name}</span>
+                <span style={{ color: '#ffc107', fontWeight: 600 }}>{sym} — {selectedStock.name}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ color: 'var(--text3)' }}>Last Price</span>
@@ -335,7 +335,7 @@ export default function Portfolio() {
                 width: '100%',
                 padding: '14px',
                 borderRadius: 10,
-                background: tradeAction === 'buy' ? 'var(--gr)' : 'var(--red)',
+                background: tradeAction === 'buy' ? '#00e676' : 'var(--red)',
                 color: tradeAction === 'buy' ? '#000' : '#fff',
                 fontWeight: 700,
                 fontSize: 14,

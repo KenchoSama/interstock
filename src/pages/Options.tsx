@@ -135,11 +135,11 @@ function OptionsChainTable({ chain, spotPrice }: { chain: OptionRow[]; spotPrice
             background: atm ? 'rgba(249,199,79,0.07)' : 'transparent',
             borderRadius: atm ? 4 : 0,
           }}>
-            <span style={{ color: 'var(--gr)', flex: 1, fontFamily: 'monospace' }}>
+            <span style={{ color: '#00e676', flex: 1, fontFamily: 'monospace' }}>
               {row.cb}/{row.ca}{' '}
               <span style={{ color: 'var(--text3)', fontSize: 10 }}>{row.civ} {row.coi.toLocaleString()}</span>
             </span>
-            <span style={{ color: 'var(--yellow)', fontWeight: 700, width: 80, textAlign: 'center' }}>
+            <span style={{ color: '#ffc107', fontWeight: 700, width: 80, textAlign: 'center' }}>
               ${row.k}
             </span>
             <span style={{ color: 'var(--red)', flex: 1, textAlign: 'right', fontFamily: 'monospace' }}>

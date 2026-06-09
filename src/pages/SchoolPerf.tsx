@@ -1,66 +1,86 @@
-import { STUDENTS } from '../data';
+const CITY_QUIZ_AVG  = 81;
+const SCHOOL_AVG    = 86;
+const BEST_RANK     = 6;
+const SCHOOL_RANK   = 3;
+const TOTAL_SCHOOLS = 6;
+
+const MODULE_SCORES = [
+  { name: 'Marcus Rivera',   scores: [95, 87, 98, 89, 92] },
+  { name: 'Sofia Castillo',  scores: [92, 84, 95, 86, 89] },
+  { name: 'Diego Fernandez', scores: [83, 75, 86, 77, 80] },
+  { name: 'Layla Hassan',    scores: [99, 91, 100, 93, 96] },
+  { name: 'Tyler Brooks',    scores: [77, 69, 80, 71, 74] },
+  { name: 'Ana Gutierrez',   scores: [96, 88, 99, 90, 93] },
+  { name: 'Jordan Smith',    scores: [94, 86, 97, 88, 91] },
+].map(s => ({
+  ...s,
+  average: Math.round(s.scores.reduce((a, b) => a + b, 0) / s.scores.length),
+}));
+
+function scoreColor(v: number) {
+  if (v >= 90) return '#00e676';
+  if (v < 75)  return 'var(--red)';
+  return 'var(--text)';
+}
 
 export default function SchoolPerf() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <div className="page-header">
-        <div>
-          <div className="page-title">Performance Report 📊</div>
-          <div className="page-subtitle">Lincoln High School — Class of 2026</div>
-        </div>
-      </div>
       <div className="page-body">
-        <div className="stats-row" style={{ marginBottom: 24 }}>
-          {[
-            { label: 'Avg Lesson Completion', value: '74%', sub: '+8% from last month', up: true },
-            { label: 'Avg Game Score', value: '8.4 / 15', sub: 'Top quartile nationally', up: true },
-            { label: 'Diplomas This Month', value: '2', sub: '1 more pending', up: false },
-            { label: 'At-Risk Students', value: '1', sub: 'Below 500 XP', up: false },
-          ].map(s => (
-            <div key={s.label} className="stat-card">
-              <div className="stat-label">{s.label}</div>
-              <div className="stat-value">{s.value}</div>
-              <div className={`stat-sub ${s.up ? 'up' : ''}`}>{s.sub}</div>
-            </div>
-          ))}
+
+        {/* Stat cards */}
+        <div className="stats-row" style={{ marginBottom: 20 }}>
+          <div className="stat-card">
+            <div className="stat-label">City Quiz Avg</div>
+            <div className="stat-value">{CITY_QUIZ_AVG}%</div>
+          </div>
+          <div className="stat-card" style={{ borderLeft: '3px solid #00e676' }}>
+            <div className="stat-label">Your School</div>
+            <div className="stat-value" style={{ color: '#00e676' }}>{SCHOOL_AVG}%</div>
+            <div className="stat-sub" style={{ color: '#00e676' }}>+{SCHOOL_AVG - CITY_QUIZ_AVG}% above city</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Best Rank</div>
+            <div className="stat-value">#{BEST_RANK}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">School Rank</div>
+            <div className="stat-value">#{SCHOOL_RANK}</div>
+            <div className="stat-sub">of {TOTAL_SCHOOLS} schools</div>
+          </div>
         </div>
 
-        <div className="section-title">Individual Progress</div>
-        <div className="card">
+        {/* Module performance table */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+            Performance by Module
+          </div>
           <table style={{ width: '100%' }}>
             <thead>
               <tr>
                 <th>Student</th>
-                <th>XP</th>
-                <th>Level</th>
-                <th>Progress</th>
-                <th>Diplomas</th>
-                <th>Status</th>
+                <th>M1</th>
+                <th>M2</th>
+                <th>M3</th>
+                <th>M4</th>
+                <th>M5</th>
+                <th>Average</th>
               </tr>
             </thead>
             <tbody>
-              {STUDENTS.map(s => (
-                <tr key={s.id}>
-                  <td>{s.name} <span style={{ fontSize: 11, color: 'var(--text3)' }}>{s.grade}</span></td>
-                  <td style={{ color: 'var(--gr)', fontWeight: 600 }}>{s.xp.toLocaleString()}</td>
-                  <td>{s.level}</td>
-                  <td style={{ width: 120 }}>
-                    <div className="progress-bar">
-                      <div className="progress-fill" style={{ width: `${s.progress}%` }} />
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{s.progress}%</div>
-                  </td>
-                  <td>—</td>
-                  <td>
-                    <span className={`badge ${s.xp >= 1000 ? 'badge-green' : s.xp >= 300 ? 'badge-yellow' : 'badge-red'}`}>
-                      {s.xp >= 1000 ? 'On Track' : s.xp >= 300 ? 'Progressing' : 'At Risk'}
-                    </span>
-                  </td>
+              {MODULE_SCORES.map(s => (
+                <tr key={s.name}>
+                  <td style={{ fontWeight: 600 }}>{s.name}</td>
+                  {s.scores.map((v, i) => (
+                    <td key={i} style={{ fontFamily: 'monospace', color: scoreColor(v) }}>{v}%</td>
+                  ))}
+                  <td style={{ fontFamily: 'monospace', fontWeight: 700 }}>{s.average}%</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
       </div>
     </div>
   );

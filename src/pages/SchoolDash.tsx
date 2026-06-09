@@ -1,89 +1,104 @@
-import { useApp } from '../state/AppContext';
-import { STUDENTS } from '../data';
+const ROSTER = [
+  { name: 'Marcus Rivera',   grade: '11th', lv: 1, comp: 45, quiz: 98, xp: 3240, rank: 23,  status: 'active'   },
+  { name: 'Sofia Castillo',  grade: '10th', lv: 1, comp: 65, quiz: 87, xp: 2800, rank: 42,  status: 'active'   },
+  { name: 'Diego Fernandez', grade: '11th', lv: 1, comp: 35, quiz: 78, xp: 1200, rank: 89,  status: 'at_risk'  },
+  { name: 'Layla Hassan',    grade: '12th', lv: 2, comp: 82, quiz: 94, xp: 4800, rank: 6,   status: 'active'   },
+  { name: 'Tyler Brooks',    grade: '10th', lv: 1, comp: 18, quiz: 72, xp: 400,  rank: 312, status: 'at_risk'  },
+  { name: 'Ana Gutierrez',   grade: '11th', lv: 1, comp: 55, quiz: 91, xp: 2900, rank: 31,  status: 'active'   },
+  { name: 'Jordan Smith',    grade: '12th', lv: 2, comp: 76, quiz: 89, xp: 4200, rank: 9,   status: 'active'   },
+];
+
+const enrolledCount  = ROSTER.length;
+const avgCompletion  = Math.round(ROSTER.reduce((s, r) => s + r.comp, 0) / ROSTER.length);
+const avgQuiz        = Math.round(ROSTER.reduce((s, r) => s + r.quiz, 0) / ROSTER.length);
+const atRiskCount    = ROSTER.filter(r => r.status === 'at_risk').length;
 
 export default function SchoolDash() {
-  const { dispatch } = useApp();
-
-  const avgXp = Math.round(STUDENTS.reduce((s, st) => s + st.xp, 0) / STUDENTS.length);
-  const topStudent = STUDENTS.sort((a, b) => b.xp - a.xp)[0];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <div className="page-header">
-        <div>
-          <div className="page-title">School Dashboard 🏫</div>
-          <div className="page-subtitle">Lincoln High School — Spring 2026</div>
-        </div>
-      </div>
       <div className="page-body">
-        <div className="stats-row" style={{ marginBottom: 24 }}>
-          <div className="stat-card">
-            <div className="stat-label">Total Students</div>
-            <div className="stat-value">{STUDENTS.length}</div>
+
+        {/* Stat cards */}
+        <div className="stats-row" style={{ marginBottom: 20 }}>
+          <div className="stat-card" style={{ borderLeft: '3px solid #00e676' }}>
+            <div className="stat-label">Enrolled</div>
+            <div className="stat-value">{enrolledCount}</div>
+            <div className="stat-sub" style={{ color: '#00e676' }}>+3 this week</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Active This Week</div>
-            <div className="stat-value">6</div>
-            <div className="stat-sub up">+2 from last week</div>
+            <div className="stat-label">Avg Completion</div>
+            <div className="stat-value">{avgCompletion}%</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Avg XP</div>
-            <div className="stat-value">{avgXp.toLocaleString()}</div>
+            <div className="stat-label">Quiz Avg</div>
+            <div className="stat-value">{avgQuiz}%</div>
+            <div className="stat-sub" style={{ color: '#00e676' }}>Above national avg</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Diplomas Issued</div>
-            <div className="stat-value">4</div>
+            <div className="stat-label">At-Risk</div>
+            <div className="stat-value" style={{ color: 'var(--red)' }}>{atRiskCount}</div>
           </div>
         </div>
 
-        <div className="grid-2" style={{ gap: 20 }}>
-          <div className="card">
-            <div className="card-title">Student Roster</div>
-            <table style={{ width: '100%' }}>
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Grade</th>
-                  <th>Level</th>
-                  <th style={{ textAlign: 'right' }}>XP</th>
+        {/* Student Roster */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+            Student Roster
+          </div>
+          <table style={{ width: '100%' }}>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Grade</th>
+                <th>Level</th>
+                <th>Progress</th>
+                <th>Quiz</th>
+                <th>XP</th>
+                <th>Rank</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ROSTER.map(s => (
+                <tr key={s.name}>
+                  <td style={{ fontWeight: 600 }}>{s.name}</td>
+                  <td style={{ fontFamily: 'monospace' }}>{s.grade}</td>
+                  <td>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                      background: 'var(--blue-dim)', color: 'var(--blue)',
+                    }}>
+                      L{s.lv}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 70, height: 5, background: 'var(--surface2)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${s.comp}%`, background: 'linear-gradient(90deg, #00e676, var(--blue))', borderRadius: 3 }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text2)' }}>{s.comp}%</span>
+                    </div>
+                  </td>
+                  <td style={{ fontFamily: 'monospace' }}>{s.quiz}%</td>
+                  <td style={{ fontFamily: 'monospace', color: '#00e676', fontWeight: 600 }}>{s.xp.toLocaleString()}</td>
+                  <td style={{ fontFamily: 'monospace' }}>#{s.rank}</td>
+                  <td>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
+                      borderRadius: 6, fontSize: 11, fontWeight: 700,
+                      background: s.status === 'at_risk' ? 'var(--red-dim)' : 'rgba(0,230,118,0.12)',
+                      color: s.status === 'at_risk' ? 'var(--red)' : '#00e676',
+                    }}>
+                      {s.status === 'at_risk' ? 'AT RISK' : 'ACTIVE'}
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {STUDENTS.map(s => (
-                  <tr key={s.id}>
-                    <td>{s.name}</td>
-                    <td style={{ color: 'var(--text2)' }}>{s.grade}</td>
-                    <td><span className="badge badge-green" style={{ fontSize: 10 }}>{s.level}</span></td>
-                    <td style={{ textAlign: 'right', color: 'var(--gr)', fontWeight: 600 }}>{s.xp.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div>
-            <div className="card" style={{ marginBottom: 16 }}>
-              <div className="card-title">Top Performer</div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>{topStudent.name}</div>
-              <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>{topStudent.level}</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--gr)' }}>{topStudent.xp.toLocaleString()} XP</div>
-            </div>
-            <div className="card">
-              <div className="card-title">Quick Actions</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <button className="btn btn-secondary" onClick={() => dispatch({ type: 'SET_VIEW', view: 'assignments' })}>
-                  📝 Create Assignment
-                </button>
-                <button className="btn btn-secondary" onClick={() => dispatch({ type: 'SET_VIEW', view: 'school-perf' })}>
-                  📊 View Performance Report
-                </button>
-                <button className="btn btn-secondary" onClick={() => dispatch({ type: 'SET_VIEW', view: 'support' })}>
-                  💬 Contact Support
-                </button>
-              </div>
-            </div>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
+
       </div>
     </div>
   );
