@@ -33,7 +33,7 @@ const NAV: Record<Role, NavItem[]> = {
   school_admin: [
     { id: 'school-dash', label: 'Dashboard', icon: '🏫', section: 'School' },
     { id: 'school-perf', label: 'Performance', icon: '📊' },
-    { id: 'assignments', label: 'Assignments', icon: '📝' },
+    { id: 'cra', label: 'CRA Report', icon: '📋' },
     { id: 'support', label: 'Support', icon: '💬', section: 'Help' },
   ],
   parent: [
@@ -44,17 +44,21 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'partner-dash', label: 'Dashboard', icon: '🤝', section: 'Partner' },
     { id: 'mentors', label: 'Mentors', icon: '👩‍🏫' },
     { id: 'sponsorships', label: 'Sponsorships', icon: '💰' },
+    { id: 'cra', label: 'CRA Impact', icon: '📋' },
     { id: 'support', label: 'Support', icon: '💬', section: 'Help' },
   ],
   admin: [
     { id: 'admin-dash', label: 'Dashboard', icon: '⚙️', section: 'Admin' },
+    { id: 'all-students', label: 'All Students', icon: '👥' },
+    { id: 'competitions', label: 'Competitions', icon: '🏆' },
     { id: 'cra', label: 'CRA Report', icon: '📋' },
     { id: 'support', label: 'Support', icon: '💬', section: 'Help' },
   ],
   staff: [
     { id: 'staff-training', label: 'Training', icon: '📚', section: 'Staff' },
     { id: 'cert-exam', label: 'Certification', icon: '🎓' },
-    { id: 'staff-assign', label: 'Assignments', icon: '📝' },
+    { id: 'staff-assign', label: 'Issue Assignments', icon: '📝' },
+    { id: 'my-students', label: 'My Students', icon: '👥' },
     { id: 'support', label: 'Support', icon: '💬', section: 'Help' },
   ],
 };

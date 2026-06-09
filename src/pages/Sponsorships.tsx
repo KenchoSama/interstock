@@ -1,66 +1,91 @@
+const TIERS = [
+  {
+    tier: 'Community',
+    price: '$5K/yr',
+    color: '#00e676',
+    active: false,
+    benefits: [
+      'Logo on student app',
+      '1 field trip/year',
+      'Quarterly impact report',
+      'Social media recognition',
+    ],
+  },
+  {
+    tier: 'Gold',
+    price: '$15K/yr',
+    color: 'var(--yellow)',
+    active: false,
+    benefits: [
+      'All Community benefits',
+      '1 speaker/semester',
+      '2 field trips',
+      'Competition branding',
+      'ETF Builder leaderboard view',
+    ],
+  },
+  {
+    tier: 'Presenting',
+    price: '$30K/yr',
+    color: '#00e676',
+    active: true,
+    benefits: [
+      'All Gold benefits',
+      '2 speakers/semester',
+      '3 field trips',
+      'Naming rights',
+      'Full talent pipeline access',
+      'Mentor program access',
+      'CRA reporting dashboard',
+      'Scholarship option',
+    ],
+  },
+];
+
 export default function Sponsorships() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      <div className="page-header">
-        <div>
-          <div className="page-title">Sponsorships 💰</div>
-          <div className="page-subtitle">Financial commitments and program funding</div>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div className="page-body">
-        <div className="stats-row" style={{ marginBottom: 24 }}>
-          {[
-            { label: 'Annual Commitment', value: '$75,000' },
-            { label: 'Schools Funded', value: '3' },
-            { label: 'Students Supported', value: '134' },
-            { label: 'CRA Credit Category', value: 'LMI Education' },
-          ].map(s => (
-            <div key={s.label} className="stat-card">
-              <div className="stat-label">{s.label}</div>
-              <div className="stat-value" style={{ fontSize: 20 }}>{s.value}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          {TIERS.map(t => (
+            <div
+              key={t.tier}
+              className="card"
+              style={{
+                padding: 0,
+                overflow: 'hidden',
+                ...(t.active ? { border: '1px solid rgba(0,230,118,0.4)', background: 'rgba(0,230,118,0.04)' } : {}),
+              }}
+            >
+              {/* Header */}
+              <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', minHeight: 38, display: 'flex', alignItems: 'center' }}>
+                {t.active && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: 'rgba(0,230,118,0.12)', color: '#00e676', border: '1px solid rgba(0,230,118,0.3)' }}>
+                    YOUR TIER
+                  </span>
+                )}
+              </div>
+
+              {/* Body */}
+              <div style={{ padding: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: t.color, marginBottom: 6, fontFamily: 'monospace' }}>
+                  {t.tier}
+                </div>
+                <div style={{ fontSize: 26, fontWeight: 700, marginBottom: 16, fontFamily: 'monospace' }}>
+                  {t.price}
+                </div>
+                <div style={{ height: 1, background: 'var(--border)', marginBottom: 14 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {t.benefits.map(b => (
+                    <div key={b} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <span style={{ color: '#00e676', fontSize: 10, flexShrink: 0 }}>▶</span>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>{b}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ))}
-        </div>
-
-        <div className="section-title">Funding Breakdown</div>
-        <div className="card" style={{ marginBottom: 20 }}>
-          {[
-            { item: 'School Licensing (3 schools)', amount: '$30,000', pct: 40 },
-            { item: 'Field Trip Sponsorships', amount: '$15,000', pct: 20 },
-            { item: 'Scholarship Fund', amount: '$20,000', pct: 27 },
-            { item: 'Technology & Infrastructure', amount: '$10,000', pct: 13 },
-          ].map(f => (
-            <div key={f.item} style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                <span>{f.item}</span>
-                <span style={{ color: 'var(--gr)', fontWeight: 600 }}>{f.amount}</span>
-              </div>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: `${f.pct}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="card">
-          <div className="card-title">Renewal Information</div>
-          <div style={{ display: 'flex', gap: 24, fontSize: 13 }}>
-            <div>
-              <div style={{ color: 'var(--text3)' }}>Contract Start</div>
-              <div style={{ fontWeight: 600 }}>January 1, 2026</div>
-            </div>
-            <div>
-              <div style={{ color: 'var(--text3)' }}>Contract End</div>
-              <div style={{ fontWeight: 600 }}>December 31, 2026</div>
-            </div>
-            <div>
-              <div style={{ color: 'var(--text3)' }}>Status</div>
-              <span className="badge badge-green">Active</span>
-            </div>
-          </div>
-          <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }}>
-            Request Renewal Proposal
-          </button>
         </div>
       </div>
     </div>

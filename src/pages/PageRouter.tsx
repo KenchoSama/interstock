@@ -30,6 +30,8 @@ import Mentors from './Mentors';
 import Sponsorships from './Sponsorships';
 import AdminDash from './AdminDash';
 import CRA from './CRA';
+import AllStudents from './AllStudents';
+import Competitions from './Competitions';
 import StaffTraining from './StaffTraining';
 import CertExam from './CertExam';
 import StaffAssign from './StaffAssign';
@@ -62,12 +64,15 @@ export default function PageRouter() {
     'help': <Help />,
     'support': <Support />,
     'school-dash': <SchoolDash />,
+    'my-students': <SchoolDash />,
     'school-perf': <SchoolPerf />,
     'parent': <Parent />,
     'partner-dash': <PartnerDash />,
     'mentors': <Mentors />,
     'sponsorships': <Sponsorships />,
     'admin-dash': <AdminDash />,
+    'all-students': <AllStudents />,
+    'competitions': <Competitions />,
     'cra': <CRA />,
     'staff-training': <StaffTraining />,
     'cert-exam': <CertExam />,
