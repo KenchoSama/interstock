@@ -5,7 +5,7 @@ interface DemoMentor {
   name: string;
   title: string;
   co: string;
-  bio: string;
+  bio?: string;
   partner: string;
   school?: string;
   student?: string;
