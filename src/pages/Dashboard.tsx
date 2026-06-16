@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useApp, getLevelName, getNextLevelXP, isLocked } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
 import { useLeaderboard } from '../hooks/useLeaderboard';
+import MentorBookingModal from '../components/MentorBookingModal';
 import { useMentor } from '../hooks/useMentor';
 import { DIPLOMA_COURSES } from '../data/courses';
 import { genPrices, lineChart } from '../utils/charts';
@@ -35,6 +36,7 @@ export default function Dashboard() {
 
   const userId = user.supabaseId ?? undefined;
   const { mentor } = useMentor(userId);
+  const [showBooking, setShowBooking] = useState(false);
 
   const startDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -520,7 +522,7 @@ export default function Dashboard() {
             <button
               className="btn btn-primary"
               style={{ width: '100%', fontSize: 13 }}
-              onClick={() => dispatch({ type: 'SET_VIEW', view: 'mentors' })}
+              onClick={() => setShowBooking(true)}
             >
               📅 Book a Meeting
             </button>
@@ -528,6 +530,10 @@ export default function Dashboard() {
 
         </div>
       </div>
+
+      {showBooking && mentor && (
+        <MentorBookingModal mentor={mentor} onClose={() => setShowBooking(false)} />
+      )}
     </div>
   );
 }
