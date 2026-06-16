@@ -31,7 +31,7 @@ export default function AdminDash() {
             <div className="stat-label">Students</div>
             <div className="stat-value">{totalStudents}</div>
             <div className="stat-sub" style={{ color: '#00e676' }}>493 active</div>
-          </div>
+          </div>``
           <div className="stat-card">
             <div className="stat-label">Competitions</div>
             <div className="stat-value">3</div>

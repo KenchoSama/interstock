@@ -86,8 +86,17 @@ export function lineChart(
   if (prices.length < 2) return '';
   const min = Math.min(...prices);
   const max = Math.max(...prices);
-  const range = max - min || 1;
+  const range = max - min;
   const pad = 8;
+
+  // Flat line (no portfolio value) — draw a centered dashed rule
+  if (range === 0) {
+    const w = width - pad * 2;
+    const midY = height / 2;
+    return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <line x1="${pad}" y1="${midY}" x2="${pad + w}" y2="${midY}" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="5 4"/>
+</svg>`;
+  }
   const w = width - pad * 2;
   const h = height - pad * 2;
 

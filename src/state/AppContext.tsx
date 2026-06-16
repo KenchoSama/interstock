@@ -10,17 +10,19 @@ const INITIAL_DIPLOMAS = DIPLOMA_COURSES.map(c => ({
   earned: false,
 }));
 
-function makeUser(name: string, xp = 1600): AppState['u'][Role] {
+function makeUser(name: string, xp = 0): AppState['u'][Role] {
   return {
     name,
     email: `${name.toLowerCase().replace(' ', '.')}@interstock.edu`,
     avatar: name[0].toUpperCase(),
     xp,
-    cash: 90931,
+    cash: 10000,
     portfolio: PORT,
     diplomas: INITIAL_DIPLOMAS,
     certPassed: false,
     achievements: ['first-trade', 'first-lesson'],
+    createdAt: new Date().toISOString(),
+    supabaseId: null as string | null,
   };
 }
 
@@ -114,18 +116,25 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role }
+  | { type: 'LOGIN'; role: Role; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolio: AppState['u']['student']['portfolio'] } }
   | { type: 'LOGOUT' };
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'LOGIN':
-      return {
-        ...state,
-        screen: 'main',
-        role: action.role,
-        view: defaultView(action.role),
-      };
+    case 'LOGIN': {
+      const base = { ...state, screen: 'main' as const, role: action.role, view: defaultView(action.role) };
+      if (action.role === 'student' && action.studentData) {
+        const d = action.studentData;
+        return {
+          ...base,
+          u: {
+            ...state.u,
+            student: { ...state.u.student, name: d.name, xp: d.xp, cash: d.cash, achievements: d.achievements, portfolio: d.portfolio, createdAt: d.createdAt ?? new Date().toISOString(), supabaseId: d.supabaseId ?? null },
+          },
+        };
+      }
+      return base;
+    }
 
     case 'LOGOUT':
       return { ...initialState };

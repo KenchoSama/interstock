@@ -226,6 +226,8 @@ export interface UserProfile {
   diplomas: DiplomaRecord[];
   certPassed: boolean;
   achievements: string[];
+  createdAt: string;
+  supabaseId: string | null;
 }
 
 export interface NavItem {

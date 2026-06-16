@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useApp, getLevelName, getNextLevelXP, isLocked } from '../state/AppContext';
-import { STOCKS, LB } from '../data/stocks';
+import { STOCKS } from '../data/stocks';
+import { useLeaderboard } from '../hooks/useLeaderboard';
+import { useMentor } from '../hooks/useMentor';
 import { DIPLOMA_COURSES } from '../data/courses';
 import { genPrices, lineChart } from '../utils/charts';
 
@@ -31,7 +33,13 @@ export default function Dashboard() {
   const { state, dispatch } = useApp();
   const user = state.u[state.role];
 
-  const portfolioValue = useMemo(() => {
+  const userId = user.supabaseId ?? undefined;
+  const { mentor } = useMentor(userId);
+
+  const startDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const holdingsValue = useMemo(() => {
     return user.portfolio.reduce((sum, h) => {
       const stock = STOCKS.find(s => s.sym === h.sym);
       const price = stock ? stock.price : h.price;
@@ -39,7 +47,7 @@ export default function Dashboard() {
     }, 0);
   }, [user.portfolio]);
 
-  const totalValue = portfolioValue + user.cash;
+  const totalValue = holdingsValue + user.cash;
   const levelName = getLevelName(user.xp);
   const nextXP = getNextLevelXP(user.xp);
   const prevThresholds = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
@@ -54,12 +62,20 @@ export default function Dashboard() {
 
   const [chartTf, setChartTf] = useState<TfOption>('1Y');
   const chartPrices = useMemo(() => {
-    const { points, vol } = TF_CONFIG[chartTf];
+    const { points } = TF_CONFIG[chartTf];
+
+    if (user.portfolio.length === 0) {
+      // No trades yet — flat line at current total value
+      return Array(points).fill(totalValue) as number[];
+    }
+
+    // Has trades — generate from total value with volatility
+    const { vol } = TF_CONFIG[chartTf];
     return genPrices(totalValue, points, vol);
-  }, [chartTf, totalValue]);
+  }, [chartTf, totalValue, user.portfolio.length]);
   const chartSvg = lineChart(chartPrices, 400, 120);
 
-  const portfolioChange = portfolioValue > 0
+  const portfolioChange = holdingsValue > 0
     ? user.portfolio.reduce((sum, h) => {
         const stock = STOCKS.find(s => s.sym === h.sym);
         const price = stock ? stock.price : h.price;
@@ -71,9 +87,7 @@ export default function Dashboard() {
   const myReturnPct = totalCost > 0 ? (portfolioChange / totalCost) * 100 : 0;
 
   const levelNum = LEVEL_THRESHOLDS.filter(t => t <= user.xp).length;
-  const myRank = LB.findIndex(e => (e.returnPct ?? 0) < myReturnPct) + 1 || LB.length + 1;
-  const assignedMentor = state.mentors.find(m => m.available) ?? state.mentors[0];
-  const mentorInitials = assignedMentor.name.split(' ').map(n => n[0]).join('').slice(0, 2);
+  const { top5, myEntry } = useLeaderboard();
 
   const etfLocked = user.xp < ETF_XP_REQUIRED;
   const etfReturn = state.etf
@@ -106,7 +120,7 @@ export default function Dashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
           <div className="stat-card">
             <div className="stat-label">Portfolio Value</div>
-            <div className="stat-value">${portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="stat-value">${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <div className={`stat-sub ${portfolioChange >= 0 ? 'up' : 'dn'}`}>
               {portfolioChange >= 0 ? '+' : ''}{portfolioChange.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} P&amp;L
             </div>
@@ -151,7 +165,25 @@ export default function Dashboard() {
                   ))}
                 </div>
               </div>
+              {/* Portfolio value summary */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
+                <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>
+                  ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: portfolioChange >= 0 ? '#00e676' : 'var(--red)' }}>
+                  {portfolioChange >= 0 ? '+' : ''}{portfolioChange.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {' '}({myReturnPct >= 0 ? '+' : ''}{myReturnPct.toFixed(2)}%)
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto' }}>
+                  Holdings: ${holdingsValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
               <div className="chart-wrap" dangerouslySetInnerHTML={{ __html: chartSvg }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--text3)', fontFamily: 'monospace' }}>
+                <span>{startDate}</span>
+                <span>{today}</span>
+              </div>
               <div style={{ marginTop: 12 }}>
                 {user.portfolio.length === 0 ? (
                   <div style={{ color: 'var(--text3)', fontSize: 13, textAlign: 'center', padding: '12px 0' }}>
@@ -414,8 +446,8 @@ export default function Dashboard() {
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {LB.slice(0, 5).map((entry, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {top5.map((entry, i) => (
+                <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{
                     width: 22, height: 22, borderRadius: '50%',
                     background: i < 3 ? 'var(--gr-dim)' : 'var(--surface2)',
@@ -425,18 +457,18 @@ export default function Dashboard() {
                     color: i < 3 ? 'var(--gr)' : 'var(--text2)',
                     flexShrink: 0,
                   }}>
-                    {entry.rank}
+                    {entry.global_rank}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {entry.name}
+                      {entry.full_name}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {entry.school}
+                      {entry.school_id ?? '—'}
                     </div>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--gr)', flexShrink: 0 }}>
-                    +{(entry.returnPct ?? 0).toFixed(1)}%
+                  <span style={{ fontSize: 12, fontWeight: 600, color: entry.return_pct >= 0 ? 'var(--gr)' : 'var(--red)', flexShrink: 0 }}>
+                    {entry.return_pct >= 0 ? '+' : ''}{entry.return_pct.toFixed(1)}%
                   </span>
                 </div>
               ))}
@@ -447,7 +479,7 @@ export default function Dashboard() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 10, fontWeight: 700, color: 'var(--text2)', flexShrink: 0,
                 }}>
-                  {myRank}
+                  {myEntry?.global_rank ?? '—'}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -458,8 +490,8 @@ export default function Dashboard() {
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--text3)' }}>—</div>
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: myReturnPct >= 0 ? 'var(--gr)' : 'var(--red)', flexShrink: 0 }}>
-                  {myReturnPct >= 0 ? '+' : ''}{myReturnPct.toFixed(1)}%
+                <span style={{ fontSize: 12, fontWeight: 600, color: (myEntry?.return_pct ?? 0) >= 0 ? 'var(--gr)' : 'var(--red)', flexShrink: 0 }}>
+                  {(myEntry?.return_pct ?? 0) >= 0 ? '+' : ''}{(myEntry?.return_pct ?? 0).toFixed(1)}%
                 </span>
               </div>
             </div>
@@ -478,11 +510,11 @@ export default function Dashboard() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontWeight: 700, fontSize: 15, color: 'var(--gr)', flexShrink: 0,
               }}>
-                {mentorInitials}
+                {mentor?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{assignedMentor.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{assignedMentor.title}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{mentor?.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{mentor?.title}</div>
               </div>
             </div>
             <button

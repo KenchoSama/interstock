@@ -1,54 +1,25 @@
-import { useEffect } from 'react'
-import { useApp } from './state/AppContext'
-import { supabase } from './lib/supabase'
-import type { Role } from './types'
-import Login from './pages/Login'
-import PageRouter from './pages/PageRouter'
-import Shell from './components/layout/Shell'
-import './styles/global.css'
+import { useApp } from './state/AppContext';
+import { useAuthSync } from './hooks/useAuthSync';
+import StudentShell  from './shells/StudentShell';
+import StaffShell    from './shells/StaffShell';
+import SchoolShell   from './shells/SchoolShell';
+import PartnerShell  from './shells/PartnerShell';
+import AdminShell    from './shells/AdminShell';
+import Login         from './pages/Login';
+import './styles/global.css';
 
 export default function App() {
-  const { state, dispatch } = useApp()
+  useAuthSync();
+  const { state } = useApp();
 
-  // Restore Supabase session on page refresh
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single()
-        if (profile) {
-          dispatch({ type: 'LOGIN', role: profile.role as Role })
-        }
-      }
-    })
+  if (state.screen === 'login') return <Login />;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        dispatch({ type: 'LOGOUT' })
-      }
-      if (event === 'SIGNED_IN' && session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single()
-        if (profile) {
-          dispatch({ type: 'LOGIN', role: profile.role as Role })
-        }
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  if (state.screen === 'login') return <Login />
-
-  return (
-    <Shell>
-      <PageRouter />
-    </Shell>
-  )
+  switch (state.role) {
+    case 'student':      return <StudentShell />;
+    case 'staff':        return <StaffShell />;
+    case 'school_admin': return <SchoolShell />;
+    case 'partner':      return <PartnerShell />;
+    case 'admin':        return <AdminShell />;
+    default:             return <Login />;
+  }
 }

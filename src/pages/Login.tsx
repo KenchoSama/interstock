@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { supabase } from '../lib/supabase';
+import { hydrateUser } from '../hooks/useAuthSync';
 import type { Role } from '../types';
 
 const ROLE_CODES: Record<string, Role> = {
@@ -70,12 +71,7 @@ export default function Login() {
       if (error) {
         setError(error.message);
       } else if (data.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
-        dispatch({ type: 'LOGIN', role: (profile?.role as Role) ?? 'student' });
+        await hydrateUser(data.user.id, dispatch);
       }
     }
     setLoading(false);
