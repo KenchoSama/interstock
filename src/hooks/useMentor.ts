@@ -33,8 +33,9 @@ export function useMentor(userId?: string) {
         .eq('student_id', userId)
         .single();
 
-      console.log('mentor data:', data);
-      setMentor((data?.mentor as Mentor) ?? null);
+      const raw = data?.mentor;
+      const resolved = Array.isArray(raw) ? raw[0] : raw;
+      setMentor((resolved as unknown as Mentor) ?? null);
       setLoading(false);
     }
     fetch();
