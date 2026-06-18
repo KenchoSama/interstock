@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
 import { genPrices, lineChart } from '../utils/charts';
+import { persistTrade } from '../lib/persistTrade';
+import { useStockQuotes } from '../hooks/useStockQuotes';
 
 const CHART_RANGES = ['1D', '5D', '1M', 'YTD', '1Y', '5Y'] as const;
 type ChartRange = typeof CHART_RANGES[number];
@@ -12,6 +14,14 @@ export default function Portfolio() {
   const { state, dispatch } = useApp();
   const user = state.u[state.role];
   const { tradeAction, sym, qty } = state;
+  const { quotes } = useStockQuotes();
+
+  function getLivePrice(s: string) {
+    return quotes.find(q => q.sym === s)?.price ?? STOCKS.find(st => st.sym === s)?.price ?? 0;
+  }
+  function getLiveChgPct(s: string) {
+    return quotes.find(q => q.sym === s)?.chgPct ?? STOCKS.find(st => st.sym === s)?.chgPct ?? 0;
+  }
 
   const [localQty, setLocalQty] = useState(qty);
   const [tradeMsg, setTradeMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -19,13 +29,12 @@ export default function Portfolio() {
   const [tvSym, setTvSym] = useState('AAPL');
 
   const selectedStock = STOCKS.find(s => s.sym === sym) ?? STOCKS[0];
+  const livePrice = getLivePrice(sym);
+  const liveChgPct = getLiveChgPct(sym);
 
   const portfolioValue = useMemo(() => {
-    return user.portfolio.reduce((sum, h) => {
-      const stock = STOCKS.find(s => s.sym === h.sym);
-      return sum + h.shares * (stock ? stock.price : h.price);
-    }, 0);
-  }, [user.portfolio]);
+    return user.portfolio.reduce((sum, h) => sum + h.shares * getLivePrice(h.sym), 0);
+  }, [user.portfolio, quotes]);
 
   const totalInvested = useMemo(() => {
     return user.portfolio.reduce((sum, h) => sum + h.shares * h.avg, 0);
@@ -38,27 +47,51 @@ export default function Portfolio() {
   const chartPrices = useMemo(() => genPrices(selectedStock.price, 60, 0.02), [sym]);
   const chartSvg = lineChart(chartPrices, 580, 160, '#00e676');
 
-  const cost = localQty * selectedStock.price;
+  const cost = localQty * livePrice;
   const holding = user.portfolio.find(h => h.sym === sym);
 
-  function executeTrade() {
+  async function executeTrade() {
+    const portfolioId = user.portfolioId;
+
+    if (!portfolioId) {
+      setTradeMsg({ text: 'Portfolio not loaded. Please refresh.', ok: false });
+      return;
+    }
+
     if (tradeAction === 'buy') {
       if (cost > user.cash) {
         setTradeMsg({ text: 'Insufficient cash balance.', ok: false });
         return;
       }
-      dispatch({ type: 'BUY_STOCK', sym: selectedStock.sym, shares: localQty, price: selectedStock.price });
+
+      dispatch({ type: 'BUY_STOCK', sym: selectedStock.sym, shares: localQty, price: livePrice });
       dispatch({ type: 'ADD_XP', amount: 10 });
+
+      const newCash = user.cash - cost;
+      const newPortfolioValue = portfolioValue + cost + newCash;
+
+      await persistTrade('buy', selectedStock.sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue);
+
       setTradeMsg({ text: `Bought ${localQty} share${localQty !== 1 ? 's' : ''} of ${sym}!`, ok: true });
+
     } else {
       if (!holding || holding.shares < localQty) {
-        setTradeMsg({ text: `You only have ${holding?.shares ?? 0} share${(holding?.shares ?? 0) !== 1 ? 's' : ''} of ${sym}.`, ok: false });
+        setTradeMsg({ text: `You only have ${holding?.shares ?? 0} shares of ${sym}.`, ok: false });
         return;
       }
-      dispatch({ type: 'SELL_STOCK', sym: selectedStock.sym, shares: localQty, price: selectedStock.price });
+
+      dispatch({ type: 'SELL_STOCK', sym: selectedStock.sym, shares: localQty, price: livePrice });
       dispatch({ type: 'ADD_XP', amount: 10 });
+
+      const proceeds = localQty * livePrice;
+      const newCash = user.cash + proceeds;
+      const newPortfolioValue = portfolioValue - proceeds + newCash;
+
+      await persistTrade('sell', selectedStock.sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue);
+
       setTradeMsg({ text: `Sold ${localQty} share${localQty !== 1 ? 's' : ''} of ${sym}!`, ok: true });
     }
+
     setTimeout(() => setTradeMsg(null), 3000);
   }
 
@@ -123,8 +156,7 @@ export default function Portfolio() {
                     </tr>
                   ) : (
                     user.portfolio.map(h => {
-                      const stock = STOCKS.find(s => s.sym === h.sym);
-                      const price = stock ? stock.price : h.price;
+                      const price = getLivePrice(h.sym);
                       const gainPct = ((price - h.avg) / h.avg) * 100;
                       const totalVal = price * h.shares;
                       return (
@@ -232,11 +264,15 @@ export default function Portfolio() {
                 value={sym}
                 onChange={e => dispatch({ type: 'SET_SYM', sym: e.target.value })}
               >
-                {STOCKS.map(s => (
-                  <option key={s.sym} value={s.sym}>
-                    {s.sym} — ${s.price.toFixed(2)} ({s.chgPct >= 0 ? '+' : ''}{s.chgPct.toFixed(1)}%)
-                  </option>
-                ))}
+                {STOCKS.map(s => {
+                  const price = getLivePrice(s.sym);
+                  const chgPct = getLiveChgPct(s.sym);
+                  return (
+                    <option key={s.sym} value={s.sym}>
+                      {s.sym} — ${price.toFixed(2)} ({chgPct >= 0 ? '+' : ''}{chgPct.toFixed(2)}%)
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -299,12 +335,12 @@ export default function Portfolio() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ color: 'var(--text3)' }}>Last Price</span>
-                <span>${selectedStock.price.toFixed(2)}</span>
+                <span>${livePrice.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ color: 'var(--text3)' }}>Change</span>
-                <span className={selectedStock.chgPct >= 0 ? 'up' : 'dn'}>
-                  {selectedStock.chgPct >= 0 ? '+' : ''}{selectedStock.chgPct.toFixed(1)}%
+                <span className={liveChgPct >= 0 ? 'up' : 'dn'}>
+                  {liveChgPct >= 0 ? '+' : ''}{liveChgPct.toFixed(2)}%
                 </span>
               </div>
               <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />

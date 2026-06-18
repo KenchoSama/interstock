@@ -6,6 +6,7 @@ import MentorBookingModal from '../components/MentorBookingModal';
 import { useMentor } from '../hooks/useMentor';
 import { DIPLOMA_COURSES } from '../data/courses';
 import { genPrices, lineChart } from '../utils/charts';
+import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 const ETF_COLORS = ['var(--gr)', '#4d9fff', '#f9c74f', '#a855f7', '#f97316'];
@@ -36,6 +37,7 @@ export default function Dashboard() {
 
   const userId = user.supabaseId ?? undefined;
   const { mentor } = useMentor(userId);
+  const { chartPoints, flatLine } = usePortfolioHistory(user.portfolioId, 10000);
   const [showBooking, setShowBooking] = useState(false);
 
   const startDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -63,19 +65,16 @@ export default function Dashboard() {
   const diplomaPct = Math.round((diplomasEarned / diplomasTotal) * 100);
 
   const [chartTf, setChartTf] = useState<TfOption>('1Y');
-  const chartPrices = useMemo(() => {
-    const { points } = TF_CONFIG[chartTf];
-
-    if (user.portfolio.length === 0) {
-      // No trades yet — flat line at current total value
-      return Array(points).fill(totalValue) as number[];
+  const chartSvg = useMemo(() => {
+    if (flatLine) {
+      return lineChart(Array(30).fill(totalValue), 530, 120, 'var(--gr)');
     }
-
-    // Has trades — generate from total value with volatility
-    const { vol } = TF_CONFIG[chartTf];
-    return genPrices(totalValue, points, vol);
-  }, [chartTf, totalValue, user.portfolio.length]);
-  const chartSvg = lineChart(chartPrices, 400, 120);
+    return lineChart(
+      chartPoints,
+      530, 120,
+      chartPoints[chartPoints.length - 1] >= chartPoints[0] ? 'var(--gr)' : 'var(--red)'
+    );
+  }, [chartPoints, flatLine, totalValue]);
 
   const portfolioChange = holdingsValue > 0
     ? user.portfolio.reduce((sum, h) => {
@@ -87,6 +86,10 @@ export default function Dashboard() {
 
   const totalCost = user.portfolio.reduce((sum, h) => sum + h.avg * h.shares, 0);
   const myReturnPct = totalCost > 0 ? (portfolioChange / totalCost) * 100 : 0;
+
+  const startValue = 10000;
+  const returnPct = ((totalValue - startValue) / startValue) * 100;
+  const returnAmt = totalValue - startValue;
 
   const levelNum = LEVEL_THRESHOLDS.filter(t => t <= user.xp).length;
   const { top5, myEntry } = useLeaderboard();
@@ -168,17 +171,13 @@ export default function Dashboard() {
                 </div>
               </div>
               {/* Portfolio value summary */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
-                <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)' }}>
                   ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: portfolioChange >= 0 ? '#00e676' : 'var(--red)' }}>
-                  {portfolioChange >= 0 ? '+' : ''}{portfolioChange.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  {' '}({myReturnPct >= 0 ? '+' : ''}{myReturnPct.toFixed(2)}%)
-                </span>
-                <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto' }}>
-                  Holdings: ${holdingsValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                </div>
+                <div style={{ fontSize: 13, color: returnPct >= 0 ? 'var(--gr)' : 'var(--red)', marginLeft: 10 }}>
+                  {returnPct >= 0 ? '+' : ''}${Math.abs(returnAmt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%)
+                </div>
               </div>
 
               <div className="chart-wrap" dangerouslySetInnerHTML={{ __html: chartSvg }} />

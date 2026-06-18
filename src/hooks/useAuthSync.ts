@@ -67,6 +67,7 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
       achievements: [],
       createdAt: profile.created_at,
       supabaseId: userId,
+      portfolioId: portfolio?.id ?? null,
       portfolio: holdings.map(h => ({
         sym: h.ticker,
         shares: h.shares,

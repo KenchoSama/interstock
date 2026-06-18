@@ -23,6 +23,7 @@ function makeUser(name: string, xp = 0): AppState['u'][Role] {
     achievements: ['first-trade', 'first-lesson'],
     createdAt: new Date().toISOString(),
     supabaseId: null as string | null,
+    portfolioId: null as string | null,
   };
 }
 
@@ -116,7 +117,7 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'LOGIN'; role: Role; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; portfolio: AppState['u']['student']['portfolio'] } }
   | { type: 'LOGOUT' };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -129,7 +130,7 @@ function reducer(state: AppState, action: Action): AppState {
           ...base,
           u: {
             ...state.u,
-            student: { ...state.u.student, name: d.name, xp: d.xp, cash: d.cash, achievements: d.achievements, portfolio: d.portfolio, createdAt: d.createdAt ?? new Date().toISOString(), supabaseId: d.supabaseId ?? null },
+            student: { ...state.u.student, name: d.name, xp: d.xp, cash: d.cash, achievements: d.achievements, portfolio: d.portfolio, createdAt: d.createdAt ?? new Date().toISOString(), supabaseId: d.supabaseId ?? null, portfolioId: d.portfolioId ?? null },
           },
         };
       }

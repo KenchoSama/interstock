@@ -228,6 +228,7 @@ export interface UserProfile {
   achievements: string[];
   createdAt: string;
   supabaseId: string | null;
+  portfolioId: string | null;
 }
 
 export interface NavItem {
