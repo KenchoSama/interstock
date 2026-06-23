@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useApp, getLevelName, getNextLevelXP, isLocked } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
 import { useLeaderboard } from '../hooks/useLeaderboard';
@@ -7,6 +7,9 @@ import { useMentor } from '../hooks/useMentor';
 import { DIPLOMA_COURSES } from '../data/courses';
 import { genPrices, lineChart } from '../utils/charts';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
+import { useStockQuotes } from '../hooks/useStockQuotes';
+import { supabase } from '../lib/supabase';
+import ChartWithTooltip from '../components/ChartWithTooltip';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 const ETF_COLORS = ['var(--gr)', '#4d9fff', '#f9c74f', '#a855f7', '#f97316'];
@@ -37,19 +40,51 @@ export default function Dashboard() {
 
   const userId = user.supabaseId ?? undefined;
   const { mentor } = useMentor(userId);
+  const { quotes } = useStockQuotes();
+
+  const getLivePrice = (sym: string) =>
+    quotes.find(q => q.sym === sym)?.price ?? STOCKS.find(s => s.sym === sym)?.price ?? 0;
+
   const { chartPoints, flatLine } = usePortfolioHistory(user.portfolioId, 10000);
   const [showBooking, setShowBooking] = useState(false);
+
+  useEffect(() => {
+    if (!user.portfolioId || quotes.length === 0) return;
+
+    async function recordSnapshot() {
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data: existing } = await supabase
+        .from('portfolio_snapshots')
+        .select('id')
+        .eq('portfolio_id', user.portfolioId!)
+        .gte('recorded_at', `${today}T00:00:00`)
+        .maybeSingle();
+
+      if (existing) return;
+
+      const holdingsVal = user.portfolio.reduce((sum, h) => {
+        const price = quotes.find(q => q.sym === h.sym)?.price ?? h.avg;
+        return sum + h.shares * price;
+      }, 0);
+
+      await supabase.from('portfolio_snapshots').insert({
+        portfolio_id: user.portfolioId,
+        total_value: user.cash + holdingsVal,
+        cash_balance: user.cash,
+        holdings_value: holdingsVal,
+      });
+    }
+
+    recordSnapshot();
+  }, [user.portfolioId, quotes]);
 
   const startDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   const holdingsValue = useMemo(() => {
-    return user.portfolio.reduce((sum, h) => {
-      const stock = STOCKS.find(s => s.sym === h.sym);
-      const price = stock ? stock.price : h.price;
-      return sum + h.shares * price;
-    }, 0);
-  }, [user.portfolio]);
+    return user.portfolio.reduce((sum, h) => sum + h.shares * getLivePrice(h.sym), 0);
+  }, [user.portfolio, quotes]);
 
   const totalValue = holdingsValue + user.cash;
   const levelName = getLevelName(user.xp);
@@ -77,11 +112,7 @@ export default function Dashboard() {
   }, [chartPoints, flatLine, totalValue]);
 
   const portfolioChange = holdingsValue > 0
-    ? user.portfolio.reduce((sum, h) => {
-        const stock = STOCKS.find(s => s.sym === h.sym);
-        const price = stock ? stock.price : h.price;
-        return sum + (price - h.avg) * h.shares;
-      }, 0)
+    ? user.portfolio.reduce((sum, h) => sum + (getLivePrice(h.sym) - h.avg) * h.shares, 0)
     : 0;
 
   const totalCost = user.portfolio.reduce((sum, h) => sum + h.avg * h.shares, 0);
@@ -155,66 +186,50 @@ export default function Dashboard() {
         {/* Main content */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div className="card" style={{ overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'nowrap', minWidth: 0 }}>
-                <div className="section-title" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, marginRight: 8 }}>Portfolio Performance</div>
+            {/* Portfolio Performance card */}
+            <div className="card" style={{ marginBottom: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div className="card-title" style={{ margin: 0 }}>PORTFOLIO PERFORMANCE</div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {TF_OPTIONS.map(tf => (
-                    <button
-                      key={tf}
-                      className={`chart-tf-btn${chartTf === tf ? ' active' : ''}`}
-                      onClick={() => setChartTf(tf)}
-                    >
+                    <button key={tf} onClick={() => setChartTf(tf)}
+                      style={{
+                        padding: '3px 9px', fontSize: 11, borderRadius: 6,
+                        background: chartTf === tf ? 'var(--gr)' : 'var(--surface)',
+                        color: chartTf === tf ? '#000' : 'var(--text2)',
+                        fontWeight: chartTf === tf ? 700 : 400,
+                      }}>
                       {tf}
                     </button>
                   ))}
                 </div>
               </div>
-              {/* Portfolio value summary */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
+
+              {/* Value + return */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
                 <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)' }}>
                   ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
-                <div style={{ fontSize: 13, color: returnPct >= 0 ? 'var(--gr)' : 'var(--red)', marginLeft: 10 }}>
-                  {returnPct >= 0 ? '+' : ''}${Math.abs(returnAmt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%)
+                <div style={{ fontSize: 13, color: returnPct >= 0 ? 'var(--gr)' : 'var(--red)' }}>
+                  {returnPct >= 0 ? '+' : '-'}${Math.abs(returnAmt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%)
                 </div>
+                <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto' }}>
+                  Holdings: ${holdingsValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
 
-              <div className="chart-wrap" dangerouslySetInnerHTML={{ __html: chartSvg }} />
+              {/* Chart with tooltip overlay */}
+              <ChartWithTooltip
+                chartSvg={chartSvg}
+                chartPoints={chartPoints}
+                flatLine={flatLine}
+                totalValue={totalValue}
+              />
+
+              {/* Date range */}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--text3)', fontFamily: 'monospace' }}>
                 <span>{startDate}</span>
                 <span>{today}</span>
-              </div>
-              <div style={{ marginTop: 12 }}>
-                {user.portfolio.length === 0 ? (
-                  <div style={{ color: 'var(--text3)', fontSize: 13, textAlign: 'center', padding: '12px 0' }}>
-                    No holdings yet. Start trading to build your portfolio.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: 12 }}>
-                    {user.portfolio.slice(0, 4).map(h => {
-                      const stock = STOCKS.find(s => s.sym === h.sym);
-                      const price = stock ? stock.price : h.price;
-                      const gain = (price - h.avg) * h.shares;
-                      const gainPct = ((price - h.avg) / h.avg) * 100;
-                      return (
-                        <div key={h.sym} style={{
-                          flex: 1, padding: '12px 14px',
-                          background: 'var(--bg3)', borderRadius: 'var(--radius)',
-                          border: '1px solid var(--border)',
-                        }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#ffc107', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{h.sym}</div>
-                          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
-                            ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: gain >= 0 ? 'var(--gr)' : 'var(--red)' }}>
-                            {gain >= 0 ? '▲' : '▼'}{Math.abs(gainPct).toFixed(1)}%
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             </div>
 

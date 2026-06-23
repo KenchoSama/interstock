@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 export interface PortfolioSnapshot {
-  portfolio_value: number;
-  executed_at: string;
+  total_value: number;
+  recorded_at: string;
 }
 
 export function usePortfolioHistory(portfolioId?: string | null, startValue = 10000) {
-  const [history, setHistory] = useState<PortfolioSnapshot[]>([]);
+  const [snapshots, setSnapshots] = useState<PortfolioSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,25 +15,23 @@ export function usePortfolioHistory(portfolioId?: string | null, startValue = 10
 
     async function fetch() {
       const { data } = await supabase
-        .from('transactions')
-        .select('portfolio_value, executed_at')
+        .from('portfolio_snapshots')
+        .select('total_value, recorded_at')
         .eq('portfolio_id', portfolioId)
-        .order('executed_at', { ascending: true });
+        .order('recorded_at', { ascending: true });
 
-      setHistory(data ?? []);
+      setSnapshots(data ?? []);
       setLoading(false);
     }
     fetch();
   }, [portfolioId]);
 
-  // Build chart points — start with account open value, then each trade snapshot
   const chartPoints = [
     startValue,
-    ...history.map(h => Number(h.portfolio_value)),
+    ...snapshots.map(s => Number(s.total_value)),
   ];
 
-  // If no trades yet, flat line
-  const flatLine = chartPoints.length === 1;
+  const flatLine = snapshots.length === 0;
 
-  return { history, chartPoints, flatLine, loading };
+  return { snapshots, chartPoints, flatLine, loading };
 }

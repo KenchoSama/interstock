@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
-import { genPrices, lineChart } from '../utils/charts';
+import { lineChart } from '../utils/charts';
 import { persistTrade } from '../lib/persistTrade';
 import { useStockQuotes } from '../hooks/useStockQuotes';
+import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
+import ChartWithTooltip from '../components/ChartWithTooltip';
 
 const CHART_RANGES = ['1D', '5D', '1M', 'YTD', '1Y', '5Y'] as const;
 type ChartRange = typeof CHART_RANGES[number];
@@ -15,6 +17,7 @@ export default function Portfolio() {
   const user = state.u[state.role];
   const { tradeAction, sym, qty } = state;
   const { quotes } = useStockQuotes();
+  const { chartPoints, flatLine } = usePortfolioHistory(user.portfolioId, 10000);
 
   function getLivePrice(s: string) {
     return quotes.find(q => q.sym === s)?.price ?? STOCKS.find(st => st.sym === s)?.price ?? 0;
@@ -44,8 +47,16 @@ export default function Portfolio() {
   const totalValue = portfolioValue + user.cash;
   const pnlPct = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0;
 
-  const chartPrices = useMemo(() => genPrices(selectedStock.price, 60, 0.02), [sym]);
-  const chartSvg = lineChart(chartPrices, 580, 160, '#00e676');
+  const chartSvg = useMemo(() => {
+    if (flatLine) {
+      return lineChart(Array(30).fill(totalValue), 580, 160, '#00e676');
+    }
+    return lineChart(
+      chartPoints,
+      580, 160,
+      chartPoints[chartPoints.length - 1] >= chartPoints[0] ? '#00e676' : 'var(--red)'
+    );
+  }, [chartPoints, flatLine, totalValue]);
 
   const cost = localQty * livePrice;
   const holding = user.portfolio.find(h => h.sym === sym);
@@ -201,7 +212,12 @@ export default function Portfolio() {
                 ))}
               </div>
             </div>
-            <div className="chart-wrap" dangerouslySetInnerHTML={{ __html: chartSvg }} />
+            <ChartWithTooltip
+              chartSvg={chartSvg}
+              chartPoints={chartPoints}
+              flatLine={flatLine}
+              totalValue={totalValue}
+            />
             <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
               {chartRange} &nbsp;
               <span className={pnlPct >= 0 ? 'up' : 'dn'} style={{ fontWeight: 600 }}>
