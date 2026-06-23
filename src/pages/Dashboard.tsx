@@ -45,7 +45,8 @@ export default function Dashboard() {
   const getLivePrice = (sym: string) =>
     quotes.find(q => q.sym === sym)?.price ?? STOCKS.find(s => s.sym === sym)?.price ?? 0;
 
-  const { chartPoints, flatLine } = usePortfolioHistory(user.portfolioId, 10000);
+  const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000);
+  const chartDates = ['', ...snapshots.map(s => s.recorded_at)];
   const [showBooking, setShowBooking] = useState(false);
 
   useEffect(() => {
@@ -224,6 +225,7 @@ export default function Dashboard() {
                 chartPoints={chartPoints}
                 flatLine={flatLine}
                 totalValue={totalValue}
+                dates={chartDates}
               />
 
               {/* Date range */}

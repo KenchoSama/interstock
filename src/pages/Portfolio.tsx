@@ -17,7 +17,8 @@ export default function Portfolio() {
   const user = state.u[state.role];
   const { tradeAction, sym, qty } = state;
   const { quotes } = useStockQuotes();
-  const { chartPoints, flatLine } = usePortfolioHistory(user.portfolioId, 10000);
+  const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000);
+  const chartDates = ['', ...snapshots.map(s => s.recorded_at)];
 
   function getLivePrice(s: string) {
     return quotes.find(q => q.sym === s)?.price ?? STOCKS.find(st => st.sym === s)?.price ?? 0;
@@ -217,6 +218,7 @@ export default function Portfolio() {
               chartPoints={chartPoints}
               flatLine={flatLine}
               totalValue={totalValue}
+              dates={chartDates}
             />
             <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
               {chartRange} &nbsp;

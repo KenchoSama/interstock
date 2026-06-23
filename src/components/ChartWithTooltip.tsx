@@ -5,9 +5,10 @@ interface Props {
   chartPoints: number[];
   flatLine: boolean;
   totalValue: number;
+  dates?: string[];
 }
 
-export default function ChartWithTooltip({ chartSvg, chartPoints, flatLine, totalValue }: Props) {
+export default function ChartWithTooltip({ chartSvg, chartPoints, flatLine, totalValue, dates }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; value: number; index: number } | null>(null);
 
@@ -31,6 +32,14 @@ export default function ChartWithTooltip({ chartSvg, chartPoints, flatLine, tota
   const startValue = 10000;
   const tooltipReturn = tooltip ? ((tooltip.value - startValue) / startValue) * 100 : 0;
   const tooltipPositive = tooltipReturn >= 0;
+
+  const tooltipDateStr = tooltip ? dates?.[tooltip.index] : undefined;
+  const tooltipDate = tooltipDateStr
+    ? new Date(tooltipDateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null;
+  const tooltipTime = tooltipDateStr
+    ? new Date(tooltipDateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    : null;
 
   return (
     <div
@@ -77,6 +86,12 @@ export default function ChartWithTooltip({ chartSvg, chartPoints, flatLine, tota
           <div style={{ fontSize: 12, color: tooltipPositive ? 'var(--gr)' : 'var(--red)', marginTop: 2 }}>
             {tooltipPositive ? '+' : ''}{tooltipReturn.toFixed(2)}%
           </div>
+          {(tooltipDate || tooltipTime) && (
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+              {tooltipDate && <div>{tooltipDate}</div>}
+              {tooltipTime && <div>{tooltipTime}</div>}
+            </div>
+          )}
         </div>
       )}
     </div>
