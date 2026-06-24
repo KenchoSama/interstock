@@ -4,16 +4,9 @@ import { genCandles, candleChart } from '../utils/charts';
 import type { Stock } from '../types';
 import { useStockNews } from '../hooks/useStockNews';
 import { useStockQuotes } from '../hooks/useStockQuotes';
+import { useEarningsCalendar } from '../hooks/useEarningsCalendar';
 
 
-const EARNINGS = [
-  { sym: 'AAPL', date: 'Jul 30', est: '$1.42' },
-  { sym: 'MSFT', date: 'Jul 24', est: '$3.01' },
-  { sym: 'GOOGL', date: 'Jul 23', est: '$1.85' },
-  { sym: 'META', date: 'Jul 31', est: '$5.24' },
-  { sym: 'NVDA', date: 'Aug 21', est: '$6.73' },
-  { sym: 'AMZN', date: 'Aug 1', est: '$1.03' },
-];
 
 function StockSelector({ stocks, selected, onChange }: {
   stocks: Stock[];
@@ -264,18 +257,46 @@ function TechnicalLevelsPanel({ stock }: { stock: Stock }) {
 }
 
 function EarningsCalendar() {
+  const SYMBOLS = STOCKS.map(s => s.sym);
+  const { earnings, loading } = useEarningsCalendar(SYMBOLS);
+
   return (
     <div className="card">
-      <div className="section-title" style={{ marginBottom: 12 }}>Earnings Calendar</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="section-title" style={{ margin: 0 }}>Earnings Calendar</div>
+        <span style={{
+          fontSize: 10, padding: '2px 8px',
+          background: 'var(--gr-dim)', color: 'var(--gr)',
+          borderRadius: 4, fontWeight: 700, letterSpacing: 1,
+        }}>LIVE</span>
+      </div>
+
+      {loading && (
+        <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '12px 0' }}>
+          Loading...
+        </div>
+      )}
+
+      {!loading && earnings.length === 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '12px 0' }}>
+          No upcoming earnings in next 90 days.
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {EARNINGS.map(e => (
+        {earnings.map(e => (
           <div key={e.sym} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '7px 10px', background: 'var(--bg3)', borderRadius: 8,
           }}>
             <span style={{ fontWeight: 700, color: '#ffc107', fontSize: 13, width: 50 }}>{e.sym}</span>
             <span style={{ fontSize: 12, color: 'var(--text2)' }}>{e.date}</span>
-            <span style={{ fontSize: 12, color: 'var(--text3)' }}>Est. EPS {e.est}</span>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Est. {e.est}</div>
+              {e.actual && (
+                <div style={{ fontSize: 11, color: 'var(--gr)', fontWeight: 600 }}>Act. {e.actual}</div>
+              )}
+            </div>
           </div>
         ))}
       </div>
