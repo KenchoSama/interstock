@@ -3,12 +3,12 @@ import { useRef, useState } from 'react';
 interface Props {
   chartSvg: string;
   chartPoints: number[];
-  flatLine: boolean;
-  totalValue: number;
+  flatLine?: boolean;
+  totalValue?: number;
   dates?: string[];
 }
 
-export default function ChartWithTooltip({ chartSvg, chartPoints, flatLine, totalValue, dates }: Props) {
+export default function ChartWithTooltip({ chartSvg, chartPoints, dates }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; value: number; index: number } | null>(null);
 
