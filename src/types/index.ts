@@ -229,6 +229,7 @@ export interface UserProfile {
   createdAt: string;
   supabaseId: string | null;
   portfolioId: string | null;
+  hasAssessment: boolean;
 }
 
 export interface NavItem {

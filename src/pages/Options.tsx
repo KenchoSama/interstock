@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useApp } from '../state/AppContext';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
@@ -176,9 +175,6 @@ function GreeksGrid() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Options() {
-  const { state } = useApp();
-  const user = state.u[state.role];
-
   const [stockPrice, setStockPrice] = useState(190);
   const [strikePrice, setStrikePrice] = useState(195);
   const [premium, setPremium]         = useState(4.5);
@@ -221,24 +217,6 @@ export default function Options() {
       <polyline points="${pts.join(' ')}" fill="none" stroke="#4d9fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     </svg>`;
   }, [stockPrice, strikePrice, premium, optionType]);
-
-  if (user.xp < 200) {
-    return (
-      <div className="page-body">
-        <div className="empty-state">
-          <div className="empty-state-icon">🔒</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Options Trading Locked</div>
-          <div style={{ color: 'var(--text2)', marginBottom: 16 }}>You need 200 XP to access Options Trading.</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-            <div style={{ padding: '4px 12px', background: 'var(--gr-dim)', color: 'var(--gr)', borderRadius: 20, fontSize: 13, fontWeight: 600 }}>
-              {user.xp} / 200 XP
-            </div>
-            <span style={{ color: 'var(--text3)', fontSize: 13 }}>{200 - user.xp} more XP needed</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="page-body">

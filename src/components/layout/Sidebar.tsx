@@ -4,62 +4,61 @@ import type { Role } from '../../types';
 interface NavItem {
   id: string;
   label: string;
-  icon: string;
   section?: string;
 }
 
 const NAV: Record<Role, NavItem[]> = {
   student: [
-    { id: 'dashboard', label: 'Dashboard', icon: '🏠', section: 'Home' },
-    { id: 'portfolio', label: 'Portfolio', icon: '📊', section: 'Trading' },
-    { id: 'fundamentals', label: 'Stock Analysis', icon: '🔍' },
-    { id: 'options', label: 'Options', icon: '⚡' },
-    { id: 'futures', label: 'Futures', icon: '📈' },
-    { id: 'lessons', label: 'Lessons', icon: '📚', section: 'Learn' },
-    { id: 'game', label: 'Scenario Challenge', icon: '🎯' },
-    { id: 'level-game', label: 'Level Up Game', icon: '🗺️' },
-    { id: 'diplomas', label: 'Diplomas', icon: '🎓' },
-    { id: 'etf', label: 'Build an ETF', icon: '🏦' },
-    { id: 'assignments', label: 'Assignments', icon: '📝', section: 'School' },
-    { id: 'compete', label: 'Compete', icon: '🏆' },
-    { id: 'leaderboard', label: 'Leaderboard', icon: '📋' },
-    { id: 'field-trips', label: 'Field Trips', icon: '✈️' },
-    { id: 'interns', label: 'Internships', icon: '💼' },
-    { id: 'achievements', label: 'Achievements', icon: '🏅', section: 'Profile' },
-    { id: 'profile', label: 'Profile', icon: '👤' },
-    { id: 'ai', label: 'FinBot AI', icon: '🤖' },
-    { id: 'help', label: 'Help & FAQ', icon: '❓' },
+    { id: 'dashboard', label: 'Dashboard', section: 'Home' },
+    { id: 'portfolio', label: 'Portfolio', section: 'Trading' },
+    { id: 'fundamentals', label: 'Stock Analysis' },
+    { id: 'options', label: 'Options' },
+    { id: 'futures', label: 'Futures' },
+    { id: 'lessons', label: 'Lessons', section: 'Learn' },
+    { id: 'game', label: 'Scenario Challenge' },
+    { id: 'level-game', label: 'Level Up Game' },
+    { id: 'diplomas', label: 'Diplomas' },
+    { id: 'etf', label: 'Build an ETF' },
+    { id: 'assignments', label: 'Assignments', section: 'School' },
+    { id: 'compete', label: 'Compete' },
+    { id: 'leaderboard', label: 'Leaderboard' },
+    { id: 'field-trips', label: 'Field Trips' },
+    { id: 'interns', label: 'Internships' },
+    { id: 'achievements', label: 'Achievements', section: 'Profile' },
+    { id: 'profile', label: 'Profile' },
+    { id: 'ai', label: 'FinBot AI' },
+    { id: 'help', label: 'Help & FAQ' },
   ],
   school_admin: [
-    { id: 'school-dash', label: 'Dashboard', icon: '🏫', section: 'School' },
-    { id: 'school-perf', label: 'Performance', icon: '📊' },
-    { id: 'cra', label: 'CRA Report', icon: '📋' },
-    { id: 'support', label: 'Support', icon: '💬', section: 'Help' },
+    { id: 'school-dash', label: 'Dashboard', section: 'School' },
+    { id: 'school-perf', label: 'Performance' },
+    { id: 'cra', label: 'CRA Report' },
+    { id: 'support', label: 'Support', section: 'Help' },
   ],
   parent: [
-    { id: 'parent', label: 'My Child', icon: '👨‍👧', section: 'Overview' },
-    { id: 'support', label: 'Support', icon: '💬', section: 'Help' },
+    { id: 'parent', label: 'My Child', section: 'Overview' },
+    { id: 'support', label: 'Support', section: 'Help' },
   ],
   partner: [
-    { id: 'partner-dash', label: 'Dashboard', icon: '🤝', section: 'Partner' },
-    { id: 'mentors', label: 'Mentors', icon: '👩‍🏫' },
-    { id: 'sponsorships', label: 'Sponsorships', icon: '💰' },
-    { id: 'cra', label: 'CRA Impact', icon: '📋' },
-    { id: 'support', label: 'Support', icon: '💬', section: 'Help' },
+    { id: 'partner-dash', label: 'Dashboard', section: 'Partner' },
+    { id: 'mentors', label: 'Mentors' },
+    { id: 'sponsorships', label: 'Sponsorships' },
+    { id: 'cra', label: 'CRA Impact' },
+    { id: 'support', label: 'Support', section: 'Help' },
   ],
   admin: [
-    { id: 'admin-dash', label: 'Dashboard', icon: '⚙️', section: 'Admin' },
-    { id: 'all-students', label: 'All Students', icon: '👥' },
-    { id: 'competitions', label: 'Competitions', icon: '🏆' },
-    { id: 'cra', label: 'CRA Report', icon: '📋' },
-    { id: 'support', label: 'Support', icon: '💬', section: 'Help' },
+    { id: 'admin-dash', label: 'Dashboard', section: 'Admin' },
+    { id: 'all-students', label: 'All Students' },
+    { id: 'competitions', label: 'Competitions' },
+    { id: 'cra', label: 'CRA Report' },
+    { id: 'support', label: 'Support', section: 'Help' },
   ],
   staff: [
-    { id: 'staff-training', label: 'Training', icon: '📚', section: 'Staff' },
-    { id: 'cert-exam', label: 'Certification', icon: '🎓' },
-    { id: 'staff-assign', label: 'Issue Assignments', icon: '📝' },
-    { id: 'my-students', label: 'My Students', icon: '👥' },
-    { id: 'support', label: 'Support', icon: '💬', section: 'Help' },
+    { id: 'staff-training', label: 'Training', section: 'Staff' },
+    { id: 'cert-exam', label: 'Certification' },
+    { id: 'staff-assign', label: 'Issue Assignments' },
+    { id: 'my-students', label: 'My Students' },
+    { id: 'support', label: 'Support', section: 'Help' },
   ],
 };
 
@@ -89,7 +88,6 @@ export default function Sidebar() {
               }}
               title={locked ? `Requires more XP to unlock` : item.label}
             >
-              <span className="nav-icon">{item.icon}</span>
               <span>{item.label}</span>
               {locked && <span className="nav-lock">🔒</span>}
             </button>

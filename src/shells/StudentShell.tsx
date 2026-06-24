@@ -1,10 +1,15 @@
-import { useEffect } from 'react';
 import { useApp } from '../state/AppContext';
 import Shell from '../components/layout/Shell';
 import PageRouter from '../pages/PageRouter';
+import Assessment from '../pages/Assessment';
 
 export default function StudentShell() {
-  const { dispatch } = useApp();
-  useEffect(() => { dispatch({ type: 'LOGIN', role: 'student' }); }, []);
+  const { state } = useApp();
+  const user = state.u[state.role];
+
+  if (!user.hasAssessment) {
+    return <Assessment />;
+  }
+
   return <Shell><PageRouter /></Shell>;
 }

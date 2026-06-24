@@ -57,6 +57,14 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
     .eq('portfolio_id', portfolio.id)
     .then(({ data }) => data ?? []) : [];
 
+  // 4. Check if student has completed assessment
+  const { data: assessment } = await supabase
+    .from('assessments')
+    .select('id')
+    .eq('student_id', userId)
+    .maybeSingle();
+  const hasAssessment = !!assessment;
+
   dispatch({
     type: 'LOGIN',
     role: 'student',
@@ -68,6 +76,7 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
       createdAt: profile.created_at,
       supabaseId: userId,
       portfolioId: portfolio?.id ?? null,
+      hasAssessment,
       portfolio: holdings.map(h => ({
         sym: h.ticker,
         shares: h.shares,

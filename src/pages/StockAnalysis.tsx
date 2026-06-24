@@ -2,35 +2,9 @@ import { useMemo, useState } from 'react';
 import { STOCKS } from '../data/stocks';
 import { genCandles, candleChart } from '../utils/charts';
 import type { Stock } from '../types';
+import { useStockNews } from '../hooks/useStockNews';
+import { useStockQuotes } from '../hooks/useStockQuotes';
 
-const NEWS: Record<string, { title: string; source: string; time: string }[]> = {
-  AAPL: [
-    { title: 'Apple reports record quarterly revenue driven by iPhone sales', source: 'Reuters', time: '2h ago' },
-    { title: 'Apple Vision Pro demand exceeds initial estimates', source: 'Bloomberg', time: '5h ago' },
-    { title: 'Analysts raise AAPL price target following strong guidance', source: 'CNBC', time: '1d ago' },
-  ],
-  TSLA: [
-    { title: 'Tesla expands Supercharger network across Europe', source: 'Bloomberg', time: '1h ago' },
-    { title: 'Cybertruck production ramp accelerating, says CEO', source: 'Reuters', time: '4h ago' },
-    { title: 'Tesla energy storage deployments hit record in Q3', source: 'CNBC', time: '2d ago' },
-  ],
-  NVDA: [
-    { title: 'NVIDIA data center revenue surges on AI chip demand', source: 'Reuters', time: '3h ago' },
-    { title: 'NVIDIA partners with major cloud providers for H100 rollout', source: 'Bloomberg', time: '7h ago' },
-    { title: 'Analysts see NVDA sustaining growth through 2026', source: 'CNBC', time: '1d ago' },
-  ],
-  MSFT: [
-    { title: 'Microsoft Azure revenue accelerates on AI integration', source: 'Reuters', time: '2h ago' },
-    { title: 'Copilot adoption driving enterprise subscription growth', source: 'Bloomberg', time: '6h ago' },
-    { title: 'Microsoft raises dividend amid strong free cash flow', source: 'CNBC', time: '1d ago' },
-  ],
-};
-
-const DEFAULT_NEWS = [
-  { title: 'Strong earnings beat analyst expectations this quarter', source: 'Reuters', time: '3h ago' },
-  { title: 'Institutional investors increase position in latest filing', source: 'Bloomberg', time: '6h ago' },
-  { title: 'Management raises full-year guidance amid demand outlook', source: 'CNBC', time: '1d ago' },
-];
 
 const EARNINGS = [
   { sym: 'AAPL', date: 'Jul 30', est: '$1.42' },
@@ -46,6 +20,12 @@ function StockSelector({ stocks, selected, onChange }: {
   selected: Stock;
   onChange: (sym: string) => void;
 }) {
+  const { quotes } = useStockQuotes();
+
+  const livePrice = quotes.find(q => q.sym === selected.sym)?.price ?? selected.price;
+  const liveChg = quotes.find(q => q.sym === selected.sym)?.chg ?? selected.chg;
+  const liveChgPct = quotes.find(q => q.sym === selected.sym)?.chgPct ?? selected.chgPct;
+
   return (
     <div className="card" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 20 }}>
       <div style={{ flex: 1 }}>
@@ -53,16 +33,23 @@ function StockSelector({ stocks, selected, onChange }: {
         <div style={{ fontSize: 13, color: 'var(--text2)' }}>{selected.name}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 24, fontWeight: 700 }}>${selected.price.toFixed(2)}</span>
-        <span className={selected.chg >= 0 ? 'up' : 'dn'} style={{ fontSize: 14 }}>
-          {selected.chg >= 0 ? '+' : ''}{selected.chg.toFixed(2)} ({selected.chgPct.toFixed(2)}%)
+        <span style={{ fontSize: 24, fontWeight: 700 }}>${livePrice.toFixed(2)}</span>
+        <span className={liveChg >= 0 ? 'up' : 'dn'} style={{ fontSize: 14 }}>
+          {liveChg >= 0 ? '+' : ''}{liveChg.toFixed(2)} ({liveChgPct.toFixed(2)}%)
         </span>
         <span className="badge badge-blue">{selected.sector}</span>
       </div>
       <select value={selected.sym} onChange={e => onChange(e.target.value)} style={{ width: 230 }}>
-        {stocks.map(s => (
-          <option key={s.sym} value={s.sym}>{s.sym} — {s.name}</option>
-        ))}
+        {stocks.map(s => {
+          const q = quotes.find(q => q.sym === s.sym);
+          const price = q?.price ?? s.price;
+          const chgPct = q?.chgPct ?? s.chgPct;
+          return (
+            <option key={s.sym} value={s.sym}>
+              {s.sym} — ${price.toFixed(2)} ({chgPct >= 0 ? '+' : ''}{chgPct.toFixed(2)}%)
+            </option>
+          );
+        })}
       </select>
     </div>
   );
@@ -123,21 +110,80 @@ function FundamentalsPanel({ stock }: { stock: Stock }) {
 }
 
 function NewsPanel({ ticker, stock }: { ticker: string; stock: Stock }) {
-  const items = NEWS[ticker] ?? DEFAULT_NEWS;
+  const { news, loading, error } = useStockNews(ticker);
+
   return (
     <div className="card">
-      <div className="section-title" style={{ marginBottom: 12 }}>Latest News — {stock.sym}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="section-title" style={{ margin: 0 }}>Latest News — {stock.sym}</div>
+        <span style={{
+          fontSize: 10, padding: '2px 8px',
+          background: 'var(--gr-dim)', color: 'var(--gr)',
+          borderRadius: 4, fontWeight: 700, letterSpacing: 1,
+        }}>LIVE</span>
+      </div>
+
+      {loading && (
+        <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 13, color: 'var(--text3)' }}>
+          Loading news...
+        </div>
+      )}
+
+      {error && (
+        <div style={{ padding: '12px', background: 'var(--red-dim)', borderRadius: 8, fontSize: 12, color: 'var(--red)' }}>
+          Unable to load news. Check your Finnhub API key.
+        </div>
+      )}
+
+      {!loading && !error && news.length === 0 && (
+        <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 13, color: 'var(--text3)' }}>
+          No recent news found for {ticker}.
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {items.map((n, i) => (
-          <div key={i} style={{
-            padding: '10px 12px',
-            background: 'var(--bg3)',
-            borderRadius: 'var(--radius)',
-            borderLeft: '3px solid var(--gr)',
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{n.title}</div>
-            <div style={{ fontSize: 11, color: 'var(--text3)' }}>{n.source} · {n.time}</div>
-          </div>
+        {news.map((n, i) => (
+          <a
+            key={i}
+            href={n.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'block',
+              padding: '10px 12px',
+              background: 'var(--bg3)',
+              borderRadius: 'var(--radius)',
+              borderLeft: '3px solid var(--gr)',
+              textDecoration: 'none',
+              transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, lineHeight: 1.4 }}>
+              {n.title}
+            </div>
+            {n.summary && (
+              <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 5, lineHeight: 1.5 }}>
+                {n.summary}
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <a
+                href={n.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ color: 'var(--gr)', fontWeight: 600, textDecoration: 'none', fontSize: 11 }}
+              >
+                {n.source}
+              </a>
+              <span>·</span>
+              <span>{n.time}</span>
+              <span>·</span>
+              <span style={{ color: 'var(--blue)' }}>Read full article →</span>
+            </div>
+          </a>
         ))}
       </div>
     </div>
@@ -239,26 +285,35 @@ function EarningsCalendar() {
 
 export default function Fundamentals() {
   const [selectedTicker, setSelectedTicker] = useState(STOCKS[0].sym);
+  const { quotes } = useStockQuotes();
+
   const selectedStock = STOCKS.find(s => s.sym === selectedTicker) ?? STOCKS[0];
+  const liveQuote = quotes.find(q => q.sym === selectedTicker);
+  const stockWithLivePrice = {
+    ...selectedStock,
+    price: liveQuote?.price ?? selectedStock.price,
+    chg: liveQuote?.chg ?? selectedStock.chg,
+    chgPct: liveQuote?.chgPct ?? selectedStock.chgPct,
+  };
 
   return (
     <div className="page-body">
       <StockSelector
         stocks={STOCKS}
-        selected={selectedStock}
+        selected={stockWithLivePrice}
         onChange={setSelectedTicker}
       />
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <CandleChart stock={selectedStock} />
-          <FundamentalsPanel stock={selectedStock} />
-          <NewsPanel ticker={selectedTicker} stock={selectedStock} />
+          <CandleChart stock={stockWithLivePrice} />
+          <FundamentalsPanel stock={stockWithLivePrice} />
+          <NewsPanel ticker={selectedTicker} stock={stockWithLivePrice} />
         </div>
 
         <div style={{ width: 258, flexShrink: 0 }}>
-          <ValuationPanel stock={selectedStock} />
-          <TechnicalLevelsPanel stock={selectedStock} />
+          <ValuationPanel stock={stockWithLivePrice} />
+          <TechnicalLevelsPanel stock={stockWithLivePrice} />
           <EarningsCalendar />
         </div>
       </div>

@@ -24,6 +24,7 @@ function makeUser(name: string, xp = 0): AppState['u'][Role] {
     createdAt: new Date().toISOString(),
     supabaseId: null as string | null,
     portfolioId: null as string | null,
+    hasAssessment: false,
   };
 }
 
@@ -117,25 +118,55 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; portfolio: AppState['u']['student']['portfolio'] } }
-  | { type: 'LOGOUT' };
+  | { type: 'LOGIN'; role: Role; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'LOGOUT' }
+  | { type: 'SET_HAS_ASSESSMENT' };
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'LOGIN': {
-      const base = { ...state, screen: 'main' as const, role: action.role, view: defaultView(action.role) };
+      const alreadyLoggedIn = state.screen === 'main' && state.role === action.role;
+
+      const base = {
+        ...state,
+        screen: 'main' as const,
+        role: action.role,
+        view: alreadyLoggedIn ? state.view : defaultView(action.role),
+      };
+
       if (action.role === 'student' && action.studentData) {
         const d = action.studentData;
         return {
           ...base,
+          view: alreadyLoggedIn ? state.view : (d.hasAssessment === false ? 'assessment' : 'dashboard'),
           u: {
             ...state.u,
-            student: { ...state.u.student, name: d.name, xp: d.xp, cash: d.cash, achievements: d.achievements, portfolio: d.portfolio, createdAt: d.createdAt ?? new Date().toISOString(), supabaseId: d.supabaseId ?? null, portfolioId: d.portfolioId ?? null },
+            student: {
+              ...state.u.student,
+              name: d.name,
+              xp: d.xp,
+              cash: d.cash,
+              achievements: d.achievements,
+              portfolio: d.portfolio,
+              createdAt: d.createdAt ?? new Date().toISOString(),
+              supabaseId: d.supabaseId ?? null,
+              portfolioId: d.portfolioId ?? null,
+              hasAssessment: d.hasAssessment ?? false,
+            },
           },
         };
       }
       return base;
     }
+
+    case 'SET_HAS_ASSESSMENT':
+      return {
+        ...state,
+        u: {
+          ...state.u,
+          student: { ...state.u.student, hasAssessment: true },
+        },
+      };
 
     case 'LOGOUT':
       return { ...initialState };
