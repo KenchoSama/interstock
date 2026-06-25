@@ -21,6 +21,7 @@ export function useStockNews(ticker: string) {
 
     async function fetchNews() {
       try {
+        await new Promise(r => setTimeout(r, 1000));
         const key = import.meta.env.VITE_FINNHUB_KEY;
         console.log('Finnhub key:', key);
         const to = new Date().toISOString().split('T')[0];

@@ -243,7 +243,7 @@ export default function Dashboard() {
                   style={{ justifyContent: 'center', gap: 8, padding: '12px 16px' }}
                   onClick={() => dispatch({ type: 'SET_VIEW', view: 'game' })}
                 >
-                  🎮 Scenario Challenge
+                  Scenario Challenge
                 </button>
                 <button
                   style={{
@@ -254,7 +254,7 @@ export default function Dashboard() {
                   }}
                   onClick={() => dispatch({ type: 'SET_VIEW', view: 'level-game' })}
                 >
-                  🗺️ Level Up Game
+                  Level Up Game
                   <span style={{
                     fontSize: 9, fontWeight: 700, background: 'var(--yellow)', color: 'var(--bg)',
                     borderRadius: 4, padding: '2px 5px', letterSpacing: '0.5px',
@@ -265,14 +265,14 @@ export default function Dashboard() {
                   style={{ justifyContent: 'center', gap: 8, padding: '12px 16px', color: 'var(--gr)', borderColor: 'var(--gr)' }}
                   onClick={() => dispatch({ type: 'SET_VIEW', view: 'portfolio' })}
                 >
-                  📈 Trade Stocks
+                  Trade Stocks
                 </button>
                 <button
                   className="btn btn-secondary"
                   style={{ justifyContent: 'center', gap: 8, padding: '12px 16px' }}
                   onClick={() => dispatch({ type: 'SET_VIEW', view: 'ai' })}
                 >
-                  🤖 FinBot AI
+                  FinBot AI
                 </button>
               </div>
 
@@ -292,7 +292,7 @@ export default function Dashboard() {
             {/* Build an ETF card */}
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <div className="section-title" style={{ margin: 0 }}>🏦 Build an ETF</div>
+                <div className="section-title" style={{ margin: 0 }}>Build an ETF</div>
                 {!etfLocked && (
                   <button
                     className="btn btn-secondary btn-sm"
@@ -313,7 +313,7 @@ export default function Dashboard() {
                     <div className="progress-fill" style={{ width: `${(user.xp / ETF_XP_REQUIRED) * 100}%` }} />
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 12 }}>
-                    {['📊 Diversification', '📈 vs S&P 500', '🏆 Compete'].map(tag => (
+                    {['Diversification', 'vs S&P 500', 'Compete'].map(tag => (
                       <span key={tag} style={{
                         fontSize: 10, padding: '3px 8px', borderRadius: 20,
                         background: 'var(--surface2)', color: 'var(--text3)',
@@ -326,7 +326,7 @@ export default function Dashboard() {
                     style={{ width: '100%', opacity: 0.45, cursor: 'not-allowed', fontSize: 13 }}
                     disabled
                   >
-                    🔒 Unlocks at 1,500 XP — {ETF_XP_REQUIRED - user.xp} XP away
+                    Unlocks at 1,500 XP — {ETF_XP_REQUIRED - user.xp} XP away
                   </button>
                 </div>
               ) : state.etf ? (
@@ -387,9 +387,9 @@ export default function Dashboard() {
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 14 }}>
                     {[
-                      { label: '📊 Diversification', bg: 'var(--gr-dim)', border: 'var(--gr)', color: 'var(--gr)' },
-                      { label: '📈 vs S&P 500', bg: 'var(--blue-dim)', border: 'var(--blue)', color: 'var(--blue)' },
-                      { label: '🏆 Compete', bg: 'rgba(249,199,79,0.12)', border: 'var(--yellow)', color: 'var(--yellow)' },
+                      { label: 'Diversification', bg: 'var(--gr-dim)', border: 'var(--gr)', color: 'var(--gr)' },
+                      { label: 'vs S&P 500', bg: 'var(--blue-dim)', border: 'var(--blue)', color: 'var(--blue)' },
+                      { label: 'Compete', bg: 'rgba(249,199,79,0.12)', border: 'var(--yellow)', color: 'var(--yellow)' },
                     ].map(tag => (
                       <span key={tag.label} style={{
                         fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 500,
@@ -402,7 +402,7 @@ export default function Dashboard() {
                     style={{ width: '100%', fontSize: 13 }}
                     onClick={() => dispatch({ type: 'SET_VIEW', view: 'etf' })}
                   >
-                    🏦 Create Your ETF (+100 XP)
+                    Create Your ETF (+100 XP)
                   </button>
                 </>
               )}
@@ -442,9 +442,9 @@ export default function Dashboard() {
                   <div key={f.view} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 13, color: locked ? 'var(--text3)' : 'var(--text)' }}>{f.label}</span>
                     {locked ? (
-                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>🔒 Locked</span>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>Locked</span>
                     ) : (
-                      <span style={{ fontSize: 11, color: 'var(--gr)', fontWeight: 600 }}>✓ Unlocked</span>
+                      <span style={{ fontSize: 11, color: 'var(--gr)', fontWeight: 600 }}>Unlocked</span>
                     )}
                   </div>
                 );
@@ -540,7 +540,7 @@ export default function Dashboard() {
               style={{ width: '100%', fontSize: 13 }}
               onClick={() => setShowBooking(true)}
             >
-              📅 Book a Meeting
+              Book a Meeting
             </button>
           </div>
 

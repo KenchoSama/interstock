@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useApp } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
 import { lineChart } from '../utils/charts';
@@ -6,6 +6,7 @@ import { persistTrade } from '../lib/persistTrade';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 import ChartWithTooltip from '../components/ChartWithTooltip';
+import { useStockLookup } from '../hooks/useStockLookup';
 
 const CHART_RANGES = ['1D', '5D', '1M', 'YTD', '1Y', '5Y'] as const;
 type ChartRange = typeof CHART_RANGES[number];
@@ -20,10 +21,26 @@ export default function Portfolio() {
   const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000);
   const chartDates = ['', ...snapshots.map(s => s.recorded_at)];
 
+  const { result: lookupResult, loading: lookupLoading, error: lookupError, lookup } = useStockLookup();
+  const [searchInput, setSearchInput] = useState(sym);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (lookupResult) {
+      dispatch({ type: 'SET_SYM', sym: lookupResult.sym });
+    }
+  }, [lookupResult]);
+
+  useEffect(() => {
+    setSearchInput(sym);
+  }, [sym]);
+
   function getLivePrice(s: string) {
+    if (lookupResult?.sym === s) return lookupResult.price;
     return quotes.find(q => q.sym === s)?.price ?? STOCKS.find(st => st.sym === s)?.price ?? 0;
   }
   function getLiveChgPct(s: string) {
+    if (lookupResult?.sym === s) return lookupResult.chgPct;
     return quotes.find(q => q.sym === s)?.chgPct ?? STOCKS.find(st => st.sym === s)?.chgPct ?? 0;
   }
 
@@ -32,7 +49,7 @@ export default function Portfolio() {
   const [chartRange, setChartRange] = useState<ChartRange>('1Y');
   const [tvSym, setTvSym] = useState('AAPL');
 
-  const selectedStock = STOCKS.find(s => s.sym === sym) ?? STOCKS[0];
+  const selectedStock = STOCKS.find(s => s.sym === sym);
   const livePrice = getLivePrice(sym);
   const liveChgPct = getLiveChgPct(sym);
 
@@ -76,13 +93,13 @@ export default function Portfolio() {
         return;
       }
 
-      dispatch({ type: 'BUY_STOCK', sym: selectedStock.sym, shares: localQty, price: livePrice });
+      dispatch({ type: 'BUY_STOCK', sym: sym, shares: localQty, price: livePrice });
       dispatch({ type: 'ADD_XP', amount: 10 });
 
       const newCash = user.cash - cost;
       const newPortfolioValue = portfolioValue + cost + newCash;
 
-      await persistTrade('buy', selectedStock.sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue);
+      await persistTrade('buy', sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue);
 
       setTradeMsg({ text: `Bought ${localQty} share${localQty !== 1 ? 's' : ''} of ${sym}!`, ok: true });
 
@@ -92,14 +109,14 @@ export default function Portfolio() {
         return;
       }
 
-      dispatch({ type: 'SELL_STOCK', sym: selectedStock.sym, shares: localQty, price: livePrice });
+      dispatch({ type: 'SELL_STOCK', sym: sym, shares: localQty, price: livePrice });
       dispatch({ type: 'ADD_XP', amount: 10 });
 
       const proceeds = localQty * livePrice;
       const newCash = user.cash + proceeds;
       const newPortfolioValue = portfolioValue - proceeds + newCash;
 
-      await persistTrade('sell', selectedStock.sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue);
+      await persistTrade('sell', sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue);
 
       setTradeMsg({ text: `Sold ${localQty} share${localQty !== 1 ? 's' : ''} of ${sym}!`, ok: true });
     }
@@ -273,25 +290,58 @@ export default function Portfolio() {
           <div className="trade-panel">
             <div className="section-title" style={{ marginBottom: 14 }}>PLACE TRADE</div>
 
+            {/* Symbol search */}
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Symbol
               </label>
-              <select
-                style={{ width: '100%' }}
-                value={sym}
-                onChange={e => dispatch({ type: 'SET_SYM', sym: e.target.value })}
-              >
-                {STOCKS.map(s => {
-                  const price = getLivePrice(s.sym);
-                  const chgPct = getLiveChgPct(s.sym);
-                  return (
-                    <option key={s.sym} value={s.sym}>
-                      {s.sym} — ${price.toFixed(2)} ({chgPct >= 0 ? '+' : ''}{chgPct.toFixed(2)}%)
-                    </option>
-                  );
-                })}
-              </select>
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="e.g. AAPL, TSLA, PLTR"
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value.toUpperCase())}
+                onKeyDown={e => { if (e.key === 'Enter') lookup(searchInput); }}
+                onBlur={() => { if (searchInput && searchInput !== sym) lookup(searchInput); }}
+                style={{ width: '100%', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}
+              />
+
+              {lookupError && (
+                <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 6 }}>
+                  {lookupError}
+                </div>
+              )}
+
+              {lookupResult && lookupResult.sym !== sym && (
+                <div style={{
+                  marginTop: 8, padding: '8px 10px',
+                  background: 'var(--gr-dim)', border: '1px solid var(--gr)',
+                  borderRadius: 8, fontSize: 12,
+                }}>
+                  <div style={{ fontWeight: 700, color: 'var(--gr)' }}>{lookupResult.sym}</div>
+                  <div style={{ color: 'var(--text3)', fontSize: 11 }}>{lookupResult.name}</div>
+                  <div style={{ color: 'var(--text)', fontWeight: 600 }}>${lookupResult.price.toFixed(2)}</div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+                {['AAPL', 'TSLA', 'NVDA', 'MSFT', 'AMZN', 'META', 'GOOGL', 'JPM'].map(s => (
+                  <button
+                    key={s}
+                    onClick={() => { setSearchInput(s); lookup(s); }}
+                    style={{
+                      padding: '2px 7px', fontSize: 10, borderRadius: 4,
+                      background: sym === s ? 'var(--gr-dim)' : 'var(--surface)',
+                      border: `1px solid ${sym === s ? 'var(--gr)' : 'var(--border)'}`,
+                      color: sym === s ? 'var(--gr)' : 'var(--text3)',
+                      fontWeight: sym === s ? 700 : 400,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
@@ -349,7 +399,9 @@ export default function Portfolio() {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ color: 'var(--text3)' }}>Symbol</span>
-                <span style={{ color: '#ffc107', fontWeight: 600 }}>{sym} — {selectedStock.name}</span>
+                <span style={{ color: '#ffc107', fontWeight: 600 }}>
+                  {sym} — {lookupResult?.sym === sym ? lookupResult.name : selectedStock?.name ?? sym}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ color: 'var(--text3)' }}>Last Price</span>

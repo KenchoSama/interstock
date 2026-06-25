@@ -144,6 +144,7 @@ function reducer(state: AppState, action: Action): AppState {
             student: {
               ...state.u.student,
               name: d.name,
+              avatar: d.name[0].toUpperCase(),
               xp: d.xp,
               cash: d.cash,
               achievements: d.achievements,
@@ -162,6 +163,7 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_HAS_ASSESSMENT':
       return {
         ...state,
+        view: 'dashboard',
         u: {
           ...state.u,
           student: { ...state.u.student, hasAssessment: true },
