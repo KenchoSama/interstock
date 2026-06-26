@@ -24,10 +24,14 @@ export default function Portfolio() {
   const { result: lookupResult, loading: lookupLoading, error: lookupError, lookup } = useStockLookup();
   const [searchInput, setSearchInput] = useState(sym);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [priceCache, setPriceCache] = useState<Record<string, number>>({});
+  const [chgCache, setChgCache] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (lookupResult) {
       dispatch({ type: 'SET_SYM', sym: lookupResult.sym });
+      setPriceCache(prev => ({ ...prev, [lookupResult.sym]: lookupResult.price }));
+      setChgCache(prev => ({ ...prev, [lookupResult.sym]: lookupResult.chgPct }));
     }
   }, [lookupResult]);
 
@@ -35,13 +39,37 @@ export default function Portfolio() {
     setSearchInput(sym);
   }, [sym]);
 
+  useEffect(() => {
+    const customHoldings = user.portfolio.filter(
+      h => !STOCKS.find(s => s.sym === h.sym)
+    );
+    customHoldings.forEach(async h => {
+      try {
+        const res = await fetch(`/api/chart/${h.sym}?interval=1d&range=1d`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const meta = data?.chart?.result?.[0]?.meta;
+        if (!meta) return;
+        const price: number = meta.regularMarketPrice ?? 0;
+        const prevClose: number = meta.chartPreviousClose ?? price;
+        const chgPct = prevClose ? +((price - prevClose) / prevClose * 100).toFixed(2) : 0;
+        setPriceCache(prev => ({ ...prev, [h.sym]: price }));
+        setChgCache(prev => ({ ...prev, [h.sym]: chgPct }));
+      } catch { /* ignore */ }
+    });
+  }, [user.portfolio]);
+
   function getLivePrice(s: string) {
-    if (lookupResult?.sym === s) return lookupResult.price;
-    return quotes.find(q => q.sym === s)?.price ?? STOCKS.find(st => st.sym === s)?.price ?? 0;
+    return quotes.find(q => q.sym === s)?.price
+      ?? STOCKS.find(st => st.sym === s)?.price
+      ?? priceCache[s]
+      ?? 0;
   }
   function getLiveChgPct(s: string) {
-    if (lookupResult?.sym === s) return lookupResult.chgPct;
-    return quotes.find(q => q.sym === s)?.chgPct ?? STOCKS.find(st => st.sym === s)?.chgPct ?? 0;
+    return quotes.find(q => q.sym === s)?.chgPct
+      ?? STOCKS.find(st => st.sym === s)?.chgPct
+      ?? chgCache[s]
+      ?? 0;
   }
 
   const [localQty, setLocalQty] = useState(qty);

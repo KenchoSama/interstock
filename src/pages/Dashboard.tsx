@@ -41,8 +41,30 @@ export default function Dashboard() {
   const { mentor } = useMentor(userId);
   const { quotes } = useStockQuotes();
 
+  const [customPrices, setCustomPrices] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const customHoldings = user.portfolio.filter(
+      h => !STOCKS.find(s => s.sym === h.sym)
+    );
+    customHoldings.forEach(async h => {
+      try {
+        const res = await fetch(`/api/chart/${h.sym}?interval=1d&range=1d`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const meta = data?.chart?.result?.[0]?.meta;
+        if (!meta) return;
+        const price: number = meta.regularMarketPrice ?? 0;
+        setCustomPrices(prev => ({ ...prev, [h.sym]: price }));
+      } catch { /* ignore */ }
+    });
+  }, [user.portfolio]);
+
   const getLivePrice = (sym: string) =>
-    quotes.find(q => q.sym === sym)?.price ?? STOCKS.find(s => s.sym === sym)?.price ?? 0;
+    quotes.find(q => q.sym === sym)?.price
+    ?? STOCKS.find(s => s.sym === sym)?.price
+    ?? customPrices[sym]
+    ?? 0;
 
   const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000);
   const chartDates = ['', ...snapshots.map(s => s.recorded_at)];
@@ -84,7 +106,7 @@ export default function Dashboard() {
 
   const holdingsValue = useMemo(() => {
     return user.portfolio.reduce((sum, h) => sum + h.shares * getLivePrice(h.sym), 0);
-  }, [user.portfolio, quotes]);
+  }, [user.portfolio, quotes, customPrices]);
 
   const totalValue = holdingsValue + user.cash;
   const levelName = getLevelName(user.xp);
