@@ -239,7 +239,7 @@ function CandleChart({ stock, ticker }: { stock: Stock; ticker: string }) {
   );
 }
 
-function FundamentalsPanel({ stock, ticker }: { stock: Stock; ticker: string }) {
+function FundamentalsPanel({ ticker }: { ticker: string }) {
   const { fundamentals, loading, error } = useStockFundamentals(ticker);
 
   const headerBadge = (bg: string, color: string, label: string) => (
@@ -655,7 +655,7 @@ export default function Fundamentals() {
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <CandleChart stock={stockWithLivePrice} ticker={selectedTicker} />
-          <FundamentalsPanel stock={stockWithLivePrice} ticker={selectedTicker} />
+          <FundamentalsPanel ticker={selectedTicker} />
           <NewsPanel ticker={selectedTicker} stock={stockWithLivePrice} />
         </div>
 
