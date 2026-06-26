@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { STOCKS } from '../data/stocks';
+import { useStockQuotes } from '../hooks/useStockQuotes';
+import { useStockLookup } from '../hooks/useStockLookup';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
-
-const SPOT = 189.84; // AAPL spot price
 
 interface OptionRow {
   k: number;
@@ -11,7 +12,8 @@ interface OptionRow {
 }
 
 function buildChain(spot: number): OptionRow[] {
-  const strikes = [165, 170, 175, 180, 185, 190, 195, 200, 205, 210, 215];
+  const atm = Math.round(spot / 5) * 5;
+  const strikes = [-25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25].map(o => atm + o);
   return strikes.map(k => {
     const d = k - spot;
     const callIntrinsic = Math.max(0, spot - k);
@@ -102,11 +104,11 @@ function OptionsTipBanner() {
   );
 }
 
-function OptionsChainTable({ chain, spotPrice }: { chain: OptionRow[]; spotPrice: number }) {
+function OptionsChainTable({ chain, spotPrice, ticker }: { chain: OptionRow[]; spotPrice: number; ticker: string }) {
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div className="section-title" style={{ margin: 0 }}>AAPL Options Chain — Simulated</div>
+        <div className="section-title" style={{ margin: 0 }}>{ticker} Options Chain — Simulated</div>
         <span style={{ fontSize: 11, padding: '2px 8px', background: 'var(--yellow)', color: '#000', borderRadius: 4, fontWeight: 700 }}>
           EDUCATIONAL ONLY
         </span>
@@ -175,25 +177,59 @@ function GreeksGrid() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Options() {
-  const [stockPrice, setStockPrice] = useState(190);
-  const [strikePrice, setStrikePrice] = useState(195);
-  const [premium, setPremium]         = useState(4.5);
-  const [expiry, setExpiry]           = useState(30);
-  const [optionType, setOptionType]   = useState<'call' | 'put'>('call');
+  const { quotes } = useStockQuotes();
+  const { result, loading: lookupLoading, error: lookupError, lookup, clear } = useStockLookup();
+  const [selectedTicker, setSelectedTicker] = useState('AAPL');
+  const [searchInput, setSearchInput] = useState('AAPL');
 
-  const chain = useMemo(() => buildChain(SPOT), []);
+  const baseStock = STOCKS.find(s => s.sym === selectedTicker);
+  const liveQuote = quotes.find(q => q.sym === selectedTicker);
 
-  const intrinsicValue = useMemo(() => {
-    if (optionType === 'call') return Math.max(0, stockPrice - strikePrice);
-    return Math.max(0, strikePrice - stockPrice);
-  }, [stockPrice, strikePrice, optionType]);
+  const spotPrice = result?.sym === selectedTicker
+    ? result.price
+    : liveQuote?.price ?? baseStock?.price ?? 189.84;
 
+  const displayName = result?.sym === selectedTicker
+    ? result.name
+    : baseStock?.name ?? selectedTicker;
+
+  const liveChg = result?.sym === selectedTicker
+    ? result.chg
+    : liveQuote?.chg ?? baseStock?.chg ?? 0;
+
+  const liveChgPct = result?.sym === selectedTicker
+    ? result.chgPct
+    : liveQuote?.chgPct ?? baseStock?.chgPct ?? 0;
+
+  useEffect(() => {
+    if (result) {
+      setSelectedTicker(result.sym);
+      setSearchInput(result.sym);
+    }
+  }, [result]);
+
+  const chain = useMemo(() => buildChain(spotPrice), [spotPrice]);
+
+  const [optionType, setOptionType] = useState<'call' | 'put'>('call');
+  const [stockPrice, setStockPrice] = useState(spotPrice);
+  const [strikePrice, setStrikePrice] = useState(Math.round(spotPrice / 5) * 5);
+  const [premium, setPremium] = useState(5.00);
+  const [expiry, setExpiry] = useState(30);
+
+  useEffect(() => {
+    setStockPrice(spotPrice);
+    setStrikePrice(Math.round(spotPrice / 5) * 5);
+  }, [spotPrice]);
+
+  const intrinsicValue = optionType === 'call'
+    ? Math.max(0, stockPrice - strikePrice)
+    : Math.max(0, strikePrice - stockPrice);
   const timeValue = Math.max(0, premium - intrinsicValue);
   const breakeven = optionType === 'call' ? strikePrice + premium : strikePrice - premium;
-  const cost      = premium * 100;
+  const cost = premium * 100;
 
   const pnlSvg = useMemo(() => {
-    const low  = Math.max(1, stockPrice * 0.7);
+    const low  = stockPrice * 0.7;
     const high = stockPrice * 1.3;
     const step = (high - low) / 40;
     const pnl: number[] = [];
@@ -221,11 +257,74 @@ export default function Options() {
   return (
     <div className="page-body">
 
+      {/* Stock selector */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 120 }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#ffc107' }}>{selectedTicker}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)' }}>{displayName}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 22, fontWeight: 700 }}>${spotPrice.toFixed(2)}</span>
+            <span className={liveChg >= 0 ? 'up' : 'dn'} style={{ fontSize: 13 }}>
+              {liveChg >= 0 ? '+' : ''}{liveChg.toFixed(2)} ({liveChgPct.toFixed(2)}%)
+            </span>
+          </div>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                type="text"
+                placeholder="Search any ticker..."
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value.toUpperCase())}
+                onKeyDown={e => { if (e.key === 'Enter') lookup(searchInput); }}
+                style={{ flex: 1, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}
+              />
+              <button
+                onClick={() => lookup(searchInput)}
+                disabled={lookupLoading}
+                style={{
+                  padding: '0 14px', borderRadius: 8,
+                  background: 'var(--gr)', color: '#000',
+                  fontWeight: 700, fontSize: 12, flexShrink: 0,
+                }}
+              >
+                {lookupLoading ? '...' : 'GO'}
+              </button>
+            </div>
+            {lookupError && (
+              <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 5 }}>{lookupError}</div>
+            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+              {STOCKS.map(s => {
+                const q = quotes.find(q => q.sym === s.sym);
+                const price = q?.price ?? s.price;
+                return (
+                  <button key={s.sym}
+                    onClick={() => { setSearchInput(s.sym); setSelectedTicker(s.sym); clear(); }}
+                    style={{
+                      padding: '2px 8px', fontSize: 10, borderRadius: 4,
+                      background: selectedTicker === s.sym ? 'var(--gr-dim)' : 'var(--surface)',
+                      border: `1px solid ${selectedTicker === s.sym ? 'var(--gr)' : 'var(--border)'}`,
+                      color: selectedTicker === s.sym ? 'var(--gr)' : 'var(--text3)',
+                      fontWeight: selectedTicker === s.sym ? 700 : 400,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {s.sym} ${price.toFixed(0)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Tip banner */}
       <OptionsTipBanner />
 
       {/* 2. Options chain */}
-      <OptionsChainTable chain={chain} spotPrice={SPOT} />
+      <OptionsChainTable chain={chain} spotPrice={spotPrice} ticker={selectedTicker} />
 
       {/* 3. Greeks grid */}
       <GreeksGrid />

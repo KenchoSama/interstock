@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../state/AppContext';
+import { useLessonProgress } from '../hooks/useLessonProgress';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
@@ -244,7 +245,7 @@ export default function Lessons() {
   const user = state.u[state.role];
   const studentXp = user.xp;
 
-  const [completedIds, setCompletedIds] = useState<Set<number>>(new Set());
+  const { completedIds, loading, completeLesson } = useLessonProgress(user.supabaseId);
   const [activeId, setActiveId] = useState<number | null>(null);
 
   const level2Locked = studentXp < LEVEL_2_XP_REQUIRED;
@@ -260,18 +261,24 @@ export default function Lessons() {
   function handleStart(id: number)  { setActiveId(id); }
   function handleReview(id: number) { setActiveId(id); }
 
-  function completeLesson(lesson: LessonDef) {
-    if (!completedIds.has(lesson.id)) {
-      setCompletedIds(prev => new Set([...prev, lesson.id]));
-      dispatch({ type: 'ADD_XP', amount: lesson.xp });
-    }
+  async function handleCompleteLesson(lesson: LessonDef) {
+    await completeLesson(
+      lesson.id,
+      lesson.xp,
+      (amount) => dispatch({ type: 'ADD_XP', amount })
+    );
     setActiveId(null);
   }
+
+  if (loading) return (
+    <div className="page-body" style={{ textAlign: 'center', paddingTop: 60 }}>
+      <div style={{ fontSize: 14, color: 'var(--text3)' }}>Loading your progress...</div>
+    </div>
+  );
 
   // Lesson reader view
   if (activeId !== null) {
     const lesson = LESSONS_DEF.find(l => l.id === activeId)!;
-    const done = completedIds.has(lesson.id);
     return (
       <div>
         <div className="page-header">
@@ -288,8 +295,8 @@ export default function Lessons() {
             </div>
             <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span className="xp-tag">+{lesson.xp} XP</span>
-              <button className="btn btn-primary" onClick={() => completeLesson(lesson)}>
-                {done ? '✓ Completed' : 'Mark Complete & Earn XP'}
+              <button className="btn btn-primary" onClick={() => handleCompleteLesson(lesson)}>
+                {completedIds.has(lesson.id) ? '✓ Completed' : 'Mark Complete & Earn XP'}
               </button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useApp } from '../state/AppContext';
+import { useFuturesQuotes } from '../hooks/useFuturesQuotes';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
@@ -85,13 +85,20 @@ function FuturesTipBanner() {
 }
 
 function FuturesContractsTable({ data }: { data: typeof FUTURES_DATA }) {
+  const { quotes, loading } = useFuturesQuotes();
+
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div className="section-title" style={{ margin: 0 }}>Futures Contracts — Simulated</div>
-        <span style={{ fontSize: 11, padding: '2px 8px', background: 'var(--yellow)', color: '#000', borderRadius: 4, fontWeight: 700 }}>
-          EDUCATIONAL ONLY
-        </span>
+        <div className="section-title" style={{ margin: 0 }}>Futures Contracts</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <span style={{ fontSize: 10, padding: '2px 8px', background: 'var(--gr-dim)', color: 'var(--gr)', borderRadius: 4, fontWeight: 700, letterSpacing: 1 }}>
+            {loading ? 'LOADING' : 'LIVE PRICES'}
+          </span>
+          <span style={{ fontSize: 11, padding: '2px 8px', background: 'var(--yellow)', color: '#000', borderRadius: 4, fontWeight: 700 }}>
+            EDUCATIONAL ONLY
+          </span>
+        </div>
       </div>
 
       {/* Column headers */}
@@ -109,30 +116,36 @@ function FuturesContractsTable({ data }: { data: typeof FUTURES_DATA }) {
         <span style={{ flex: 1, textAlign: 'right' }}>CONTRACT SIZE</span>
       </div>
 
-      {data.map(f => (
-        <div key={f.ticker} style={{
-          display: 'flex', alignItems: 'center', fontSize: 12,
-          borderBottom: '1px solid rgba(30,58,80,0.5)',
-          padding: '6px 0',
-        }}>
-          <span style={{ width: 120, fontWeight: 600, color: 'var(--text)' }}>{f.name}</span>
-          <span style={{ width: 60, textAlign: 'center', fontFamily: 'monospace', background: 'var(--bg3)', padding: '1px 6px', borderRadius: 4, fontSize: 11, color: 'var(--yellow)', fontWeight: 700 }}>
-            {f.ticker}
-          </span>
-          <span style={{ width: 80, textAlign: 'center', color: 'var(--text3)', fontSize: 11 }}>{f.exchange}</span>
-          <span style={{ flex: 1, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>
-            ${f.price.toLocaleString('en-US', { minimumFractionDigits: f.price < 10 ? 3 : 2, maximumFractionDigits: f.price < 10 ? 3 : 2 })}
-          </span>
-          <span style={{ flex: 1, textAlign: 'right' }} className={f.chg >= 0 ? 'up' : 'dn'}>
-            {f.chg >= 0 ? '+' : ''}{f.chg.toFixed(f.price < 10 ? 3 : 2)} ({f.chgPct >= 0 ? '+' : ''}{f.chgPct.toFixed(2)}%)
-          </span>
-          <span style={{ flex: 1, textAlign: 'right', color: 'var(--text2)' }}>{f.margin}</span>
-          <span style={{ flex: 1, textAlign: 'right', color: 'var(--text3)', fontSize: 11 }}>{f.contract}</span>
-        </div>
-      ))}
+      {data.map(f => {
+        const q = quotes.find(q => q.ticker === f.ticker);
+        const price = q?.price ?? f.price;
+        const chg = q?.chg ?? f.chg;
+        const chgPct = q?.chgPct ?? f.chgPct;
+        return (
+          <div key={f.ticker} style={{
+            display: 'flex', alignItems: 'center', fontSize: 12,
+            borderBottom: '1px solid rgba(30,58,80,0.5)',
+            padding: '6px 0',
+          }}>
+            <span style={{ width: 120, fontWeight: 600, color: 'var(--text)' }}>{f.name}</span>
+            <span style={{ width: 60, textAlign: 'center', fontFamily: 'monospace', background: 'var(--bg3)', padding: '1px 6px', borderRadius: 4, fontSize: 11, color: 'var(--yellow)', fontWeight: 700 }}>
+              {f.ticker}
+            </span>
+            <span style={{ width: 80, textAlign: 'center', color: 'var(--text3)', fontSize: 11 }}>{f.exchange}</span>
+            <span style={{ flex: 1, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>
+              ${price.toLocaleString('en-US', { minimumFractionDigits: price < 10 ? 3 : 2, maximumFractionDigits: price < 10 ? 3 : 2 })}
+            </span>
+            <span style={{ flex: 1, textAlign: 'right' }} className={chg >= 0 ? 'up' : 'dn'}>
+              {chg >= 0 ? '+' : ''}{chg.toFixed(price < 10 ? 3 : 2)} ({chgPct >= 0 ? '+' : ''}{chgPct.toFixed(2)}%)
+            </span>
+            <span style={{ flex: 1, textAlign: 'right', color: 'var(--text2)' }}>{f.margin}</span>
+            <span style={{ flex: 1, textAlign: 'right', color: 'var(--text3)', fontSize: 11 }}>{f.contract}</span>
+          </div>
+        );
+      })}
 
       <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text3)' }}>
-        Margin requirements shown are approximate. Real margins vary by broker and market conditions.
+        Prices are live from Yahoo Finance. Margin requirements are approximate.
       </div>
     </div>
   );
@@ -156,27 +169,6 @@ function FuturesConceptsGrid() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Futures() {
-  const { state } = useApp();
-  const user = state.u[state.role];
-
-  if (user.xp < 500) {
-    return (
-      <div className="page-body">
-        <div className="empty-state">
-          <div className="empty-state-icon">🔒</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Futures Trading Locked</div>
-          <div style={{ color: 'var(--text2)', marginBottom: 16 }}>You need 500 XP to access Futures Trading.</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-            <div style={{ padding: '4px 12px', background: 'var(--gr-dim)', color: 'var(--gr)', borderRadius: 20, fontSize: 13, fontWeight: 600 }}>
-              {user.xp} / 500 XP
-            </div>
-            <span style={{ color: 'var(--text3)', fontSize: 13 }}>{500 - user.xp} more XP needed</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="page-body">
 
