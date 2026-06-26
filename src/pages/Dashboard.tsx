@@ -14,7 +14,6 @@ import ChartWithTooltip from '../components/ChartWithTooltip';
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 const ETF_COLORS = ['var(--gr)', '#4d9fff', '#f9c74f', '#a855f7', '#f97316'];
 const SP500_YTD = 10.8;
-const ETF_XP_REQUIRED = 1500;
 
 const TF_OPTIONS = ['1D', '1W', '1M', '6M', '1Y'] as const;
 type TfOption = typeof TF_OPTIONS[number];
@@ -126,7 +125,6 @@ export default function Dashboard() {
   const levelNum = LEVEL_THRESHOLDS.filter(t => t <= user.xp).length;
   const { top5, myEntry } = useLeaderboard();
 
-  const etfLocked = user.xp < ETF_XP_REQUIRED;
   const etfReturn = state.etf
     ? parseFloat((state.etf.holdings.reduce((sum, h) => {
         const stock = STOCKS.find(s => s.sym === h.sym);
@@ -293,43 +291,15 @@ export default function Dashboard() {
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div className="section-title" style={{ margin: 0 }}>Build an ETF</div>
-                {!etfLocked && (
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => dispatch({ type: 'SET_VIEW', view: 'etf' })}
-                  >
-                    {state.etf ? 'Edit →' : 'Open →'}
-                  </button>
-                )}
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => dispatch({ type: 'SET_VIEW', view: 'etf' })}
+                >
+                  {state.etf ? 'Edit →' : 'Open →'}
+                </button>
               </div>
 
-              {etfLocked ? (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>
-                    <span>XP to unlock</span>
-                    <span style={{ color: 'var(--gr)', fontWeight: 600 }}>{user.xp.toLocaleString()} / 1,500</span>
-                  </div>
-                  <div className="progress-bar" style={{ marginBottom: 12 }}>
-                    <div className="progress-fill" style={{ width: `${(user.xp / ETF_XP_REQUIRED) * 100}%` }} />
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 12 }}>
-                    {['Diversification', 'vs S&P 500', 'Compete'].map(tag => (
-                      <span key={tag} style={{
-                        fontSize: 10, padding: '3px 8px', borderRadius: 20,
-                        background: 'var(--surface2)', color: 'var(--text3)',
-                        border: '1px solid var(--border)',
-                      }}>{tag}</span>
-                    ))}
-                  </div>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ width: '100%', opacity: 0.45, cursor: 'not-allowed', fontSize: 13 }}
-                    disabled
-                  >
-                    Unlocks at 1,500 XP — {ETF_XP_REQUIRED - user.xp} XP away
-                  </button>
-                </div>
-              ) : state.etf ? (
+              {state.etf ? (
                 <>
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>"{state.etf.name}"</div>

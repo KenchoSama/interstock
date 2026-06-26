@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { ALL_SCENARIOS } from '../data/scenarios';
 
@@ -17,25 +17,6 @@ const CATEGORY_COLOR: Record<string, string> = {
   'Risk Analysis':       'var(--yellow)',
 };
 
-function timerColor(pct: number): string {
-  if (pct > 60) return 'var(--gr)';
-  if (pct > 30) return 'var(--yellow)';
-  return 'var(--red)';
-}
-
-function TimerBar({ pct }: { pct: number }) {
-  return (
-    <div style={{ height: 5, background: 'var(--surface2)', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
-      <div style={{
-        height: '100%', borderRadius: 3,
-        width: `${pct}%`,
-        background: timerColor(pct),
-        transition: 'width 0.15s linear, background 0.5s',
-      }} />
-    </div>
-  );
-}
-
 export default function GamePlay() {
   const { state, dispatch } = useApp();
   const { game } = state;
@@ -43,44 +24,22 @@ export default function GamePlay() {
 
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     setSelected(null);
     setRevealed(false);
   }, [game.scenarioIdx]);
 
-  useEffect(() => {
-    if (!game.active || revealed) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      return;
-    }
-    intervalRef.current = setInterval(() => {
-      dispatch({ type: 'TICK_GAME', elapsed: 1 });
-    }, 1000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [game.active, revealed, game.scenarioIdx, dispatch]);
-
-  useEffect(() => {
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, []);
-
   function handleAnswer(idx: number) {
     if (revealed) return;
-    const correct = idx === scenario.answer;
     setSelected(idx);
     setRevealed(true);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setTimeout(() => {
-      dispatch({ type: 'ANSWER_GAME', answerIdx: idx, correct });
-    }, 1800);
   }
 
   function handleNext() {
     dispatch({ type: 'ANSWER_GAME', answerIdx: selected ?? -1, correct: selected === scenario.answer });
   }
 
-  const pct = (game.timeLeft / game.totalTime) * 100;
   const cardColor = CATEGORY_COLOR[scenario.category] ?? 'var(--gr)';
   const isLastQuestion = game.scenarioIdx === ALL_SCENARIOS.length - 1;
 
@@ -100,18 +59,10 @@ export default function GamePlay() {
             Q {game.scenarioIdx + 1}/{ALL_SCENARIOS.length}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 12, color: 'var(--text3)', fontFamily: 'monospace' }}>
-            ⏱ {game.timeLeft}s
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--gr)', fontFamily: 'monospace', fontWeight: 600 }}>
-            Score: {game.score}
-          </span>
-        </div>
+        <span style={{ fontSize: 12, color: 'var(--gr)', fontFamily: 'monospace', fontWeight: 600 }}>
+          Score: {game.score}
+        </span>
       </div>
-
-      {/* Timer bar */}
-      <TimerBar pct={pct} />
 
       {/* Scenario card */}
       <div style={{

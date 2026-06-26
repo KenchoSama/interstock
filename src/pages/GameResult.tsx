@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { ALL_SCENARIOS } from '../data/scenarios';
+import { supabase } from '../lib/supabase';
 
 function resultEmoji(pct: number): string {
   if (pct >= 80) return '🏆';
@@ -23,19 +24,49 @@ function resultColor(pct: number): string {
 export default function GameResult() {
   const { state, dispatch } = useApp();
   const { game } = state;
+  const user     = state.u[state.role];
   const score    = game.score;
   const total    = ALL_SCENARIOS.length;
   const pct      = Math.round((score / total) * 100);
   const isPerfect = score === total;
   const xpEarned  = score * 10 + (isPerfect ? 5 : 0);
+  const [actualXpEarned, setActualXpEarned] = useState(0);
 
   useEffect(() => {
-    dispatch({ type: 'ADD_XP', amount: xpEarned });
     try {
       const prev = localStorage.getItem('interstock_game_best');
       const best = prev !== null ? parseInt(prev, 10) : 0;
       if (score > best) localStorage.setItem('interstock_game_best', String(score));
     } catch { /* ignore */ }
+
+    if (!user.supabaseId) return;
+
+    async function checkAndAwardXP() {
+      const { count } = await supabase
+        .from('game_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.supabaseId)
+        .eq('scenario_id', 'scenario_challenge');
+
+      const isFirstPlay = (count ?? 0) === 0;
+      const earnedThisRound = isFirstPlay && score > 0 ? xpEarned : 0;
+
+      await supabase.from('game_sessions').insert({
+        user_id: user.supabaseId,
+        scenario_id: 'scenario_challenge',
+        score,
+        xp_earned: earnedThisRound,
+      });
+
+      if (earnedThisRound > 0) {
+        dispatch({ type: 'ADD_XP', amount: earnedThisRound });
+        await supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: earnedThisRound });
+      }
+
+      setActualXpEarned(earnedThisRound);
+    }
+
+    checkAndAwardXP();
   }, []);
 
   return (
@@ -51,7 +82,7 @@ export default function GameResult() {
           {pct}%
         </div>
         <div style={{ color: 'var(--text3)', marginBottom: 24, fontFamily: 'monospace', fontSize: 13 }}>
-          {score}/{total} correct · {xpEarned.toLocaleString()} XP earned
+          {score}/{total} correct · {actualXpEarned.toLocaleString()} XP earned
         </div>
       </div>
 
@@ -63,7 +94,7 @@ export default function GameResult() {
         </div>
         <div className="stat-card">
           <div className="stat-label">XP Earned</div>
-          <div className="stat-value" style={{ color: 'var(--gr)' }}>+{xpEarned}</div>
+          <div className="stat-value" style={{ color: 'var(--gr)' }}>+{actualXpEarned}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Accuracy</div>

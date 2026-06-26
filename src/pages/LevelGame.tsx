@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { LEVEL_GAME, calcStars, PASS_THRESHOLD } from '../data/levels';
+import { supabase } from '../lib/supabase';
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'];
 
@@ -440,6 +441,7 @@ function PlayView() {
 function ResultView() {
   const { state, dispatch } = useApp();
   const { levelGame } = state;
+  const user = state.u[state.role];
   const { score, currentLevel } = levelGame;
   const levelData      = LEVEL_GAME[currentLevel - 1];
   const totalQuestions = levelData?.questions.length ?? 3;
@@ -450,9 +452,24 @@ function ResultView() {
   const hasNext        = currentLevel < LEVEL_GAME.length;
 
   useEffect(() => {
-    if (passed && xpEarned > 0) {
+    if (!passed || xpEarned === 0) return;
+
+    const previousStars = getSavedStars()[currentLevel] ?? 0;
+    const firstCompletion = previousStars === 0;
+
+    saveStars(currentLevel, stars);
+
+    if (firstCompletion) {
       dispatch({ type: 'ADD_XP', amount: xpEarned });
-      saveStars(currentLevel, stars);
+      if (user.supabaseId) {
+        supabase.from('game_sessions').insert({
+          user_id: user.supabaseId,
+          scenario_id: `level_${currentLevel}`,
+          score,
+          xp_earned: xpEarned,
+        });
+        supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: xpEarned });
+      }
     }
   }, []);
 
