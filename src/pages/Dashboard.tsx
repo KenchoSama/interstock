@@ -122,16 +122,47 @@ export default function Dashboard() {
   const diplomaPct = Math.round((diplomasEarned / diplomasTotal) * 100);
 
   const [chartTf, setChartTf] = useState<TfOption>('1Y');
+
+  const filteredChartPoints = useMemo(() => {
+    if (flatLine || snapshots.length === 0) return chartPoints;
+    const now = new Date();
+    const cutoff = new Date();
+    switch (chartTf) {
+      case '1D': cutoff.setDate(now.getDate() - 1); break;
+      case '1W': cutoff.setDate(now.getDate() - 7); break;
+      case '1M': cutoff.setMonth(now.getMonth() - 1); break;
+      case '6M': cutoff.setMonth(now.getMonth() - 6); break;
+      case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
+    }
+    const filtered = snapshots.filter(s => new Date(s.recorded_at) >= cutoff);
+    return [10000, ...filtered.map(s => Number(s.total_value))];
+  }, [chartTf, snapshots, chartPoints, flatLine]);
+
+  const filteredStartDate = useMemo(() => {
+    if (flatLine || snapshots.length === 0) return startDate;
+    const now = new Date();
+    const cutoff = new Date();
+    switch (chartTf) {
+      case '1D': cutoff.setDate(now.getDate() - 1); break;
+      case '1W': cutoff.setDate(now.getDate() - 7); break;
+      case '1M': cutoff.setMonth(now.getMonth() - 1); break;
+      case '6M': cutoff.setMonth(now.getMonth() - 6); break;
+      case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
+    }
+    return cutoff.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }, [chartTf, snapshots, flatLine, startDate]);
+
   const chartSvg = useMemo(() => {
-    if (flatLine) {
+    const points = filteredChartPoints;
+    if (points.length <= 1) {
       return lineChart(Array(30).fill(totalValue), 530, 120, 'var(--gr)');
     }
     return lineChart(
-      chartPoints,
+      points,
       530, 120,
-      chartPoints[chartPoints.length - 1] >= chartPoints[0] ? 'var(--gr)' : 'var(--red)'
+      points[points.length - 1] >= points[0] ? 'var(--gr)' : 'var(--red)'
     );
-  }, [chartPoints, flatLine, totalValue]);
+  }, [filteredChartPoints, totalValue]);
 
   const portfolioChange = holdingsValue > 0
     ? user.portfolio.reduce((sum, h) => sum + (getLivePrice(h.sym) - h.avg) * h.shares, 0)
@@ -242,7 +273,7 @@ export default function Dashboard() {
               {/* Chart with tooltip overlay */}
               <ChartWithTooltip
                 chartSvg={chartSvg}
-                chartPoints={chartPoints}
+                chartPoints={filteredChartPoints}
                 flatLine={flatLine}
                 totalValue={totalValue}
                 dates={chartDates}
@@ -250,7 +281,7 @@ export default function Dashboard() {
 
               {/* Date range */}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--text3)', fontFamily: 'monospace' }}>
-                <span>{startDate}</span>
+                <span>{filteredStartDate}</span>
                 <span>{today}</span>
               </div>
             </div>

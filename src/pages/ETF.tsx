@@ -1,25 +1,21 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { useApp } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
-import { lineChart, genPrices, donutChart } from '../utils/charts';
+import { lineChart, donutChart } from '../utils/charts';
+import { useEtfLeaderboard } from '../hooks/useEtfLeaderboard';
+import { useSpxReturn } from '../hooks/useSpxReturn';
 
-const SP500_RETURN = 14.2;
 const COLS = ['#00d4a8', '#4d9fff', '#f9c74f', '#a855f7', '#ff4d6d', '#22d3ee', '#f97316', '#ec4899'];
 
 interface LbEntry { r: number; n: string; s: string; rt: number; me?: boolean }
 
-const LEADERBOARD_STATIC: LbEntry[] = [
-  { r: 1, n: 'Growth & Income ETF', s: 'Layla Hassan',   rt: 22.4 },
-  { r: 2, n: 'Tech Titans',         s: 'Jordan Smith',   rt: 18.1 },
-  { r: 3, n: 'Dividend Kings',      s: 'Sofia Castillo', rt: 15.9 },
-  { r: 5, n: 'Balance Pro',         s: 'Ana Gutierrez',  rt: 7.2  },
-];
 
 type Holding = { sym: string; weight: number };
 
 export default function ETF() {
   const { state, dispatch } = useApp();
   const user = state.u[state.role];
+  const { spxReturn, spxPoints, spxDates } = useSpxReturn();
 
   const [etfName, setEtfName]     = useState(() => state.etf?.name ?? '');
   const [holdings, setHoldings]   = useState<Holding[]>(
@@ -27,6 +23,8 @@ export default function ETF() {
   );
   const [addSym, setAddSym]       = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [tooltip, setTooltip]     = useState<{ x: number; spx: number; dateLabel: string } | null>(null);
+  const wrapRef                   = useRef<HTMLDivElement>(null);
 
   const total           = holdings.reduce((s, h) => s + h.weight, 0);
   const availableStocks = STOCKS.filter(s => !holdings.find(h => h.sym === s.sym));
@@ -41,10 +39,14 @@ export default function ETF() {
     return parseFloat((weighted + 8).toFixed(1));
   }, [holdings]);
 
-  const alpha = parseFloat((etfReturn - SP500_RETURN).toFixed(1));
+  const alpha = parseFloat((etfReturn - spxReturn).toFixed(1));
 
-  const chartPrices = useMemo(() => genPrices(100, 90, 0.012), []);
-  const chartSvg    = lineChart(chartPrices, 520, 160);
+  const chartSvg = useMemo(() => {
+    if (spxPoints.length > 1) {
+      return lineChart(spxPoints.slice(-90), 520, 160, 'var(--gr)');
+    }
+    return lineChart(Array(30).fill(100), 520, 160, 'var(--gr)');
+  }, [spxPoints]);
 
   const donutSegments = holdings.map((h, i) => ({
     label: h.sym,
@@ -55,11 +57,35 @@ export default function ETF() {
     ? donutChart(donutSegments, 160).replace('<svg ', '<svg width="160" height="160" ')
     : '';
 
-  const lbEntries: LbEntry[] = [
-    ...LEADERBOARD_STATIC.slice(0, 3),
-    { r: 4, n: `"${etfName || 'My ETF'}"`, s: user.name, rt: etfReturn, me: true },
-    ...LEADERBOARD_STATIC.slice(3),
-  ];
+  const { entries, loading: lbLoading } = useEtfLeaderboard(user.supabaseId);
+  const lbEntries: LbEntry[] = entries.length > 0
+    ? entries.map((e, i) => ({
+        r: i + 1,
+        n: e.name,
+        s: e.student_name ?? 'Student',
+        rt: e.return_pct,
+        me: e.user_id === user.supabaseId,
+      }))
+    : submitted
+    ? [{ r: 1, n: etfName || 'My ETF', s: user.name, rt: etfReturn, me: true }]
+    : [];
+
+  function handleChartMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    const slice = spxPoints.slice(-90);
+    if (!rect || slice.length === 0) return;
+    const relX = e.clientX - rect.left;
+    const idx = Math.round((relX / rect.width) * (slice.length - 1));
+    const clamped = Math.max(0, Math.min(slice.length - 1, idx));
+    const dateTs = spxDates.slice(-90)[clamped];
+    setTooltip({
+      x: relX,
+      spx: +((slice[clamped] / slice[0] - 1) * 100).toFixed(2),
+      dateLabel: dateTs
+        ? new Date(dateTs * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '',
+    });
+  }
 
   function handlePctChange(i: number, val: string) {
     const n = Math.max(0, Math.min(100, Number(val) || 0));
@@ -226,7 +252,7 @@ export default function ETF() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
                   {[
                     { label: 'My ETF Return', value: `+${etfReturn}%`,                                          color: 'var(--gr)'  },
-                    { label: 'S&P 500',        value: `+${SP500_RETURN}%`,                                      color: 'var(--gr)'  },
+                    { label: 'S&P 500 YTD',    value: `${spxReturn >= 0 ? '+' : ''}${spxReturn}%`,            color: 'var(--gr)'  },
                     { label: 'Alpha',           value: `${alpha >= 0 ? '+' : ''}${alpha}%`, color: alpha >= 0 ? 'var(--gr)' : 'var(--red)' },
                   ].map(m => (
                     <div key={m.label} style={{
@@ -243,8 +269,47 @@ export default function ETF() {
                   ))}
                 </div>
 
-                {/* Line chart */}
-                <div className="chart-wrap" style={{ height: 160, overflow: 'hidden' }} dangerouslySetInnerHTML={{ __html: chartSvg }} />
+                {/* Line chart with crosshair tooltip */}
+                <div
+                  ref={wrapRef}
+                  style={{ position: 'relative', cursor: 'crosshair', height: 160, overflow: 'hidden' }}
+                  onMouseMove={handleChartMouseMove}
+                  onMouseLeave={() => setTooltip(null)}
+                >
+                  <div
+                    className="chart-wrap"
+                    style={{ height: 160, overflow: 'hidden' }}
+                    dangerouslySetInnerHTML={{ __html: chartSvg }}
+                  />
+                  {tooltip && (
+                    <>
+                      <div style={{
+                        position: 'absolute', top: 8,
+                        left: tooltip.x > 300 ? tooltip.x - 150 : tooltip.x + 12,
+                        background: 'var(--surface)', border: '1px solid var(--border)',
+                        borderRadius: 8, padding: '8px 12px', pointerEvents: 'none',
+                        minWidth: 150, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', zIndex: 10,
+                      }}>
+                        {tooltip.dateLabel && (
+                          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontFamily: 'monospace' }}>
+                            {tooltip.dateLabel}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text3)' }}>S&P 500</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: tooltip.spx >= 0 ? 'var(--gr)' : 'var(--red)' }}>
+                            {tooltip.spx >= 0 ? '+' : ''}{tooltip.spx}%
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{
+                        position: 'absolute', top: 0, left: tooltip.x,
+                        width: 1, height: '100%', background: 'rgba(255,255,255,0.15)',
+                        pointerEvents: 'none',
+                      }} />
+                    </>
+                  )}
+                </div>
 
                 {/* Submit button */}
                 <button
@@ -302,7 +367,17 @@ export default function ETF() {
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               {panelHeader('Top ETFs')}
               <div style={{ padding: '4px 14px' }}>
-                {lbEntries.map(e => {
+                {lbLoading && (
+                  <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 12, color: 'var(--text3)' }}>
+                    Loading...
+                  </div>
+                )}
+                {!lbLoading && lbEntries.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 12, color: 'var(--text3)' }}>
+                    No ETFs submitted yet. Be the first!
+                  </div>
+                )}
+                {!lbLoading && lbEntries.map(e => {
                   const RANK_STYLES: Record<number, { bg: string; color: string }> = {
                     1: { bg: '#f9c74f', color: '#07111c' },
                     2: { bg: '#adb5bd', color: '#07111c' },

@@ -128,6 +128,59 @@ export function lineChart(
 </svg>`;
 }
 
+export function dualLineChart(
+  points1: number[],
+  points2: number[],
+  w = 520, h = 160,
+  color1 = '#00d4a8',
+  color2 = 'rgba(255,255,255,0.25)'
+): string {
+  if (points1.length < 2 && points2.length < 2) return '';
+
+  const norm = (pts: number[]) => {
+    const base = pts[0];
+    return pts.map(p => (p / base) * 100);
+  };
+
+  const n1 = norm(points1.filter(Boolean));
+  const n2 = norm(points2.filter(Boolean));
+
+  const allVals = [...n1, ...n2];
+  const minV = Math.min(...allVals) * 0.998;
+  const maxV = Math.max(...allVals) * 1.002;
+  const range = maxV - minV || 1;
+
+  const pad = 8;
+  const W = w - pad * 2;
+  const H = h - pad * 2;
+
+  const toPath = (pts: number[]) =>
+    pts.map((v, i) => {
+      const x = pad + (i / (pts.length - 1)) * W;
+      const y = pad + H - ((v - minV) / range) * H;
+      return `${x},${y}`;
+    }).join(' ');
+
+  const p1 = toPath(n1);
+  const p2 = toPath(n2);
+
+  const firstX = pad;
+  const lastX  = pad + W;
+  const baseY  = pad + H;
+
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="160" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="etfGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color1}" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="${color1}" stop-opacity="0.01"/>
+      </linearGradient>
+    </defs>
+    <polygon points="${firstX},${baseY} ${p1} ${lastX},${baseY}" fill="url(#etfGrad)"/>
+    <polyline points="${p2}" fill="none" stroke="${color2}" stroke-width="1.5" stroke-dasharray="4,3" stroke-linejoin="round" stroke-linecap="round"/>
+    <polyline points="${p1}" fill="none" stroke="${color1}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+}
+
 export function donutChart(
   segments: { label: string; value: number; color: string }[],
   size = 120,
