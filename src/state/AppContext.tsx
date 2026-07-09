@@ -25,6 +25,7 @@ function makeUser(name: string, xp = 0): AppState['u'][Role] {
     supabaseId: null as string | null,
     portfolioId: null as string | null,
     hasAssessment: false,
+    school_id: null as string | null,
   };
 }
 
@@ -118,7 +119,7 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'LOGIN'; role: Role; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; school_id?: string | null; portfolio: AppState['u']['student']['portfolio'] } }
   | { type: 'LOGOUT' }
   | { type: 'SET_HAS_ASSESSMENT' };
 
@@ -153,6 +154,7 @@ function reducer(state: AppState, action: Action): AppState {
               supabaseId: d.supabaseId ?? null,
               portfolioId: d.portfolioId ?? null,
               hasAssessment: d.hasAssessment ?? false,
+              school_id: d.school_id ?? null,
             },
           },
         };

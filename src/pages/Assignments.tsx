@@ -1,8 +1,10 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useApp } from '../state/AppContext';
+import { useAssignments } from '../hooks/useAssignments';
+import { supabase } from '../lib/supabase';
 
 interface Assignment {
-  id: number;
+  id: string;
   title: string;
   cls: string;
   due: string;
@@ -16,45 +18,6 @@ interface Assignment {
   xpReward: number;
 }
 
-const DEMO_ASSIGNMENTS: Assignment[] = [
-  {
-    id: 1,
-    title: 'Build a Diversified Portfolio',
-    cls: 'Portfolio Management',
-    due: 'Jun 10, 2026',
-    status: 'pending',
-    src: 'student',
-    xpReward: 75,
-    instr: 'Invest your virtual $100,000 across at least 5 different sectors. Write a 200-word thesis explaining your selections.',
-  },
-  {
-    id: 2,
-    title: "Analyze a Company's Fundamentals",
-    cls: 'Equity Research',
-    due: 'Jun 17, 2026',
-    status: 'submitted',
-    src: 'staff',
-    file: 'apple_analysis.docx',
-    sub: 'Jun 8, 2026',
-    by: 'Ms. Lewis',
-    xpReward: 100,
-    instr: 'Choose any stock from our universe. Research its P/E ratio, earnings growth, debt levels, and competitive position.',
-  },
-  {
-    id: 3,
-    title: 'Options Strategy Proposal',
-    cls: 'Derivatives',
-    due: 'May 30, 2026',
-    status: 'graded',
-    grade: '92%',
-    src: 'student',
-    file: 'options_strategy.pdf',
-    sub: 'May 28, 2026',
-    xpReward: 125,
-    instr: 'Describe a real-world scenario where you would use a covered call strategy. Include the setup, risk/reward, and outcome scenarios.',
-  },
-];
-
 const ACCEPTED_FORMATS = [
   { f: 'PDF', u: 'Reports & Essays' },
   { f: 'DOCX', u: 'Word Documents' },
@@ -67,7 +30,7 @@ function AssignmentCard({
   onFileSubmit,
 }: {
   assignment: Assignment;
-  onFileSubmit: (id: number, filename: string) => void;
+  onFileSubmit: (id: string, filename: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -240,17 +203,40 @@ function AssignmentCard({
 }
 
 export default function Assignments() {
-  const { dispatch } = useApp();
-  const [assigns, setAssigns] = useState<Assignment[]>(DEMO_ASSIGNMENTS);
+  const { state, dispatch } = useApp();
+  const user = state.u[state.role];
+  const { assignments, loading, submitAssignment } = useAssignments(
+    user.supabaseId,
+    user.school_id ?? null
+  );
 
-  function submitFile(id: number, filename: string) {
-    setAssigns(prev =>
-      prev.map(a => (a.id === id ? { ...a, status: 'submitted', file: filename } : a))
-    );
+  async function submitFile(assignmentId: string, filename: string) {
+    if (!user.supabaseId) return;
+    await submitAssignment(assignmentId, user.supabaseId);
     dispatch({ type: 'ADD_XP', amount: 15 });
+    await supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: 15 });
   }
 
-  const pendingCount = assigns.filter(a => a.status === 'pending').length;
+  const pendingCount = assignments.filter(a => a.status === 'pending').length;
+
+  // Map AssignmentRow to the shape AssignmentCard expects
+  const assigns: Assignment[] = assignments.map(a => ({
+    id: a.id,
+    title: a.title,
+    cls: 'Assignment',
+    due: a.due_date
+      ? new Date(a.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'No due date',
+    status: a.status,
+    grade: a.grade != null ? `${a.grade}%` : undefined,
+    instr: a.description ?? undefined,
+    file: undefined,
+    src: 'staff',
+    sub: a.submitted_at
+      ? new Date(a.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : undefined,
+    xpReward: 15,
+  }));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -277,7 +263,20 @@ export default function Assignments() {
               <div className="section-title" style={{ marginBottom: 0 }}>My Assignments</div>
               <span className="badge badge-red">{pendingCount} PENDING</span>
             </div>
-            {assigns.map(a => (
+
+            {loading && (
+              <div style={{ textAlign: 'center', padding: '40px 0', fontSize: 13, color: 'var(--text3)' }}>
+                Loading assignments...
+              </div>
+            )}
+
+            {!loading && assigns.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px 0', fontSize: 13, color: 'var(--text3)' }}>
+                No assignments yet.
+              </div>
+            )}
+
+            {!loading && assigns.map(a => (
               <AssignmentCard key={a.id} assignment={a} onFileSubmit={submitFile} />
             ))}
           </div>

@@ -1,29 +1,14 @@
 import { useApp } from '../state/AppContext';
-import { LB } from '../data';
-
-const MOVES: number[] = [0, 1, -1, 2, 0, 3, -2];
+import { useLeaderboard } from '../hooks/useLeaderboard';
+import { useFriends } from '../hooks/useFriends';
 
 export default function Leaderboard() {
   const { state } = useApp();
   const user = state.u[state.role];
-  const myReturn = user.portfolio.length > 0
-    ? parseFloat(
-        (
-          user.portfolio.reduce((sum, h) => {
-            const price = h.price;
-            return sum + (price - h.avg) * h.shares;
-          }, 0) /
-          user.portfolio.reduce((sum, h) => sum + h.avg * h.shares, 0) *
-          100
-        ).toFixed(1)
-      )
-    : 6.8;
+  const { entries, myEntry, loading, leader } = useLeaderboard(user.supabaseId ?? undefined, 20);
+  const { sendRequest, sentIds } = useFriends(user.supabaseId);
 
-  const myRank =
-    LB.findIndex(e => (e.returnPct ?? 0) < myReturn) + 1 || LB.length + 1;
-
-  const leader = LB[0];
-  const totalParticipants = 847;
+  const isInTop = myEntry ? entries.some(e => e.id === myEntry.id) : false;
 
   function rankBadge(r: number) {
     const base: React.CSSProperties = {
@@ -55,125 +40,146 @@ export default function Leaderboard() {
       </div>
 
       <div className="page-body">
-        {/* Stat cards */}
-        <div className="stats-row" style={{ marginBottom: 20 }}>
-          <div className="stat-card" style={{ borderLeft: '3px solid #00e676' }}>
-            <div className="stat-label">Your Rank</div>
-            <div className="stat-value">#{myRank}</div>
-            <div className="stat-sub" style={{ color: '#00e676' }}>Top 3%</div>
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '40px 0', fontSize: 13, color: 'var(--text3)' }}>
+            Loading leaderboard...
           </div>
-          <div className="stat-card">
-            <div className="stat-label">Your Return</div>
-            <div className="stat-value" style={{ color: '#00e676' }}>+{myReturn}%</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Leader</div>
-            <div className="stat-value" style={{ color: '#00e676' }}>+{leader.returnPct}%</div>
-            <div className="stat-sub">{leader.name}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Participants</div>
-            <div className="stat-value">{totalParticipants}</div>
-          </div>
-        </div>
+        )}
 
-        {/* Rankings table */}
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div
-            style={{
-              padding: '14px 20px',
-              borderBottom: '1px solid var(--border)',
-              fontSize: 12,
-              fontWeight: 700,
-              color: 'var(--text2)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.6px',
-            }}
-          >
-            Full Rankings — National Spring Stock Challenge
-          </div>
-          <table style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Student</th>
-                <th>School</th>
-                <th>Return</th>
-                <th>Value</th>
-                <th>Move</th>
-              </tr>
-            </thead>
-            <tbody>
-              {LB.map((e, i) => (
-                <tr key={e.rank}>
-                  <td>
-                    <div style={rankBadge(e.rank)}>{e.rank}</div>
-                  </td>
-                  <td style={{ fontWeight: 600 }}>
-                    {e.name}
-                  </td>
-                  <td style={{ color: 'var(--text3)', fontSize: 12 }}>{e.school}</td>
-                  <td style={{ color: '#00e676', fontFamily: 'monospace', fontWeight: 600 }}>
-                    +{e.returnPct}%
-                  </td>
-                  <td style={{ fontFamily: 'monospace' }}>
-                    ${fmt(100000 * (1 + (e.returnPct ?? 0) / 100))}
-                  </td>
-                  <td>
-                    {MOVES[i] > 0 ? (
-                      <span style={{ color: '#00e676' }}>▲{MOVES[i]}</span>
-                    ) : MOVES[i] < 0 ? (
-                      <span style={{ color: 'var(--red)' }}>▼{Math.abs(MOVES[i])}</span>
-                    ) : (
-                      <span style={{ color: 'var(--text3)' }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-
-              {/* Current user row */}
-              <tr style={{ background: 'rgba(0,230,118,0.08)' }}>
-                <td>
-                  <div style={rankBadge(myRank)}>{myRank}</div>
-                </td>
-                <td style={{ fontWeight: 600 }}>
-                  {user.name}
-                  <span
-                    style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', display: 'inline-flex', alignItems: 'center', borderRadius: 20, fontWeight: 600, background: 'rgba(0,230,118,0.12)', color: '#00e676' }}
-                  >
-                    YOU
-                  </span>
-                </td>
-                <td style={{ color: 'var(--text3)', fontSize: 12 }}>Lincoln HS</td>
-                <td style={{ color: '#00e676', fontFamily: 'monospace', fontWeight: 600 }}>
-                  +{myReturn}%
-                </td>
-                <td style={{ fontFamily: 'monospace' }}>
-                  ${fmt(100000 * (1 + myReturn / 100))}
-                </td>
-                <td>
-                  <span style={{ color: '#00e676' }}>▲2</span>
-                </td>
-              </tr>
-
-              {/* Ellipsis row */}
-              <tr>
-                <td
-                  colSpan={6}
-                  style={{
-                    textAlign: 'center',
-                    color: 'var(--text3)',
-                    fontSize: 11,
-                    padding: 14,
-                    fontFamily: 'monospace',
-                  }}
+        {!loading && (
+          <>
+            {/* Stat cards */}
+            <div className="stats-row" style={{ marginBottom: 20 }}>
+              <div className="stat-card" style={{ borderLeft: '3px solid #00e676' }}>
+                <div className="stat-label">Your Rank</div>
+                <div className="stat-value">{myEntry ? `#${myEntry.global_rank}` : '—'}</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Your Return</div>
+                <div
+                  className="stat-value"
+                  style={{ color: (myEntry?.return_pct ?? 0) >= 0 ? '#00e676' : 'var(--red)' }}
                 >
-                  ··· {totalParticipants - LB.length - 1} more students ···
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                  {myEntry ? `${myEntry.return_pct >= 0 ? '+' : ''}${myEntry.return_pct.toFixed(1)}%` : '—'}
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Leader</div>
+                <div className="stat-value" style={{ color: '#00e676' }}>
+                  {leader ? `+${leader.return_pct.toFixed(1)}%` : '—'}
+                </div>
+                <div className="stat-sub">{leader?.full_name ?? '—'}</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Participants</div>
+                <div className="stat-value">{entries.length}</div>
+              </div>
+            </div>
+
+            {/* Rankings table */}
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div
+                style={{
+                  padding: '14px 20px',
+                  borderBottom: '1px solid var(--border)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: 'var(--text2)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.6px',
+                }}
+              >
+                Full Rankings — National Spring Stock Challenge
+              </div>
+              <table style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Student</th>
+                    <th>School</th>
+                    <th>Return</th>
+                    <th>Value</th>
+                    <th>Add</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.length === 0 && (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                        No leaderboard data yet.
+                      </td>
+                    </tr>
+                  )}
+
+                  {entries.map(e => (
+                    <tr key={e.id} style={e.id === myEntry?.id ? { background: 'rgba(0,230,118,0.08)' } : undefined}>
+                      <td>
+                        <div style={rankBadge(e.global_rank)}>{e.global_rank}</div>
+                      </td>
+                      <td style={{ fontWeight: 600 }}>
+                        {e.full_name}
+                        {e.id === myEntry?.id && (
+                          <span
+                            style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', display: 'inline-flex', alignItems: 'center', borderRadius: 20, fontWeight: 600, background: 'rgba(0,230,118,0.12)', color: '#00e676' }}
+                          >
+                            YOU
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ color: 'var(--text3)', fontSize: 12 }}>{e.school_id ?? '—'}</td>
+                      <td style={{ color: e.return_pct >= 0 ? '#00e676' : 'var(--red)', fontFamily: 'monospace', fontWeight: 600 }}>
+                        {e.return_pct >= 0 ? '+' : ''}{e.return_pct.toFixed(1)}%
+                      </td>
+                      <td style={{ fontFamily: 'monospace' }}>${fmt(e.total_value)}</td>
+                      <td>
+                        {e.id !== user.supabaseId && (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => sendRequest(e.id)}
+                            disabled={sentIds.has(e.id)}
+                            style={{ fontSize: 11, opacity: sentIds.has(e.id) ? 0.6 : 1 }}
+                          >
+                            {sentIds.has(e.id) ? '✓ Requested' : '+ Add'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {/* Current user, shown separately if outside the fetched range */}
+                  {myEntry && !isInTop && (
+                    <>
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 11, padding: 10, fontFamily: 'monospace' }}>
+                          ···
+                        </td>
+                      </tr>
+                      <tr style={{ background: 'rgba(0,230,118,0.08)' }}>
+                        <td>
+                          <div style={rankBadge(myEntry.global_rank)}>{myEntry.global_rank}</div>
+                        </td>
+                        <td style={{ fontWeight: 600 }}>
+                          {myEntry.full_name}
+                          <span
+                            style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', display: 'inline-flex', alignItems: 'center', borderRadius: 20, fontWeight: 600, background: 'rgba(0,230,118,0.12)', color: '#00e676' }}
+                          >
+                            YOU
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--text3)', fontSize: 12 }}>{myEntry.school_id ?? '—'}</td>
+                        <td style={{ color: myEntry.return_pct >= 0 ? '#00e676' : 'var(--red)', fontFamily: 'monospace', fontWeight: 600 }}>
+                          {myEntry.return_pct >= 0 ? '+' : ''}{myEntry.return_pct.toFixed(1)}%
+                        </td>
+                        <td style={{ fontFamily: 'monospace' }}>${fmt(myEntry.total_value)}</td>
+                        <td />
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

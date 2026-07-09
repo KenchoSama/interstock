@@ -1,4 +1,5 @@
 import { useApp, isLocked } from '../../state/AppContext';
+import { useUnreadCount } from '../../hooks/useUnreadCount';
 import type { Role } from '../../types';
 
 interface NavItem {
@@ -20,6 +21,7 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'diplomas', label: 'Diplomas' },
     { id: 'etf', label: 'Build an ETF' },
     { id: 'assignments', label: 'Assignments', section: 'School' },
+    { id: 'messages', label: 'Messages', section: 'School' },
     { id: 'compete', label: 'Compete' },
     { id: 'leaderboard', label: 'Leaderboard' },
     { id: 'field-trips', label: 'Field Trips' },
@@ -65,7 +67,9 @@ const NAV: Record<Role, NavItem[]> = {
 export default function Sidebar() {
   const { state, dispatch } = useApp();
   const items = NAV[state.role] ?? [];
-  const userXp = state.u[state.role].xp;
+  const user = state.u[state.role];
+  const userXp = user.xp;
+  const { count: unreadCount } = useUnreadCount(user.supabaseId);
 
   let currentSection = '';
 
@@ -90,6 +94,17 @@ export default function Sidebar() {
             >
               <span>{item.label}</span>
               {locked && <span className="nav-lock">🔒</span>}
+              {item.id === 'messages' && unreadCount > 0 && (
+                <span style={{
+                  marginLeft: 'auto', minWidth: 18, height: 18,
+                  borderRadius: 9, background: 'var(--red)',
+                  color: '#fff', fontSize: 10, fontWeight: 700,
+                  display: 'inline-flex', alignItems: 'center',
+                  justifyContent: 'center', padding: '0 4px',
+                }}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
           </div>
         );

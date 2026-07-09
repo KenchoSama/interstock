@@ -230,6 +230,7 @@ export interface UserProfile {
   supabaseId: string | null;
   portfolioId: string | null;
   hasAssessment: boolean;
+  school_id: string | null;
 }
 
 export interface NavItem {

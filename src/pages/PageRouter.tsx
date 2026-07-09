@@ -13,6 +13,7 @@ import LevelGame from './LevelGame';
 import Diplomas from './Diplomas';
 import ETF from './ETF';
 import Assignments from './Assignments';
+import Messages from './Messages';
 import Compete from './Compete';
 import Leaderboard from './Leaderboard';
 import FieldTrips from './FieldTrips';
@@ -54,6 +55,7 @@ export default function PageRouter() {
     'diplomas': <Diplomas />,
     'etf': <ETF />,
     'assignments': <Assignments />,
+    'messages': <Messages />,
     'compete': <Compete />,
     'leaderboard': <Leaderboard />,
     'field-trips': <FieldTrips />,

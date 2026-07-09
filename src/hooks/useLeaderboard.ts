@@ -11,8 +11,8 @@ export interface LeaderboardEntry {
   total_value: number;
 }
 
-export function useLeaderboard(userId?: string) {
-  const [top5, setTop5] = useState<LeaderboardEntry[]>([]);
+export function useLeaderboard(userId?: string, limit = 5) {
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [myEntry, setMyEntry] = useState<LeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,9 +22,9 @@ export function useLeaderboard(userId?: string) {
         .from('leaderboard')
         .select('id, full_name, xp, school_id, global_rank, return_pct, total_value')
         .order('global_rank', { ascending: true })
-        .limit(5);
+        .limit(limit);
 
-      if (data) setTop5(data);
+      if (data) setEntries(data);
 
       if (userId) {
         const { data: me } = await supabase
@@ -38,7 +38,11 @@ export function useLeaderboard(userId?: string) {
       setLoading(false);
     }
     fetch();
-  }, [userId]);
+  }, [userId, limit]);
 
-  return { top5, myEntry, loading };
+  // Keep top5 as alias for dashboard compatibility
+  const top5 = entries.slice(0, 5);
+  const leader = entries[0] ?? null;
+
+  return { entries, top5, myEntry, loading, leader };
 }
