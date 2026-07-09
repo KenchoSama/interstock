@@ -210,7 +210,7 @@ export default function Assignments() {
     user.school_id ?? null
   );
 
-  async function submitFile(assignmentId: string, filename: string) {
+  async function submitFile(assignmentId: string, _filename: string) {
     if (!user.supabaseId) return;
     await submitAssignment(assignmentId, user.supabaseId);
     dispatch({ type: 'ADD_XP', amount: 15 });

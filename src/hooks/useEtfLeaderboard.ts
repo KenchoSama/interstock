@@ -11,7 +11,7 @@ export interface EtfEntry {
   student_name: string | null;
 }
 
-export function useEtfLeaderboard(currentUserId?: string | null) {
+export function useEtfLeaderboard(_currentUserId?: string | null) {
   const [entries, setEntries] = useState<EtfEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
