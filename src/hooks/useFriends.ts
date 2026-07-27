@@ -151,11 +151,6 @@ export function useFriends(userId?: string | null) {
   const respondToRequest = useCallback(async (requestId: string, accept: boolean, senderId: string) => {
     if (!userId) return;
 
-    await supabase
-      .from('friend_requests')
-      .update({ status: accept ? 'accepted' : 'declined' })
-      .eq('id', requestId);
-
     if (accept) {
       // Create mutual friendship
       await supabase.from('friends').insert([
@@ -163,32 +158,36 @@ export function useFriends(userId?: string | null) {
         { user_id: senderId, friend_id: userId },
       ]);
 
-      // Fetch the new friend's profile and add to friends list
+      // Delete the request entirely instead of updating status
+      await supabase
+        .from('friend_requests')
+        .delete()
+        .eq('id', requestId);
+
+      // Fetch new friend's profile and update state
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, full_name, xp')
         .eq('id', senderId)
         .single();
 
-      const { data: lbEntry } = await supabase
-        .from('leaderboard')
-        .select('return_pct')
-        .eq('id', senderId)
-        .maybeSingle();
-
       if (profile) {
         setFriends(prev => [...prev, {
           id: profile.id,
           name: profile.full_name ?? 'Student',
           xp: profile.xp ?? 0,
-          return_pct: lbEntry?.return_pct ?? 0,
+          return_pct: 0,
         }]);
       }
-
-      setIncoming(prev => prev.filter(r => r.id !== requestId));
     } else {
-      setIncoming(prev => prev.filter(r => r.id !== requestId));
+      // Decline — delete the request
+      await supabase
+        .from('friend_requests')
+        .delete()
+        .eq('id', requestId);
     }
+
+    setIncoming(prev => prev.filter(r => r.id !== requestId));
   }, [userId]);
 
   const removeFriend = useCallback(async (friendId: string) => {
@@ -198,7 +197,14 @@ export function useFriends(userId?: string | null) {
     await supabase
       .from('friends')
       .delete()
-      .or(`and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`);
+      .eq('user_id', userId)
+      .eq('friend_id', friendId);
+
+    await supabase
+      .from('friends')
+      .delete()
+      .eq('user_id', friendId)
+      .eq('friend_id', userId);
 
     setFriends(prev => prev.filter(f => f.id !== friendId));
   }, [userId]);

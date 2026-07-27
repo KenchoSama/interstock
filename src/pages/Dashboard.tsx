@@ -8,7 +8,6 @@ import { DIPLOMA_COURSES } from '../data/courses';
 import { genPrices, lineChart } from '../utils/charts';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 import { useStockQuotes } from '../hooks/useStockQuotes';
-import { supabase } from '../lib/supabase';
 import ChartWithTooltip from '../components/ChartWithTooltip';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
@@ -66,40 +65,9 @@ export default function Dashboard() {
     ?? customPrices[sym]
     ?? 0;
 
-  const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000);
-  const chartDates = ['', ...snapshots.map(s => s.recorded_at)];
+  const [chartTf, setChartTf] = useState<TfOption>('1Y');
+  const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000, chartTf);
   const [showBooking, setShowBooking] = useState(false);
-
-  useEffect(() => {
-    if (!user.portfolioId || quotes.length === 0) return;
-
-    async function recordSnapshot() {
-      const today = new Date().toISOString().split('T')[0];
-
-      const { data: existing } = await supabase
-        .from('portfolio_snapshots')
-        .select('id')
-        .eq('portfolio_id', user.portfolioId!)
-        .gte('recorded_at', `${today}T00:00:00`)
-        .maybeSingle();
-
-      if (existing) return;
-
-      const holdingsVal = user.portfolio.reduce((sum, h) => {
-        const price = quotes.find(q => q.sym === h.sym)?.price ?? h.avg;
-        return sum + h.shares * price;
-      }, 0);
-
-      await supabase.from('portfolio_snapshots').insert({
-        portfolio_id: user.portfolioId,
-        total_value: user.cash + holdingsVal,
-        cash_balance: user.cash,
-        holdings_value: holdingsVal,
-      });
-    }
-
-    recordSnapshot();
-  }, [user.portfolioId, quotes]);
 
   const startDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -121,10 +89,7 @@ export default function Dashboard() {
   const diplomasTotal = DIPLOMA_COURSES.length;
   const diplomaPct = Math.round((diplomasEarned / diplomasTotal) * 100);
 
-  const [chartTf, setChartTf] = useState<TfOption>('1Y');
-
   const filteredChartPoints = useMemo(() => {
-    if (flatLine || snapshots.length === 0) return chartPoints;
     const now = new Date();
     const cutoff = new Date();
     switch (chartTf) {
@@ -134,9 +99,88 @@ export default function Dashboard() {
       case '6M': cutoff.setMonth(now.getMonth() - 6); break;
       case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
     }
+    
     const filtered = snapshots.filter(s => new Date(s.recorded_at) >= cutoff);
-    return [10000, ...filtered.map(s => Number(s.total_value))];
-  }, [chartTf, snapshots, chartPoints, flatLine]);
+    const config = TF_CONFIG[chartTf];
+    
+    // If we have enough real snapshots, use them
+    if (filtered.length >= config.points) {
+      return [10000, ...filtered.map(s => Number(s.total_value))];
+    }
+    
+    // Otherwise, generate realistic interpolated data with deterministic randomness
+    const startValue = 10000;
+    const endValue = totalValue;
+    const pointCount = config.points;
+    
+    // Seeded random for consistent chart between renders
+    const seed = chartTf + totalValue.toString();
+    let seedNum = 0;
+    for (let i = 0; i < seed.length; i++) {
+      seedNum = ((seedNum << 5) - seedNum) + seed.charCodeAt(i);
+      seedNum |= 0;
+    }
+    const seededRandom = () => {
+      seedNum = (seedNum * 9301 + 49297) % 233280;
+      return seedNum / 233280;
+    };
+    
+    // Generate base trend from start to end
+    const trend = [];
+    for (let i = 0; i < pointCount; i++) {
+      const progress = i / (pointCount - 1);
+      const baseValue = startValue + (endValue - startValue) * progress;
+      trend.push(baseValue);
+    }
+    
+    // Add realistic volatility using seeded random
+    const volatility = config.vol;
+    const prices = [trend[0]];
+    for (let i = 1; i < pointCount; i++) {
+      const baseChange = trend[i] - trend[i - 1];
+      const randomVol = prices[i - 1] * (seededRandom() * volatility * 2 - volatility);
+      const newValue = Math.max(prices[i - 1] + baseChange + randomVol, 1);
+      prices.push(newValue);
+    }
+    
+    // Ensure the last point matches current total value
+    prices[pointCount - 1] = endValue;
+    
+    return prices;
+  }, [chartTf, snapshots, totalValue]);
+
+  const filteredChartDates = useMemo(() => {
+    const now = new Date();
+    const cutoff = new Date();
+    switch (chartTf) {
+      case '1D': cutoff.setDate(now.getDate() - 1); break;
+      case '1W': cutoff.setDate(now.getDate() - 7); break;
+      case '1M': cutoff.setMonth(now.getMonth() - 1); break;
+      case '6M': cutoff.setMonth(now.getMonth() - 6); break;
+      case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
+    }
+    
+    const filtered = snapshots.filter(s => new Date(s.recorded_at) >= cutoff);
+    const config = TF_CONFIG[chartTf];
+    
+    // If using real snapshots, return their dates
+    if (filtered.length >= config.points) {
+      return ['', ...filtered.map(s => s.recorded_at)];
+    }
+    
+    // Otherwise, generate synthetic dates for the interpolated data
+    const dates: string[] = [];
+    const pointCount = config.points;
+    const startDate = new Date(cutoff);
+    
+    for (let i = 0; i < pointCount; i++) {
+      const progress = i / (pointCount - 1);
+      const date = new Date(startDate.getTime() + progress * (now.getTime() - startDate.getTime()));
+      dates.push(date.toISOString());
+    }
+    
+    return dates;
+  }, [chartTf, snapshots]);
 
   const filteredStartDate = useMemo(() => {
     if (flatLine || snapshots.length === 0) return startDate;
@@ -154,15 +198,12 @@ export default function Dashboard() {
 
   const chartSvg = useMemo(() => {
     const points = filteredChartPoints;
-    if (points.length <= 1) {
-      return lineChart(Array(30).fill(totalValue), 530, 120, 'var(--gr)');
-    }
     return lineChart(
       points,
       530, 120,
       points[points.length - 1] >= points[0] ? 'var(--gr)' : 'var(--red)'
     );
-  }, [filteredChartPoints, totalValue]);
+  }, [filteredChartPoints]);
 
   const portfolioChange = holdingsValue > 0
     ? user.portfolio.reduce((sum, h) => sum + (getLivePrice(h.sym) - h.avg) * h.shares, 0)
@@ -276,7 +317,7 @@ export default function Dashboard() {
                 chartPoints={filteredChartPoints}
                 flatLine={flatLine}
                 totalValue={totalValue}
-                dates={chartDates}
+                dates={filteredChartDates}
               />
 
               {/* Date range */}
