@@ -1,37 +1,15 @@
+import { useState } from 'react';
 import { useApp } from '../state/AppContext';
-
-const INTERNSHIP_DATA = [
-  {
-    id: 'int1',
-    title: 'Summer Finance Internship',
-    partner: 'Financial Partner',
-    type: 'Paid' as const,
-    comp: '$25/hr',
-    period: 'Jun-Aug',
-    spots: 3,
-    minGrade: 12,
-    reqText: 'Top 5 nationally · Gr12 · XP 3000+',
-    xpReq: 3000,
-  },
-  {
-    id: 'int2',
-    title: 'Options Desk Shadowing',
-    partner: 'Partner Exchange',
-    type: 'Unpaid' as const,
-    comp: 'Credit',
-    period: 'Jul 2025',
-    spots: 5,
-    minGrade: 11,
-    reqText: 'Level 2 · Gr11-12 · XP 2000+',
-    xpReq: 2000,
-  },
-];
-
-const USER_GRADE = 11;
+import { INTERNSHIP_DATA } from '../data/internships';
 
 export default function Interns() {
   const { state } = useApp();
-  const xp = state.u[state.role].xp;
+  const user = state.u[state.role];
+  const xp = user.xp;
+  const userGrade = (user as any).grade ?? 9;
+
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const activeInternship = INTERNSHIP_DATA.find(i => i.id === activeModal) ?? null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -46,7 +24,7 @@ export default function Interns() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {INTERNSHIP_DATA.map(i => {
             const xpMet = xp >= i.xpReq;
-            const gradeMet = USER_GRADE >= i.minGrade;
+            const gradeMet = userGrade >= i.minGrade;
             const eligible = xpMet && gradeMet;
 
             return (
@@ -63,7 +41,6 @@ export default function Interns() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 18 }}>🏦</span>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{i.title}</div>
                       <div style={{ fontSize: 11, color: 'var(--text3)' }}>{i.partner}</div>
@@ -151,19 +128,21 @@ export default function Interns() {
                   {eligible ? (
                     <button
                       className="btn"
+                      onClick={() => setActiveModal(i.id)}
                       style={{
                         width: '100%',
                         background: 'linear-gradient(90deg, #00b891, #00e676)',
                         color: '#07111c',
                         fontWeight: 700,
                         fontSize: 14,
+                        cursor: 'pointer',
                       }}
                     >
                       Apply Now →
                     </button>
                   ) : (
                     <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text3)', padding: '10px 0' }}>
-                      🔒 Not Eligible Yet
+                      Not Eligible Yet
                     </div>
                   )}
                 </div>
@@ -173,6 +152,101 @@ export default function Interns() {
           })}
         </div>
       </div>
+
+      {activeInternship && (
+        <div
+          onClick={() => setActiveModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="card"
+            style={{
+              maxWidth: 480,
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              padding: 24,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{activeInternship.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>{activeInternship.partner}</div>
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text3)',
+                  fontSize: 20,
+                  cursor: 'pointer',
+                  lineHeight: 1,
+                  padding: 0,
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
+              How to apply
+            </div>
+
+            <ol style={{ margin: 0, padding: '0 0 0 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {activeInternship.applicationSteps.map((step, idx) => (
+                <li key={idx} style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
+                  {step}
+                </li>
+              ))}
+            </ol>
+
+            <div
+              style={{
+                marginTop: 16,
+                background: 'var(--surface2)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                padding: '10px 12px',
+                fontSize: 12,
+                color: 'var(--text3)',
+              }}
+            >
+              Questions? Reach out to{' '}
+              <a href={`mailto:${activeInternship.contactEmail}`} style={{ color: '#00e676' }}>
+                {activeInternship.contactEmail}
+              </a>
+            </div>
+
+            <button
+              className="btn"
+              onClick={() => setActiveModal(null)}
+              style={{
+                width: '100%',
+                marginTop: 16,
+                background: 'var(--surface2)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                fontWeight: 600,
+                fontSize: 13,
+              }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const STOCKS_TO_FETCH = new Set<string>();
-
 async function fetchPrice(ticker: string): Promise<number | null> {
   try {
     const res = await fetch(
@@ -21,13 +19,15 @@ async function fetchPrice(ticker: string): Promise<number | null> {
   }
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  const body = await req.json().catch(() => ({}));
+  const interval = body.interval === 'daily' ? 'daily' : '5min';
+
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
-  // 1. Get all portfolios with holdings
   const { data: portfolios } = await supabase
     .from('portfolios')
     .select('id, user_id, cash_balance');
@@ -36,14 +36,12 @@ Deno.serve(async () => {
     return new Response('No portfolios found', { status: 200 });
   }
 
-  // 2. Get all holdings across all portfolios
   const portfolioIds = portfolios.map(p => p.id);
   const { data: allHoldings } = await supabase
     .from('holdings')
     .select('portfolio_id, ticker, shares, avg_cost')
     .in('portfolio_id', portfolioIds);
 
-  // 3. Collect unique tickers and fetch prices in parallel
   const tickers = [...new Set((allHoldings ?? []).map(h => h.ticker))];
   const priceEntries = await Promise.all(
     tickers.map(async t => ({ ticker: t, price: await fetchPrice(t) }))
@@ -54,7 +52,6 @@ Deno.serve(async () => {
       .map(e => [e.ticker, e.price!])
   );
 
-  // 4. Group holdings by portfolio
   const holdingsByPortfolio = new Map<string, typeof allHoldings>();
   for (const h of allHoldings ?? []) {
     if (!holdingsByPortfolio.has(h.portfolio_id)) {
@@ -63,7 +60,6 @@ Deno.serve(async () => {
     holdingsByPortfolio.get(h.portfolio_id)!.push(h);
   }
 
-  // 5. Build and insert snapshots for all portfolios
   const snapshots = portfolios.map(portfolio => {
     const holdings = holdingsByPortfolio.get(portfolio.id) ?? [];
     const holdingsValue = holdings.reduce((sum, h) => {
@@ -76,7 +72,7 @@ Deno.serve(async () => {
       total_value: Number(portfolio.cash_balance) + holdingsValue,
       cash_balance: Number(portfolio.cash_balance),
       holdings_value: holdingsValue,
-      interval: '5min',
+      interval,
     };
   });
 
@@ -89,9 +85,9 @@ Deno.serve(async () => {
     return new Response(JSON.stringify({ error }), { status: 500 });
   }
 
-  console.log(`Recorded ${snapshots.length} snapshots`);
+  console.log(`Recorded ${snapshots.length} snapshots (${interval})`);
   return new Response(
-    JSON.stringify({ recorded: snapshots.length }),
+    JSON.stringify({ recorded: snapshots.length, interval }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   );
 });

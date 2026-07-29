@@ -14,6 +14,44 @@ export interface Candle {
   close: number;
 }
 
+export function bucketSnapshotsToCandles(
+  snapshots: { total_value: number | string; recorded_at: string }[],
+  bucketBy: '15min' | 'hour' | 'day'
+): { candles: Candle[]; dates: string[] } {
+  const buckets = new Map<string, number[]>();
+
+  for (const s of snapshots) {
+    const d = new Date(s.recorded_at);
+    let key: string;
+    if (bucketBy === '15min') {
+      const quarterMinute = Math.floor(d.getMinutes() / 15) * 15;
+      key = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), quarterMinute).toISOString();
+    } else if (bucketBy === 'hour') {
+      key = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).toISOString();
+    } else {
+      key = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
+    }
+
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key)!.push(Number(s.total_value));
+  }
+
+  const candles: Candle[] = [];
+  const dates: string[] = [];
+
+  for (const [key, values] of buckets) {
+    candles.push({
+      open: values[0],
+      close: values[values.length - 1],
+      high: Math.max(...values),
+      low: Math.min(...values),
+    });
+    dates.push(key);
+  }
+
+  return { candles, dates };
+}
+
 export function genCandles(base: number, count = 30, volatility = 0.025): Candle[] {
   const candles: Candle[] = [];
   let prev = base;

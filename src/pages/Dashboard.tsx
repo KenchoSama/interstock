@@ -5,7 +5,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard';
 import MentorBookingModal from '../components/MentorBookingModal';
 import { useMentor } from '../hooks/useMentor';
 import { DIPLOMA_COURSES } from '../data/courses';
-import { genPrices, lineChart } from '../utils/charts';
+import { genPrices, lineChart, candleChart, bucketSnapshotsToCandles } from '../utils/charts';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import ChartWithTooltip from '../components/ChartWithTooltip';
@@ -16,13 +16,6 @@ const SP500_YTD = 10.8;
 
 const TF_OPTIONS = ['1D', '1W', '1M', '6M', '1Y'] as const;
 type TfOption = typeof TF_OPTIONS[number];
-const TF_CONFIG: Record<TfOption, { points: number; vol: number }> = {
-  '1D': { points: 78, vol: 0.003 },
-  '1W': { points: 35, vol: 0.006 },
-  '1M': { points: 30, vol: 0.010 },
-  '6M': { points: 26, vol: 0.015 },
-  '1Y': { points: 52, vol: 0.020 },
-};
 
 const FEATURE_LIST = [
   { label: 'AI Tutor', view: 'ai' },
@@ -66,6 +59,9 @@ export default function Dashboard() {
     ?? 0;
 
   const [chartTf, setChartTf] = useState<TfOption>('1Y');
+  const [chartStyle, setChartStyle] = useState<'line' | 'candle'>('line');
+  const candlesAllowed = chartTf === '1D' || chartTf === '1W';
+  const effectiveChartStyle = candlesAllowed ? chartStyle : 'line';
   const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000, chartTf);
   const [showBooking, setShowBooking] = useState(false);
 
@@ -90,97 +86,14 @@ export default function Dashboard() {
   const diplomaPct = Math.round((diplomasEarned / diplomasTotal) * 100);
 
   const filteredChartPoints = useMemo(() => {
-    const now = new Date();
-    const cutoff = new Date();
-    switch (chartTf) {
-      case '1D': cutoff.setDate(now.getDate() - 1); break;
-      case '1W': cutoff.setDate(now.getDate() - 7); break;
-      case '1M': cutoff.setMonth(now.getMonth() - 1); break;
-      case '6M': cutoff.setMonth(now.getMonth() - 6); break;
-      case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
-    }
-    
-    const filtered = snapshots.filter(s => new Date(s.recorded_at) >= cutoff);
-    const config = TF_CONFIG[chartTf];
-    
-    // If we have enough real snapshots, use them
-    if (filtered.length >= config.points) {
-      return [10000, ...filtered.map(s => Number(s.total_value))];
-    }
-    
-    // Otherwise, generate realistic interpolated data with deterministic randomness
-    const startValue = 10000;
-    const endValue = totalValue;
-    const pointCount = config.points;
-    
-    // Seeded random for consistent chart between renders
-    const seed = chartTf + totalValue.toString();
-    let seedNum = 0;
-    for (let i = 0; i < seed.length; i++) {
-      seedNum = ((seedNum << 5) - seedNum) + seed.charCodeAt(i);
-      seedNum |= 0;
-    }
-    const seededRandom = () => {
-      seedNum = (seedNum * 9301 + 49297) % 233280;
-      return seedNum / 233280;
-    };
-    
-    // Generate base trend from start to end
-    const trend = [];
-    for (let i = 0; i < pointCount; i++) {
-      const progress = i / (pointCount - 1);
-      const baseValue = startValue + (endValue - startValue) * progress;
-      trend.push(baseValue);
-    }
-    
-    // Add realistic volatility using seeded random
-    const volatility = config.vol;
-    const prices = [trend[0]];
-    for (let i = 1; i < pointCount; i++) {
-      const baseChange = trend[i] - trend[i - 1];
-      const randomVol = prices[i - 1] * (seededRandom() * volatility * 2 - volatility);
-      const newValue = Math.max(prices[i - 1] + baseChange + randomVol, 1);
-      prices.push(newValue);
-    }
-    
-    // Ensure the last point matches current total value
-    prices[pointCount - 1] = endValue;
-    
-    return prices;
-  }, [chartTf, snapshots, totalValue]);
+    if (snapshots.length === 0) return [];
+    return snapshots.map(s => Number(s.total_value));
+  }, [snapshots]);
 
   const filteredChartDates = useMemo(() => {
-    const now = new Date();
-    const cutoff = new Date();
-    switch (chartTf) {
-      case '1D': cutoff.setDate(now.getDate() - 1); break;
-      case '1W': cutoff.setDate(now.getDate() - 7); break;
-      case '1M': cutoff.setMonth(now.getMonth() - 1); break;
-      case '6M': cutoff.setMonth(now.getMonth() - 6); break;
-      case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
-    }
-    
-    const filtered = snapshots.filter(s => new Date(s.recorded_at) >= cutoff);
-    const config = TF_CONFIG[chartTf];
-    
-    // If using real snapshots, return their dates
-    if (filtered.length >= config.points) {
-      return ['', ...filtered.map(s => s.recorded_at)];
-    }
-    
-    // Otherwise, generate synthetic dates for the interpolated data
-    const dates: string[] = [];
-    const pointCount = config.points;
-    const startDate = new Date(cutoff);
-    
-    for (let i = 0; i < pointCount; i++) {
-      const progress = i / (pointCount - 1);
-      const date = new Date(startDate.getTime() + progress * (now.getTime() - startDate.getTime()));
-      dates.push(date.toISOString());
-    }
-    
-    return dates;
-  }, [chartTf, snapshots]);
+    if (snapshots.length === 0) return [];
+    return snapshots.map(s => s.recorded_at);
+  }, [snapshots]);
 
   const filteredStartDate = useMemo(() => {
     if (flatLine || snapshots.length === 0) return startDate;
@@ -196,14 +109,24 @@ export default function Dashboard() {
     return cutoff.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }, [chartTf, snapshots, flatLine, startDate]);
 
+  const candleData = useMemo(() => {
+    if (!candlesAllowed || snapshots.length === 0) return { candles: [], dates: [] };
+    return bucketSnapshotsToCandles(snapshots, chartTf === '1D' ? '15min' : 'hour');
+  }, [snapshots, chartTf, candlesAllowed]);
+
   const chartSvg = useMemo(() => {
+    if (effectiveChartStyle === 'candle') {
+      if (candleData.candles.length === 0) return '';
+      return candleChart(candleData.candles, 530, 120);
+    }
     const points = filteredChartPoints;
+    if (points.length === 0) return '';
     return lineChart(
       points,
       530, 120,
       points[points.length - 1] >= points[0] ? 'var(--gr)' : 'var(--red)'
     );
-  }, [filteredChartPoints]);
+  }, [effectiveChartStyle, candleData, filteredChartPoints]);
 
   const portfolioChange = holdingsValue > 0
     ? user.portfolio.reduce((sum, h) => sum + (getLivePrice(h.sym) - h.avg) * h.shares, 0)
@@ -283,18 +206,36 @@ export default function Dashboard() {
             <div className="card" style={{ marginBottom: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div className="card-title" style={{ margin: 0 }}>PORTFOLIO PERFORMANCE</div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {TF_OPTIONS.map(tf => (
-                    <button key={tf} onClick={() => setChartTf(tf)}
-                      style={{
-                        padding: '3px 9px', fontSize: 11, borderRadius: 6,
-                        background: chartTf === tf ? 'var(--gr)' : 'var(--surface)',
-                        color: chartTf === tf ? '#000' : 'var(--text2)',
-                        fontWeight: chartTf === tf ? 700 : 400,
-                      }}>
-                      {tf}
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {candlesAllowed && (
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {(['line', 'candle'] as const).map(style => (
+                        <button key={style} onClick={() => setChartStyle(style)}
+                          style={{
+                            padding: '3px 9px', fontSize: 11, borderRadius: 6,
+                            background: chartStyle === style ? 'var(--surface2)' : 'var(--surface)',
+                            color: chartStyle === style ? 'var(--text)' : 'var(--text3)',
+                            fontWeight: chartStyle === style ? 700 : 400,
+                            border: chartStyle === style ? '1px solid var(--border)' : '1px solid transparent',
+                          }}>
+                          {style === 'line' ? 'Line' : 'Candles'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {TF_OPTIONS.map(tf => (
+                      <button key={tf} onClick={() => setChartTf(tf)}
+                        style={{
+                          padding: '3px 9px', fontSize: 11, borderRadius: 6,
+                          background: chartTf === tf ? 'var(--gr)' : 'var(--surface)',
+                          color: chartTf === tf ? '#000' : 'var(--text2)',
+                          fontWeight: chartTf === tf ? 700 : 400,
+                        }}>
+                        {tf}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -317,7 +258,9 @@ export default function Dashboard() {
                 chartPoints={filteredChartPoints}
                 flatLine={flatLine}
                 totalValue={totalValue}
-                dates={filteredChartDates}
+                dates={effectiveChartStyle === 'candle' ? candleData.dates : filteredChartDates}
+                mode={effectiveChartStyle}
+                candles={candleData.candles}
               />
 
               {/* Date range */}

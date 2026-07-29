@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import type { Candle } from '../utils/charts';
 
 interface Props {
   chartSvg: string;
@@ -6,23 +7,26 @@ interface Props {
   flatLine?: boolean;
   totalValue?: number;
   dates?: string[];
+  mode?: 'line' | 'candle';
+  candles?: Candle[];
 }
 
-export default function ChartWithTooltip({ chartSvg, chartPoints, dates }: Props) {
+export default function ChartWithTooltip({ chartSvg, chartPoints, dates, mode = 'line', candles = [] }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; value: number; index: number } | null>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; index: number } | null>(null);
+
+  const itemCount = mode === 'candle' ? candles.length : chartPoints.length;
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     const rect = wrapRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    if (!rect || itemCount === 0) return;
 
     const relX = e.clientX - rect.left;
     const pct = relX / rect.width;
-    const index = Math.round(pct * (chartPoints.length - 1));
-    const clamped = Math.max(0, Math.min(chartPoints.length - 1, index));
-    const value = chartPoints[clamped];
+    const index = Math.round(pct * (itemCount - 1));
+    const clamped = Math.max(0, Math.min(itemCount - 1, index));
 
-    setTooltip({ x: relX, y: e.clientY - rect.top, value, index: clamped });
+    setTooltip({ x: relX, y: e.clientY - rect.top, index: clamped });
   }
 
   function handleMouseLeave() {
@@ -30,8 +34,15 @@ export default function ChartWithTooltip({ chartSvg, chartPoints, dates }: Props
   }
 
   const startValue = 10000;
-  const tooltipReturn = tooltip ? ((tooltip.value - startValue) / startValue) * 100 : 0;
+  const tooltipValue = tooltip && mode === 'line' ? chartPoints[tooltip.index] : undefined;
+  const tooltipReturn = tooltipValue !== undefined ? ((tooltipValue - startValue) / startValue) * 100 : 0;
   const tooltipPositive = tooltipReturn >= 0;
+
+  const tooltipCandle = tooltip && mode === 'candle' ? candles[tooltip.index] : undefined;
+  const candleUp = tooltipCandle ? tooltipCandle.close >= tooltipCandle.open : false;
+  const candleChangePct = tooltipCandle
+    ? ((tooltipCandle.close - tooltipCandle.open) / tooltipCandle.open) * 100
+    : 0;
 
   const tooltipDateStr = tooltip ? dates?.[tooltip.index] : undefined;
   const tooltipDate = tooltipDateStr
@@ -80,12 +91,28 @@ export default function ChartWithTooltip({ chartSvg, chartPoints, dates }: Props
           boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
           zIndex: 10,
         }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
-            ${tooltip.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div style={{ fontSize: 12, color: tooltipPositive ? 'var(--gr)' : 'var(--red)', marginTop: 2 }}>
-            {tooltipPositive ? '+' : ''}{tooltipReturn.toFixed(2)}%
-          </div>
+          {mode === 'candle' && tooltipCandle ? (
+            <>
+              <div style={{ fontSize: 12, color: candleUp ? 'var(--gr)' : 'var(--red)', fontWeight: 700, marginBottom: 4 }}>
+                {candleUp ? '+' : ''}{candleChangePct.toFixed(2)}%
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text2)', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <span>Open: ${tooltipCandle.open.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span>High: ${tooltipCandle.high.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span>Low: ${tooltipCandle.low.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span>Close: ${tooltipCandle.close.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
+                ${(tooltipValue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div style={{ fontSize: 12, color: tooltipPositive ? 'var(--gr)' : 'var(--red)', marginTop: 2 }}>
+                {tooltipPositive ? '+' : ''}{tooltipReturn.toFixed(2)}%
+              </div>
+            </>
+          )}
           {(tooltipDate || tooltipTime) && (
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
               {tooltipDate && <div>{tooltipDate}</div>}
