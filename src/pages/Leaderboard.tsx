@@ -60,13 +60,13 @@ export default function Leaderboard() {
                   className="stat-value"
                   style={{ color: (myEntry?.return_pct ?? 0) >= 0 ? '#00e676' : 'var(--red)' }}
                 >
-                  {myEntry ? `${myEntry.return_pct >= 0 ? '+' : ''}${myEntry.return_pct.toFixed(1)}%` : '—'}
+                  {myEntry ? `${myEntry.return_pct >= 0 ? '+' : ''}${myEntry.return_pct.toFixed(2)}%` : '—'}
                 </div>
               </div>
               <div className="stat-card">
                 <div className="stat-label">Leader</div>
                 <div className="stat-value" style={{ color: '#00e676' }}>
-                  {leader ? `+${leader.return_pct.toFixed(1)}%` : '—'}
+                  {leader ? `+${leader.return_pct.toFixed(2)}%` : '—'}
                 </div>
                 <div className="stat-sub">{leader?.full_name ?? '—'}</div>
               </div>
@@ -128,7 +128,7 @@ export default function Leaderboard() {
                       </td>
                       <td style={{ color: 'var(--text3)', fontSize: 12 }}>{e.school_id ?? '—'}</td>
                       <td style={{ color: e.return_pct >= 0 ? '#00e676' : 'var(--red)', fontFamily: 'monospace', fontWeight: 600 }}>
-                        {e.return_pct >= 0 ? '+' : ''}{e.return_pct.toFixed(1)}%
+                        {e.return_pct >= 0 ? '+' : ''}{e.return_pct.toFixed(2)}%
                       </td>
                       <td style={{ fontFamily: 'monospace' }}>${fmt(e.total_value)}</td>
                       <td>
@@ -168,7 +168,7 @@ export default function Leaderboard() {
                         </td>
                         <td style={{ color: 'var(--text3)', fontSize: 12 }}>{myEntry.school_id ?? '—'}</td>
                         <td style={{ color: myEntry.return_pct >= 0 ? '#00e676' : 'var(--red)', fontFamily: 'monospace', fontWeight: 600 }}>
-                          {myEntry.return_pct >= 0 ? '+' : ''}{myEntry.return_pct.toFixed(1)}%
+                          {myEntry.return_pct >= 0 ? '+' : ''}{myEntry.return_pct.toFixed(2)}%
                         </td>
                         <td style={{ fontFamily: 'monospace' }}>${fmt(myEntry.total_value)}</td>
                         <td />

@@ -11,19 +11,22 @@ export interface LeaderboardEntry {
   total_value: number;
 }
 
-export function useLeaderboard(userId?: string, limit = 5) {
+export function useLeaderboard(userId?: string, limit = 5, pollMs = 60000) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [myEntry, setMyEntry] = useState<LeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetch() {
+    let cancelled = false;
+
+    async function fetchLeaderboard() {
       const { data } = await supabase
         .from('leaderboard')
         .select('id, full_name, xp, school_id, global_rank, return_pct, total_value')
         .order('global_rank', { ascending: true })
         .limit(limit);
 
+      if (cancelled) return;
       if (data) setEntries(data);
 
       if (userId) {
@@ -32,13 +35,20 @@ export function useLeaderboard(userId?: string, limit = 5) {
           .select('id, full_name, xp, school_id, global_rank, return_pct, total_value')
           .eq('id', userId)
           .single();
-        setMyEntry(me ?? null);
+        if (!cancelled) setMyEntry(me ?? null);
       }
 
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
-    fetch();
-  }, [userId, limit]);
+
+    fetchLeaderboard();
+    const interval = setInterval(fetchLeaderboard, pollMs);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [userId, limit, pollMs]);
 
   // Keep top5 as alias for dashboard compatibility
   const top5 = entries.slice(0, 5);
