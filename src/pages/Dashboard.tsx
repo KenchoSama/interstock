@@ -5,7 +5,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard';
 import MentorBookingModal from '../components/MentorBookingModal';
 import { useMentor } from '../hooks/useMentor';
 import { DIPLOMA_COURSES } from '../data/courses';
-import { genPrices, lineChart, candleChart, bucketSnapshotsToCandles } from '../utils/charts';
+import { genPrices, lineChart, candleChart, bucketSnapshotsToCandles, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import ChartWithTooltip from '../components/ChartWithTooltip';
@@ -58,7 +58,7 @@ export default function Dashboard() {
     ?? customPrices[sym]
     ?? 0;
 
-  const [chartTf, setChartTf] = useState<TfOption>('1Y');
+  const [chartTf, setChartTf] = useState<TfOption>('1D');
   const [chartStyle, setChartStyle] = useState<'line' | 'candle'>('line');
   const candlesAllowed = chartTf === '1D' || chartTf === '1W';
   const effectiveChartStyle = candlesAllowed ? chartStyle : 'line';
@@ -85,6 +85,21 @@ export default function Dashboard() {
   const diplomasTotal = DIPLOMA_COURSES.length;
   const diplomaPct = Math.round((diplomasEarned / diplomasTotal) * 100);
 
+  const isDailyTf = chartTf === '1M' || chartTf === '6M' || chartTf === '1Y';
+
+  const chartCutoffDate = useMemo(() => {
+    const now = new Date();
+    const cutoff = new Date();
+    switch (chartTf) {
+      case '1D': cutoff.setDate(now.getDate() - 1); break;
+      case '1W': cutoff.setDate(now.getDate() - 7); break;
+      case '1M': cutoff.setMonth(now.getMonth() - 1); break;
+      case '6M': cutoff.setMonth(now.getMonth() - 6); break;
+      case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
+    }
+    return cutoff;
+  }, [chartTf]);
+
   const filteredChartPoints = useMemo(() => {
     if (snapshots.length === 0) return [];
     return snapshots.map(s => Number(s.total_value));
@@ -95,19 +110,18 @@ export default function Dashboard() {
     return snapshots.map(s => s.recorded_at);
   }, [snapshots]);
 
+  const alignedDailySeries = useMemo(() => {
+    if (!isDailyTf) return { values: [], dates: [] };
+    return alignDailySnapshots(snapshots, chartCutoffDate, new Date());
+  }, [isDailyTf, snapshots, chartCutoffDate]);
+
+  const displayPoints = isDailyTf ? alignedDailySeries.values : filteredChartPoints;
+  const displayDates = isDailyTf ? alignedDailySeries.dates : filteredChartDates;
+
   const filteredStartDate = useMemo(() => {
     if (flatLine || snapshots.length === 0) return startDate;
-    const now = new Date();
-    const cutoff = new Date();
-    switch (chartTf) {
-      case '1D': cutoff.setDate(now.getDate() - 1); break;
-      case '1W': cutoff.setDate(now.getDate() - 7); break;
-      case '1M': cutoff.setMonth(now.getMonth() - 1); break;
-      case '6M': cutoff.setMonth(now.getMonth() - 6); break;
-      case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
-    }
-    return cutoff.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }, [chartTf, snapshots, flatLine, startDate]);
+    return chartCutoffDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }, [chartCutoffDate, snapshots, flatLine, startDate]);
 
   const candleData = useMemo(() => {
     if (!candlesAllowed || snapshots.length === 0) return { candles: [], dates: [] };
@@ -119,6 +133,10 @@ export default function Dashboard() {
       if (candleData.candles.length === 0) return '';
       return candleChart(candleData.candles, 530, 120);
     }
+    if (isDailyTf) {
+      if (alignedDailySeries.values.length === 0) return '';
+      return lineChartWithPlaceholder(alignedDailySeries.values, 530, 120);
+    }
     const points = filteredChartPoints;
     if (points.length === 0) return '';
     return lineChart(
@@ -126,7 +144,7 @@ export default function Dashboard() {
       530, 120,
       points[points.length - 1] >= points[0] ? 'var(--gr)' : 'var(--red)'
     );
-  }, [effectiveChartStyle, candleData, filteredChartPoints]);
+  }, [effectiveChartStyle, candleData, filteredChartPoints, isDailyTf, alignedDailySeries]);
 
   const portfolioChange = holdingsValue > 0
     ? user.portfolio.reduce((sum, h) => sum + (getLivePrice(h.sym) - h.avg) * h.shares, 0)
@@ -255,10 +273,10 @@ export default function Dashboard() {
               {/* Chart with tooltip overlay */}
               <ChartWithTooltip
                 chartSvg={chartSvg}
-                chartPoints={filteredChartPoints}
+                chartPoints={displayPoints}
                 flatLine={flatLine}
                 totalValue={totalValue}
-                dates={effectiveChartStyle === 'candle' ? candleData.dates : filteredChartDates}
+                dates={effectiveChartStyle === 'candle' ? candleData.dates : displayDates}
                 mode={effectiveChartStyle}
                 candles={candleData.candles}
               />
@@ -305,9 +323,9 @@ export default function Dashboard() {
                 <button
                   className="btn btn-secondary"
                   style={{ justifyContent: 'center', gap: 8, padding: '12px 16px' }}
-                  onClick={() => dispatch({ type: 'SET_VIEW', view: 'ai' })}
+                  onClick={() => dispatch({ type: 'SET_VIEW', view: 'assignments' })}
                 >
-                  FinBot AI
+                  Assignments
                 </button>
               </div>
 

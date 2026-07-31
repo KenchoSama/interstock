@@ -115,6 +115,113 @@ export function candleChart(
 </svg>`;
 }
 
+function businessDaysBetween(from: Date, to: Date): Date[] {
+  const days: Date[] = [];
+  const cur = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  while (cur <= end) {
+    const dow = cur.getDay();
+    if (dow !== 0 && dow !== 6) days.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}
+
+export function alignDailySnapshots(
+  snapshots: { total_value: number | string; recorded_at: string }[],
+  fromDate: Date,
+  toDate: Date
+): { values: (number | null)[]; dates: string[] } {
+  const days = businessDaysBetween(fromDate, toDate);
+
+  const byDay = new Map<string, number>();
+  for (const s of snapshots) {
+    const d = new Date(s.recorded_at);
+    const key = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
+    byDay.set(key, Number(s.total_value));
+  }
+
+  const values: (number | null)[] = [];
+  const dates: string[] = [];
+  for (const day of days) {
+    const key = day.toISOString();
+    values.push(byDay.has(key) ? byDay.get(key)! : null);
+    dates.push(key);
+  }
+  return { values, dates };
+}
+
+export function lineChartWithPlaceholder(
+  series: (number | null)[],
+  width = 400,
+  height = 120,
+  color?: string,
+): string {
+  if (series.length === 0) return '';
+
+  const realValues = series.filter((v): v is number => v !== null);
+
+  // No real data anywhere yet — full dashed placeholder
+  if (realValues.length === 0) {
+    const pad = 8;
+    const w = width - pad * 2;
+    const midY = height / 2;
+    return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <line x1="${pad}" y1="${midY}" x2="${pad + w}" y2="${midY}" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="5 4"/>
+</svg>`;
+  }
+
+  const firstRealIdx = series.findIndex(v => v !== null);
+  const min = Math.min(...realValues);
+  const max = Math.max(...realValues);
+  const range = max - min || 1;
+  const pad = 8;
+  const w = width - pad * 2;
+  const h = height - pad * 2;
+  const n = series.length;
+
+  const xAt = (i: number) => pad + (n === 1 ? 0 : (i / (n - 1)) * w);
+  const yAt = (v: number) => pad + h - ((v - min) / range) * h;
+
+  const firstRealValue = series[firstRealIdx] as number;
+  const isUp = realValues[realValues.length - 1] >= realValues[0];
+  const lineColor = color ?? (isUp ? '#00d4a8' : '#ff4d6d');
+
+  const parts: string[] = [];
+
+  // Dashed placeholder for the stretch before real data begins
+  if (firstRealIdx > 0) {
+    const dashY = yAt(firstRealValue);
+    parts.push(
+      `<line x1="${xAt(0)}" y1="${dashY}" x2="${xAt(firstRealIdx)}" y2="${dashY}" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="5 4"/>`
+    );
+  }
+
+  // Solid real segment
+  const realPts: string[] = [];
+  for (let i = firstRealIdx; i < n; i++) {
+    const v = series[i];
+    if (v === null) continue;
+    realPts.push(`${xAt(i)},${yAt(v)}`);
+  }
+  const polyline = realPts.join(' ');
+  const firstPt = realPts[0].split(',');
+  const lastPt = realPts[realPts.length - 1].split(',');
+  const area = `M${firstPt[0]},${height} L${polyline} L${lastPt[0]},${height} Z`;
+
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lgp" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  ${parts.join('\n  ')}
+  <path d="${area}" fill="url(#lgp)" />
+  <polyline points="${polyline}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>`;
+}
+
 export function lineChart(
   prices: number[],
   width = 400,

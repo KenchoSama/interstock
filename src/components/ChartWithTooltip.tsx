@@ -3,7 +3,7 @@ import type { Candle } from '../utils/charts';
 
 interface Props {
   chartSvg: string;
-  chartPoints: number[];
+  chartPoints: (number | null)[];
   flatLine?: boolean;
   totalValue?: number;
   dates?: string[];
@@ -35,7 +35,9 @@ export default function ChartWithTooltip({ chartSvg, chartPoints, dates, mode = 
 
   const startValue = 10000;
   const tooltipValue = tooltip && mode === 'line' ? chartPoints[tooltip.index] : undefined;
-  const tooltipReturn = tooltipValue !== undefined ? ((tooltipValue - startValue) / startValue) * 100 : 0;
+  const hasPlaceholderValue = tooltipValue === null;
+  const tooltipReturn =
+    tooltipValue !== undefined && tooltipValue !== null ? ((tooltipValue - startValue) / startValue) * 100 : 0;
   const tooltipPositive = tooltipReturn >= 0;
 
   const tooltipCandle = tooltip && mode === 'candle' ? candles[tooltip.index] : undefined;
@@ -103,6 +105,10 @@ export default function ChartWithTooltip({ chartSvg, chartPoints, dates, mode = 
                 <span>Close: ${tooltipCandle.close.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </>
+          ) : hasPlaceholderValue ? (
+            <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+              No data recorded yet
+            </div>
           ) : (
             <>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
