@@ -11,8 +11,6 @@ import { useStockLookup } from '../hooks/useStockLookup';
 const CHART_RANGES = ['1D', '5D', '1M', 'YTD', '1Y', '5Y'] as const;
 type ChartRange = typeof CHART_RANGES[number];
 
-const TV_SYMBOLS = ['AAPL', 'TSLA', 'NVDA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'SPY', 'QQQ'];
-
 export default function Portfolio() {
   const { state, dispatch } = useApp();
   const user = state.u[state.role];
@@ -75,7 +73,6 @@ export default function Portfolio() {
   const [localQty, setLocalQty] = useState(qty);
   const [tradeMsg, setTradeMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [chartRange, setChartRange] = useState<ChartRange>('1Y');
-  const [tvSym, setTvSym] = useState('AAPL');
 
   const selectedStock = STOCKS.find(s => s.sym === sym);
   const livePrice = getLivePrice(sym);
@@ -272,44 +269,6 @@ export default function Portfolio() {
               </span>
               &nbsp; · Paper portfolio · $10K start
             </div>
-          </div>
-
-          {/* Live Chart - TradingView */}
-          <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div className="section-title" style={{ margin: 0 }}>LIVE CHART — TRADINGVIEW</div>
-              <span style={{
-                fontSize: 11, padding: '2px 8px',
-                background: 'var(--red)', color: '#fff',
-                borderRadius: 4, fontWeight: 700, letterSpacing: 1,
-              }}>
-                LIVE
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-              {TV_SYMBOLS.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setTvSym(s)}
-                  style={{
-                    padding: '4px 10px',
-                    fontSize: 12,
-                    borderRadius: 6,
-                    background: tvSym === s ? 'var(--gr)' : 'var(--surface)',
-                    color: tvSym === s ? '#000' : 'var(--text2)',
-                    fontWeight: tvSym === s ? 700 : 400,
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-            <iframe
-              key={tvSym}
-              src={`https://s.tradingview.com/widgetembed/?symbol=${tvSym}&interval=D&theme=dark&style=1&locale=en&toolbar_bg=0c1a27&hide_side_toolbar=0`}
-              style={{ width: '100%', height: 340, border: 'none', borderRadius: 8 }}
-              allowFullScreen
-            />
           </div>
         </div>
 

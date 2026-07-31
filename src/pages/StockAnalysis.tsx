@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { STOCKS } from '../data/stocks';
-import { candleChart } from '../utils/charts';
 import { useStockCandles } from '../hooks/useStockCandles';
 import type { Stock } from '../types';
 import { useStockNews } from '../hooks/useStockNews';
@@ -114,127 +113,6 @@ function StockSelector({ selected, onChange }: {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function CandleChart({ stock, ticker }: { stock: Stock; ticker: string }) {
-  const { candles, loading, error } = useStockCandles(ticker);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [tooltip, setTooltip] = useState<{ x: number; candle: typeof candles[0] } | null>(null);
-
-  const display = candles.slice(-60);
-  const chartCandles = display.map(c => ({ open: c.open, high: c.high, low: c.low, close: c.close }));
-  const lo = display.length > 0 ? Math.min(...display.map(c => c.low)).toFixed(2) : '—';
-  const hi = display.length > 0 ? Math.max(...display.map(c => c.high)).toFixed(2) : '—';
-  const svg = display.length > 0 ? candleChart(chartCandles, 540, 160) : '';
-
-  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = wrapRef.current?.getBoundingClientRect();
-    if (!rect || display.length === 0) return;
-    const relX = e.clientX - rect.left;
-    const idx = Math.round((relX / rect.width) * (display.length - 1));
-    const clamped = Math.max(0, Math.min(display.length - 1, idx));
-    setTooltip({ x: relX, candle: display[clamped] });
-  }
-
-  const isUp = tooltip ? tooltip.candle.close >= tooltip.candle.open : false;
-
-  return (
-    <div className="card" style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div className="section-title" style={{ margin: 0 }}>{stock.sym} — Candle Chart (60D)</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {!loading && !error && (
-            <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-              L: ${lo} &nbsp;·&nbsp; H: ${hi}
-            </div>
-          )}
-          <span style={{
-            fontSize: 10, padding: '2px 8px',
-            background: error ? 'var(--red-dim)' : 'var(--gr-dim)',
-            color: error ? 'var(--red)' : 'var(--gr)',
-            borderRadius: 4, fontWeight: 700, letterSpacing: 1,
-          }}>
-            {error ? 'ERROR' : 'LIVE'}
-          </span>
-        </div>
-      </div>
-
-      {loading && (
-        <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: 'var(--text3)' }}>
-          Loading chart data...
-        </div>
-      )}
-
-      {error && (
-        <div style={{ padding: '12px', background: 'var(--red-dim)', borderRadius: 8, fontSize: 12, color: 'var(--red)' }}>
-          Failed to load candle data for {ticker}.
-        </div>
-      )}
-
-      {!loading && !error && (
-        <div
-          ref={wrapRef}
-          style={{ position: 'relative', cursor: 'crosshair' }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setTooltip(null)}
-        >
-          <div className="chart-wrap" dangerouslySetInnerHTML={{ __html: svg }} />
-
-          {tooltip && (
-            <div style={{
-              position: 'absolute', top: 0,
-              left: tooltip.x, width: 1, height: '100%',
-              background: 'var(--text3)', opacity: 0.4,
-              pointerEvents: 'none',
-            }} />
-          )}
-
-          {tooltip && (
-            <div style={{
-              position: 'absolute',
-              top: 8,
-              left: tooltip.x > 350 ? tooltip.x - 160 : tooltip.x + 12,
-              background: 'var(--surface)',
-              border: `1px solid ${isUp ? 'var(--gr)' : 'var(--red)'}`,
-              borderRadius: 8,
-              padding: '8px 12px',
-              pointerEvents: 'none',
-              minWidth: 150,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-              zIndex: 10,
-            }}>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>
-                {new Date(tooltip.candle.time * 1000).toLocaleDateString('en-US', {
-                  month: 'short', day: 'numeric', year: 'numeric',
-                })}
-              </div>
-              {[
-                { label: 'Open',  value: tooltip.candle.open },
-                { label: 'High',  value: tooltip.candle.high },
-                { label: 'Low',   value: tooltip.candle.low },
-                { label: 'Close', value: tooltip.candle.close },
-              ].map(r => (
-                <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 12, marginBottom: 2 }}>
-                  <span style={{ color: 'var(--text3)' }}>{r.label}</span>
-                  <span style={{ fontWeight: 600, color: r.label === 'High' ? 'var(--gr)' : r.label === 'Low' ? 'var(--red)' : 'var(--text)' }}>
-                    ${r.value.toFixed(2)}
-                  </span>
-                </div>
-              ))}
-              <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--border)', fontSize: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text3)' }}>Change</span>
-                  <span style={{ fontWeight: 600, color: isUp ? 'var(--gr)' : 'var(--red)' }}>
-                    {isUp ? '+' : ''}{(tooltip.candle.close - tooltip.candle.open).toFixed(2)} ({isUp ? '+' : ''}{(((tooltip.candle.close - tooltip.candle.open) / tooltip.candle.open) * 100).toFixed(2)}%)
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -613,6 +491,14 @@ function EarningsCalendar() {
 export default function Fundamentals() {
   const [selectedTicker, setSelectedTicker] = useState(STOCKS[0].sym);
   const [customData, setCustomData] = useState<{ name: string; price: number; chg: number; chgPct: number } | null>(null);
+  const [tvSym, setTvSym] = useState('AAPL');
+  const [tvSearchInput, setTvSearchInput] = useState('');
+
+  function handleTvSearch() {
+    const sym = tvSearchInput.trim().toUpperCase();
+    if (sym) setTvSym(sym);
+    setTvSearchInput('');
+  }
   const { quotes } = useStockQuotes();
 
   const baseStock = STOCKS.find(s => s.sym === selectedTicker);
@@ -647,6 +533,46 @@ export default function Fundamentals() {
 
   return (
     <div className="page-body">
+      {/* Live Chart - TradingView */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div className="section-title" style={{ margin: 0 }}>LIVE CHART — TRADINGVIEW</div>
+          <span style={{
+            fontSize: 11, padding: '2px 8px',
+            background: 'var(--red)', color: '#fff',
+            borderRadius: 4, fontWeight: 700, letterSpacing: 1,
+          }}>
+            LIVE
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          <input
+            type="text"
+            placeholder="Search any ticker..."
+            value={tvSearchInput}
+            onChange={e => setTvSearchInput(e.target.value.toUpperCase())}
+            onKeyDown={e => { if (e.key === 'Enter') handleTvSearch(); }}
+            style={{ flex: 1, maxWidth: 220, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}
+          />
+          <button
+            onClick={handleTvSearch}
+            style={{
+              padding: '0 14px', borderRadius: 8,
+              background: 'var(--gr)', color: '#000',
+              fontWeight: 700, fontSize: 12, flexShrink: 0,
+            }}
+          >
+            GO
+          </button>
+        </div>
+        <iframe
+          key={tvSym}
+          src={`https://s.tradingview.com/widgetembed/?symbol=${tvSym}&interval=D&theme=dark&style=1&locale=en&toolbar_bg=0c1a27&hide_side_toolbar=0`}
+          style={{ width: '100%', height: 560, border: 'none', borderRadius: 8 }}
+          allowFullScreen
+        />
+      </div>
+
       <StockSelector
         selected={stockWithLivePrice}
         onChange={handleChange}
@@ -654,7 +580,6 @@ export default function Fundamentals() {
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <CandleChart stock={stockWithLivePrice} ticker={selectedTicker} />
           <FundamentalsPanel ticker={selectedTicker} />
           <NewsPanel ticker={selectedTicker} stock={stockWithLivePrice} />
         </div>
