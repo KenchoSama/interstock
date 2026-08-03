@@ -1,23 +1,26 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useApp } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
-import { lineChart } from '../utils/charts';
+import { lineChart, candleChart, bucketSnapshotsToCandles, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
 import { persistTrade } from '../lib/persistTrade';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 import ChartWithTooltip from '../components/ChartWithTooltip';
 import { useStockLookup } from '../hooks/useStockLookup';
 
-const CHART_RANGES = ['1D', '5D', '1M', 'YTD', '1Y', '5Y'] as const;
-type ChartRange = typeof CHART_RANGES[number];
+const TF_OPTIONS = ['1D', '1W', '1M', '6M', '1Y'] as const;
+type TfOption = typeof TF_OPTIONS[number];
 
 export default function Portfolio() {
   const { state, dispatch } = useApp();
   const user = state.u[state.role];
   const { tradeAction, sym, qty } = state;
   const { quotes } = useStockQuotes();
-  const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000);
-  const chartDates = ['', ...snapshots.map(s => s.recorded_at)];
+  const [chartTf, setChartTf] = useState<TfOption>('1D');
+  const [chartStyle, setChartStyle] = useState<'line' | 'candle'>('line');
+  const candlesAllowed = chartTf === '1D' || chartTf === '1W';
+  const effectiveChartStyle = candlesAllowed ? chartStyle : 'line';
+  const { flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000, chartTf);
 
   const { result: lookupResult, loading: lookupLoading, error: lookupError, lookup } = useStockLookup();
   const [searchInput, setSearchInput] = useState(sym);
@@ -72,7 +75,9 @@ export default function Portfolio() {
 
   const [localQty, setLocalQty] = useState(qty);
   const [tradeMsg, setTradeMsg] = useState<{ text: string; ok: boolean } | null>(null);
-  const [chartRange, setChartRange] = useState<ChartRange>('1Y');
+
+  const startDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   const selectedStock = STOCKS.find(s => s.sym === sym);
   const livePrice = getLivePrice(sym);
@@ -90,16 +95,70 @@ export default function Portfolio() {
   const totalValue = portfolioValue + user.cash;
   const pnlPct = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0;
 
-  const chartSvg = useMemo(() => {
-    if (flatLine) {
-      return lineChart(Array(30).fill(totalValue), 580, 160, '#00e676');
+  const startValue = 10000;
+  const returnPct = ((totalValue - startValue) / startValue) * 100;
+  const returnAmt = totalValue - startValue;
+
+  const isDailyTf = chartTf === '1M' || chartTf === '6M' || chartTf === '1Y';
+
+  const chartCutoffDate = useMemo(() => {
+    const now = new Date();
+    const cutoff = new Date();
+    switch (chartTf) {
+      case '1D': cutoff.setDate(now.getDate() - 1); break;
+      case '1W': cutoff.setDate(now.getDate() - 7); break;
+      case '1M': cutoff.setMonth(now.getMonth() - 1); break;
+      case '6M': cutoff.setMonth(now.getMonth() - 6); break;
+      case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
     }
+    return cutoff;
+  }, [chartTf]);
+
+  const filteredChartPoints = useMemo(() => {
+    if (snapshots.length === 0) return [];
+    return snapshots.map(s => Number(s.total_value));
+  }, [snapshots]);
+
+  const filteredChartDates = useMemo(() => {
+    if (snapshots.length === 0) return [];
+    return snapshots.map(s => s.recorded_at);
+  }, [snapshots]);
+
+  const alignedDailySeries = useMemo(() => {
+    if (!isDailyTf) return { values: [], dates: [] };
+    return alignDailySnapshots(snapshots, chartCutoffDate, new Date());
+  }, [isDailyTf, snapshots, chartCutoffDate]);
+
+  const displayPoints = isDailyTf ? alignedDailySeries.values : filteredChartPoints;
+  const displayDates = isDailyTf ? alignedDailySeries.dates : filteredChartDates;
+
+  const filteredStartDate = useMemo(() => {
+    if (flatLine || snapshots.length === 0) return startDate;
+    return chartCutoffDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }, [chartCutoffDate, snapshots, flatLine, startDate]);
+
+  const candleData = useMemo(() => {
+    if (!candlesAllowed || snapshots.length === 0) return { candles: [], dates: [] };
+    return bucketSnapshotsToCandles(snapshots, chartTf === '1D' ? '15min' : 'hour');
+  }, [snapshots, chartTf, candlesAllowed]);
+
+  const chartSvg = useMemo(() => {
+    if (effectiveChartStyle === 'candle') {
+      if (candleData.candles.length === 0) return '';
+      return candleChart(candleData.candles, 580, 160);
+    }
+    if (isDailyTf) {
+      if (alignedDailySeries.values.length === 0) return '';
+      return lineChartWithPlaceholder(alignedDailySeries.values, 580, 160);
+    }
+    const points = filteredChartPoints;
+    if (points.length === 0) return '';
     return lineChart(
-      chartPoints,
+      points,
       580, 160,
-      chartPoints[chartPoints.length - 1] >= chartPoints[0] ? '#00e676' : 'var(--red)'
+      points[points.length - 1] >= points[0] ? 'var(--gr)' : 'var(--red)'
     );
-  }, [chartPoints, flatLine, totalValue]);
+  }, [effectiveChartStyle, candleData, filteredChartPoints, isDailyTf, alignedDailySeries]);
 
   const cost = localQty * livePrice;
   const holding = user.portfolio.find(h => h.sym === sym);
@@ -234,40 +293,68 @@ export default function Portfolio() {
 
           {/* Portfolio chart */}
           <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <div className="section-title" style={{ margin: 0 }}>PORTFOLIO CHART</div>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {CHART_RANGES.map(r => (
-                  <button
-                    key={r}
-                    onClick={() => setChartRange(r)}
-                    style={{
-                      padding: '3px 9px',
-                      fontSize: 12,
-                      borderRadius: 6,
-                      background: chartRange === r ? 'var(--gr)' : 'var(--surface)',
-                      color: chartRange === r ? '#000' : 'var(--text2)',
-                      fontWeight: chartRange === r ? 700 : 400,
-                    }}
-                  >
-                    {r}
-                  </button>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {candlesAllowed && (
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {(['line', 'candle'] as const).map(style => (
+                      <button key={style} onClick={() => setChartStyle(style)}
+                        style={{
+                          padding: '3px 9px', fontSize: 11, borderRadius: 6,
+                          background: chartStyle === style ? 'var(--surface2)' : 'var(--surface)',
+                          color: chartStyle === style ? 'var(--text)' : 'var(--text3)',
+                          fontWeight: chartStyle === style ? 700 : 400,
+                          border: chartStyle === style ? '1px solid var(--border)' : '1px solid transparent',
+                        }}>
+                        {style === 'line' ? 'Line' : 'Candles'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {TF_OPTIONS.map(tf => (
+                    <button key={tf} onClick={() => setChartTf(tf)}
+                      style={{
+                        padding: '3px 9px', fontSize: 11, borderRadius: 6,
+                        background: chartTf === tf ? 'var(--gr)' : 'var(--surface)',
+                        color: chartTf === tf ? '#000' : 'var(--text2)',
+                        fontWeight: chartTf === tf ? 700 : 400,
+                      }}>
+                      {tf}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
+
+            {/* Value + return */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+              <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)' }}>
+                ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div style={{ fontSize: 13, color: returnPct >= 0 ? 'var(--gr)' : 'var(--red)' }}>
+                {returnPct >= 0 ? '+' : '-'}${Math.abs(returnAmt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%)
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto' }}>
+                Holdings: ${portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+
             <ChartWithTooltip
               chartSvg={chartSvg}
-              chartPoints={chartPoints}
+              chartPoints={displayPoints}
               flatLine={flatLine}
               totalValue={totalValue}
-              dates={chartDates}
+              dates={effectiveChartStyle === 'candle' ? candleData.dates : displayDates}
+              mode={effectiveChartStyle}
+              candles={candleData.candles}
             />
-            <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
-              {chartRange} &nbsp;
-              <span className={pnlPct >= 0 ? 'up' : 'dn'} style={{ fontWeight: 600 }}>
-                {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}% return
-              </span>
-              &nbsp; · Paper portfolio · $10K start
+
+            {/* Date range */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--text3)', fontFamily: 'monospace' }}>
+              <span>{filteredStartDate}</span>
+              <span>{today}</span>
             </div>
           </div>
         </div>
