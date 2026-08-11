@@ -244,13 +244,40 @@ input:focus, textarea:focus, select:focus {
   margin-bottom: 4px;
 }
 
-.sidebar-section-label {
-  font-size: 10px;
+.sidebar-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--text3);
+  color: #fff;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   padding: 8px 16px 4px;
+  transition: var(--transition);
+}
+
+.sidebar-group-header:hover {
+  color: #fff;
+  opacity: 0.8;
+}
+
+.sidebar-chevron {
+  font-size: 16px;
+  transition: transform 0.15s ease;
+}
+
+.sidebar-chevron.open {
+  transform: rotate(180deg);
+}
+
+.sidebar-group-items {
+  display: flex;
+  flex-direction: column;
 }
 
 .nav-item {
@@ -258,8 +285,8 @@ input:focus, textarea:focus, select:focus {
   align-items: center;
   gap: 10px;
   padding: 9px 16px;
-  color: var(--text2);
-  font-size: 13px;
+  color: #fff;
+  font-size: 11px;
   cursor: pointer;
   border-radius: 0;
   transition: var(--transition);
@@ -271,7 +298,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .nav-item:hover {
-  color: var(--text);
+  color: #fff;
   background: var(--gr-dim);
 }
 

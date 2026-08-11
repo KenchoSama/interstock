@@ -31,7 +31,6 @@ import Mentors from './Mentors';
 import Sponsorships from './Sponsorships';
 import AdminDash from './AdminDash';
 import CRA from './CRA';
-import AllStudents from './AllStudents';
 import Competitions from './Competitions';
 import StaffTraining from './StaffTraining';
 import CertExam from './CertExam';
@@ -73,7 +72,7 @@ export default function PageRouter() {
     'mentors': <Mentors />,
     'sponsorships': <Sponsorships />,
     'admin-dash': <AdminDash />,
-    'all-students': <AllStudents />,
+    'all-students': <AdminDash />,
     'competitions': <Competitions />,
     'cra': <CRA />,
     'staff-training': <StaffTraining />,

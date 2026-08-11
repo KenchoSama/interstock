@@ -231,6 +231,8 @@ export interface UserProfile {
   portfolioId: string | null;
   hasAssessment: boolean;
   school_id: string | null;
+  grade: number | null;
+  age: number | null;
 }
 
 export interface NavItem {

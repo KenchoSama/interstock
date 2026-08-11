@@ -1,21 +1,51 @@
-function lmiBadgeStyle(lmi: number) {
-  if (lmi >= 60) return { background: 'rgba(0,230,118,0.12)', color: '#00e676' };
-  if (lmi >= 40) return { background: 'rgba(249,199,79,0.12)', color: 'var(--yellow)' };
-  return { background: 'var(--surface2)', color: 'var(--text3)' };
+import { useState } from 'react';
+import { useAdminOverview } from '../hooks/useAdminOverview';
+import { useAllStudents } from '../hooks/useAllStudents';
+
+function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
+  const header = ['Name', 'School', 'Grade', 'Level', 'XP', 'Rank'];
+  const lines = rows.map(s => [
+    s.name,
+    s.school ?? '',
+    s.grade ?? '',
+    s.level,
+    s.xp,
+    s.rank ?? '',
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+
+  const csv = [header.join(','), ...lines].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `students-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
-const SCHOOLS_DATA = [
-  { name: 'Lincoln High School',  zip: '—', students: 124, active: 112, lmi: 68, comp: 52, qa: 83, since: 'Sep 2023' },
-  { name: 'Westlake HS',          zip: '—', students:  98, active:  91, lmi: 45, comp: 61, qa: 87, since: 'Jan 2024' },
-  { name: 'Riverside HS',         zip: '—', students:  87, active:  79, lmi: 62, comp: 48, qa: 81, since: 'Jan 2024' },
-  { name: 'St. Joseph Academy',   zip: '—', students:  76, active:  74, lmi: 38, comp: 71, qa: 91, since: 'Sep 2023' },
-  { name: 'Horizon Academy',      zip: '—', students:  63, active:  55, lmi: 70, comp: 44, qa: 79, since: 'Mar 2024' },
-  { name: 'Summit Prep',          zip: '—', students:  45, active:  40, lmi: 29, comp: 58, qa: 85, since: 'Sep 2024' },
-];
-
-const totalStudents = SCHOOLS_DATA.reduce((s, r) => s + r.students, 0);
-
 export default function AdminDash() {
+  const { schools, totalStudents, totalCompetitions, activeCompetitions, loading: overviewLoading, error: overviewError } = useAdminOverview();
+  const { students, loading: studentsLoading, error: studentsError, deleteStudent } = useAllStudents();
+
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [confirmText, setConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const { error } = await deleteStudent(deleteTarget.id);
+    setDeleting(false);
+    if (error) {
+      setDeleteError(error);
+      return;
+    }
+    setDeleteTarget(null);
+    setConfirmText('');
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div className="page-body">
@@ -24,28 +54,29 @@ export default function AdminDash() {
         <div className="stats-row" style={{ marginBottom: 20 }}>
           <div className="stat-card" style={{ borderLeft: '3px solid #00e676' }}>
             <div className="stat-label">Schools</div>
-            <div className="stat-value">{SCHOOLS_DATA.length}</div>
-            <div className="stat-sub" style={{ color: '#00e676' }}>Multi-State</div>
+            <div className="stat-value">{overviewLoading ? '—' : schools.length}</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Students</div>
-            <div className="stat-value">{totalStudents}</div>
-            <div className="stat-sub" style={{ color: '#00e676' }}>493 active</div>
-          </div>``
-          <div className="stat-card">
-            <div className="stat-label">Competitions</div>
-            <div className="stat-value">3</div>
-            <div className="stat-sub" style={{ color: 'var(--blue)' }}>1 active</div>
+            <div className="stat-value">{overviewLoading ? '—' : totalStudents}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Partners</div>
-            <div className="stat-value">4</div>
-            <div className="stat-sub" style={{ color: 'var(--yellow)' }}>$50K+ revenue</div>
+            <div className="stat-label">Competitions</div>
+            <div className="stat-value">{overviewLoading ? '—' : totalCompetitions}</div>
+            <div className="stat-sub" style={{ color: 'var(--blue)' }}>
+              {overviewLoading ? '' : `${activeCompetitions} active`}
+            </div>
           </div>
         </div>
 
+        {overviewError && (
+          <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 16 }}>
+            Couldn't load school stats. {overviewError}
+          </div>
+        )}
+
         {/* Schools Overview table */}
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
               Schools Overview
@@ -54,48 +85,179 @@ export default function AdminDash() {
               + Add School
             </button>
           </div>
-          <table style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th>School</th>
-                <th>ZIP</th>
-                <th>Students</th>
-                <th>Active</th>
-                <th>LMI %</th>
-                <th>Completion</th>
-                <th>Quiz Avg</th>
-                <th>Since</th>
-              </tr>
-            </thead>
-            <tbody>
-              {SCHOOLS_DATA.map(s => (
-                <tr key={s.name}>
-                  <td style={{ fontWeight: 600 }}>{s.name}</td>
-                  <td style={{ fontFamily: 'monospace', color: 'var(--text3)' }}>{s.zip}</td>
-                  <td style={{ fontFamily: 'monospace' }}>{s.students}</td>
-                  <td style={{ fontFamily: 'monospace', color: '#00e676' }}>{s.active}</td>
-                  <td>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: 20, fontSize: 11, fontWeight: 700, ...lmiBadgeStyle(s.lmi) }}>
-                      {s.lmi}%
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{ width: 60, height: 5, background: 'var(--surface2)', borderRadius: 3, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${s.comp}%`, background: 'linear-gradient(90deg, #00e676, var(--blue))', borderRadius: 3 }} />
-                      </div>
-                      <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--text2)' }}>{s.comp}%</span>
-                    </div>
-                  </td>
-                  <td style={{ fontFamily: 'monospace' }}>{s.qa}%</td>
-                  <td style={{ fontFamily: 'monospace', color: 'var(--text3)' }}>{s.since}</td>
+
+          {overviewLoading && (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+              Loading schools...
+            </div>
+          )}
+
+          {!overviewLoading && !overviewError && (
+            <table style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>School</th>
+                  <th>Students</th>
+                  <th>Quiz Avg</th>
+                  <th>Avg Lessons Completed</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {schools.length === 0 && (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                      No schools yet.
+                    </td>
+                  </tr>
+                )}
+                {schools.map(s => (
+                  <tr key={s.school_id}>
+                    <td style={{ fontWeight: 600 }}>{s.school_name}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{s.student_count}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{s.avg_quiz_score !== null ? `${s.avg_quiz_score}%` : '—'}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{s.avg_lessons_completed ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* All Students table */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+              All Students {!studentsLoading && `(${students.length})`}
+            </span>
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: 11, padding: '4px 14px', background: 'linear-gradient(90deg, rgba(0,230,118,0.8), #00e676)', color: 'var(--bg)', fontWeight: 700 }}
+              disabled={studentsLoading || students.length === 0}
+              onClick={() => downloadCsv(students)}
+            >
+              Export CSV
+            </button>
+          </div>
+
+          {studentsLoading && (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+              Loading students...
+            </div>
+          )}
+
+          {!studentsLoading && studentsError && (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--red)', fontSize: 13 }}>
+              Couldn't load students. {studentsError}
+            </div>
+          )}
+
+          {!studentsLoading && !studentsError && (
+            <table style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>School</th>
+                  <th>Grade</th>
+                  <th>Level</th>
+                  <th>XP</th>
+                  <th>Rank</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                      No students yet.
+                    </td>
+                  </tr>
+                )}
+                {students.map(s => (
+                  <tr key={s.id}>
+                    <td style={{ fontWeight: 600 }}>{s.name}</td>
+                    <td style={{ color: 'var(--text3)', fontSize: 11 }}>{s.school ?? '—'}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{s.grade ? `${s.grade}th` : '—'}</td>
+                    <td>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'var(--blue-dim)', color: 'var(--blue)' }}>
+                        L{s.level}
+                      </span>
+                    </td>
+                    <td style={{ fontFamily: 'monospace', color: '#00e676', fontWeight: 600 }}>{s.xp.toLocaleString()}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{s.rank ? `#${s.rank}` : '—'}</td>
+                    <td>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 11, color: 'var(--red)' }}
+                        onClick={() => { setDeleteTarget({ id: s.id, name: s.name }); setConfirmText(''); setDeleteError(null); }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
       </div>
+
+      {deleteTarget && (
+        <div
+          onClick={() => !deleting && setDeleteTarget(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="card"
+            style={{ maxWidth: 440, width: '100%', padding: 24 }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--red)', marginBottom: 8 }}>
+              Delete {deleteTarget.name}'s account?
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 16 }}>
+              This permanently deletes their profile, portfolio, trade history, assessments, badges, and every
+              other record tied to this account. This cannot be undone.
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>
+              Type <strong style={{ color: 'var(--text)' }}>{deleteTarget.name}</strong> to confirm:
+            </div>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={e => setConfirmText(e.target.value)}
+              style={{
+                width: '100%', padding: '10px 14px', fontSize: 14, marginBottom: 12,
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)',
+                boxSizing: 'border-box',
+              }}
+            />
+            {deleteError && (
+              <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>{deleteError}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn"
+                style={{ background: 'var(--red)', color: '#fff', opacity: confirmText === deleteTarget.name && !deleting ? 1 : 0.4 }}
+                disabled={confirmText !== deleteTarget.name || deleting}
+                onClick={handleConfirmDelete}
+              >
+                {deleting ? 'Deleting...' : 'Permanently Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

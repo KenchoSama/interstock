@@ -126,7 +126,7 @@ export default function Leaderboard() {
                           </span>
                         )}
                       </td>
-                      <td style={{ color: 'var(--text3)', fontSize: 12 }}>{e.school_id ?? '—'}</td>
+                      <td style={{ color: 'var(--text3)', fontSize: 12 }}>{e.school_name ?? '—'}</td>
                       <td style={{ color: e.return_pct >= 0 ? '#00e676' : 'var(--red)', fontFamily: 'monospace', fontWeight: 600 }}>
                         {e.return_pct >= 0 ? '+' : ''}{e.return_pct.toFixed(2)}%
                       </td>
@@ -166,7 +166,7 @@ export default function Leaderboard() {
                             YOU
                           </span>
                         </td>
-                        <td style={{ color: 'var(--text3)', fontSize: 12 }}>{myEntry.school_id ?? '—'}</td>
+                        <td style={{ color: 'var(--text3)', fontSize: 12 }}>{myEntry.school_name ?? '—'}</td>
                         <td style={{ color: myEntry.return_pct >= 0 ? '#00e676' : 'var(--red)', fontFamily: 'monospace', fontWeight: 600 }}>
                           {myEntry.return_pct >= 0 ? '+' : ''}{myEntry.return_pct.toFixed(2)}%
                         </td>

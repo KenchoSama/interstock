@@ -342,7 +342,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Build an ETF card */}
+            {/* Build an ETF card
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div className="section-title" style={{ margin: 0 }}>Build an ETF</div>
@@ -432,6 +432,7 @@ export default function Dashboard() {
                 </>
               )}
             </div>
+            */}
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useReducer, type ReactNode } from 'react';
 import type { AppState, Role, AiMessage, TradeAction } from '../types';
 import { PORT } from '../data';
 import { DIPLOMA_COURSES } from '../data/courses';
@@ -26,6 +26,8 @@ function makeUser(name: string, xp = 0): AppState['u'][Role] {
     portfolioId: null as string | null,
     hasAssessment: false,
     school_id: null as string | null,
+    grade: null as number | null,
+    age: null as number | null,
   };
 }
 
@@ -119,7 +121,8 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; school_id?: string | null; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'LOGIN'; role: Role; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'UPDATE_STUDENT_INFO'; grade: number | null; age: number | null; school_id: string | null }
   | { type: 'LOGOUT' }
   | { type: 'SET_HAS_ASSESSMENT' };
 
@@ -155,11 +158,28 @@ function reducer(state: AppState, action: Action): AppState {
               portfolioId: d.portfolioId ?? null,
               hasAssessment: d.hasAssessment ?? false,
               school_id: d.school_id ?? null,
+              grade: d.grade ?? null,
+              age: d.age ?? null,
             },
           },
         };
       }
       return base;
+    }
+
+    case 'UPDATE_STUDENT_INFO': {
+      return {
+        ...state,
+        u: {
+          ...state.u,
+          student: {
+            ...state.u.student,
+            grade: action.grade,
+            age: action.age,
+            school_id: action.school_id,
+          },
+        },
+      };
     }
 
     case 'SET_HAS_ASSESSMENT':
@@ -490,6 +510,29 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+
+  // Restore view from the URL hash on load, and respond to browser back/forward
+  useEffect(() => {
+    function syncFromHash() {
+      const hash = window.location.hash.replace('#', '');
+      if (hash) {
+        dispatch({ type: 'SET_VIEW', view: hash });
+      }
+    }
+    syncFromHash();
+    window.addEventListener('popstate', syncFromHash);
+    return () => window.removeEventListener('popstate', syncFromHash);
+  }, []);
+
+  // Push a history entry whenever the view changes, so back/forward have something real to navigate
+  useEffect(() => {
+    if (state.screen !== 'main') return;
+    const currentHash = window.location.hash.replace('#', '');
+    if (currentHash !== state.view) {
+      window.history.pushState(null, '', `#${state.view}`);
+    }
+  }, [state.view, state.screen]);
+
   return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
 }
 

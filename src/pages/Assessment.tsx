@@ -6,7 +6,7 @@
 //
 // On submit: scores are stored to Supabase assessments table.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../state/AppContext';
 import { supabase } from '../lib/supabase';
 
@@ -134,7 +134,12 @@ const SHORT_ANSWER_QUESTIONS = [
 
 const CONFIDENCE_LABELS = ['', 'Very Low', 'Low', 'Moderate', 'High', 'Very High'];
 
-type Part = 'intro' | 'quiz' | 'confidence' | 'short' | 'done';
+type Part = 'intro' | 'profile' | 'quiz' | 'confidence' | 'short' | 'done';
+
+interface SchoolResult {
+  id: string;
+  name: string;
+}
 
 export default function Assessment() {
   const { state, dispatch } = useApp();
@@ -146,6 +151,51 @@ export default function Assessment() {
   const [shortAnswers, setShortAnswers] = useState<string[]>(Array(SHORT_ANSWER_QUESTIONS.length).fill(''));
   const [submitting, setSubmitting] = useState(false);
 
+  // ─── Profile info: grade, age, school ────────────────────────────────────
+  const [grade, setGrade] = useState<number | null>(null);
+  const [age, setAge] = useState<number | null>(null);
+  const [schoolQuery, setSchoolQuery] = useState('');
+  const [schoolResults, setSchoolResults] = useState<SchoolResult[]>([]);
+  const [selectedSchool, setSelectedSchool] = useState<SchoolResult | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [addingSchool, setAddingSchool] = useState(false);
+
+  useEffect(() => {
+    if (selectedSchool || schoolQuery.trim().length < 2) {
+      setSchoolResults([]);
+      return;
+    }
+    setSearching(true);
+    const handle = setTimeout(async () => {
+      const { data } = await supabase
+        .from('schools')
+        .select('id, name')
+        .ilike('name', `%${schoolQuery.trim()}%`)
+        .limit(8);
+      setSchoolResults(data ?? []);
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [schoolQuery, selectedSchool]);
+
+  const canProceedProfile = grade !== null && age !== null && age >= 10 && age <= 35 && selectedSchool !== null;
+
+  async function handleAddSchool() {
+    const name = schoolQuery.trim();
+    if (!name) return;
+    setAddingSchool(true);
+    const { data, error } = await supabase
+      .from('schools')
+      .insert({ name })
+      .select('id, name')
+      .single();
+    setAddingSchool(false);
+    if (!error && data) {
+      setSelectedSchool(data);
+      setSchoolResults([]);
+    }
+  }
+
   // Scoring
   const quizScore = quizAnswers.reduce<number>(
     (sum, ans, i) => sum + (ans === QUIZ[i].a ? 10 : 0),
@@ -153,7 +203,8 @@ export default function Assessment() {
   );
   const avgConfidence = (confidence.reduce((a, b) => a + b, 0) / confidence.length).toFixed(1);
   const allQuizAnswered = quizAnswers.every(a => a !== null);
-  const allShortFilled = shortAnswers.every(a => a.trim().length > 0);
+  const MIN_SHORT_ANSWER_LENGTH = 100;
+  const allShortFilled = shortAnswers.every(a => a.trim().length >= MIN_SHORT_ANSWER_LENGTH);
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -169,6 +220,17 @@ export default function Assessment() {
     } catch (_) {
       // Table may not exist yet — submit anyway
     }
+
+    try {
+      await supabase
+        .from('profiles')
+        .update({ grade, age, school_id: selectedSchool?.id ?? null })
+        .eq('id', user.supabaseId);
+    } catch (_) {
+      // Non-fatal — student can still proceed even if this update fails
+    }
+
+    dispatch({ type: 'UPDATE_STUDENT_INFO', grade, age, school_id: selectedSchool?.id ?? null });
     dispatch({ type: 'ADD_XP', amount: 50 });
     dispatch({ type: 'SET_HAS_ASSESSMENT' });
     setPart('done');
@@ -176,7 +238,7 @@ export default function Assessment() {
   }
 
   // ─── Progress indicator ─────────────────────────────────────────────────────
-  const PARTS: Part[] = ['intro', 'quiz', 'confidence', 'short', 'done'];
+  const PARTS: Part[] = ['intro', 'profile', 'quiz', 'confidence', 'short', 'done'];
   const partIndex = PARTS.indexOf(part);
   const progress = Math.round((partIndex / (PARTS.length - 1)) * 100);
 
@@ -250,7 +312,7 @@ export default function Assessment() {
           <button
             className="btn btn-primary"
             style={{ padding: '12px 36px', fontSize: 15 }}
-            onClick={() => setPart('quiz')}
+            onClick={() => setPart('profile')}
           >
             Start Assessment →
           </button>
@@ -258,6 +320,174 @@ export default function Assessment() {
             +50 XP awarded on completion
           </div>
         </div>
+      )}
+
+      {/* ── PROFILE INFO ─────────────────────────────────────────────────────── */}
+      {part === 'profile' && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <span style={{
+              background: 'rgba(77,159,255,0.12)', border: '1px solid #4d9fff',
+              color: '#4d9fff', borderRadius: 6, padding: '3px 10px',
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
+            }}>BEFORE YOU START</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Tell us a bit about you</span>
+          </div>
+
+          <div className="card" style={{ marginBottom: 12, padding: '14px 18px' }}>
+            <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.6 }}>
+              This helps us tailor field trips, internships, and content to your grade level and school.
+            </div>
+          </div>
+
+          {/* Grade */}
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14, color: 'var(--text)' }}>
+              What grade are you in?
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[9, 10, 11, 12].map(g => (
+                <button
+                  key={g}
+                  onClick={() => setGrade(g)}
+                  style={{
+                    flex: 1,
+                    padding: '12px 0',
+                    borderRadius: 8,
+                    border: `1.5px solid ${grade === g ? 'var(--gr)' : 'var(--border)'}`,
+                    background: grade === g ? 'var(--gr-dim)' : 'var(--surface)',
+                    color: grade === g ? 'var(--gr)' : 'var(--text2)',
+                    fontWeight: grade === g ? 700 : 400,
+                    fontSize: 15,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {g}th
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Age */}
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14, color: 'var(--text)' }}>
+              How old are you?
+            </div>
+            <input
+              type="number"
+              min={10}
+              max={35}
+              placeholder="e.g. 16"
+              value={age ?? ''}
+              onChange={e => setAge(e.target.value === '' ? null : Number(e.target.value))}
+              style={{
+                width: 120,
+                padding: '10px 14px',
+                fontSize: 15,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                color: 'var(--text)',
+              }}
+            />
+          </div>
+
+          {/* School search */}
+          <div className="card" style={{ marginBottom: 12, position: 'relative' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14, color: 'var(--text)' }}>
+              What school do you go to?
+            </div>
+
+            {selectedSchool ? (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 14px', borderRadius: 8,
+                background: 'var(--gr-dim)', border: '1px solid var(--gr)',
+              }}>
+                <span style={{ color: 'var(--gr)', fontWeight: 600, fontSize: 14 }}>{selectedSchool.name}</span>
+                <button
+                  onClick={() => { setSelectedSchool(null); setSchoolQuery(''); }}
+                  style={{ background: 'none', color: 'var(--text3)', fontSize: 12, padding: '2px 6px' }}
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="Start typing your school's name..."
+                  value={schoolQuery}
+                  onChange={e => setSchoolQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    fontSize: 14,
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    color: 'var(--text)',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                {searching && (
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>Searching...</div>
+                )}
+                {!searching && schoolQuery.trim().length >= 2 && schoolResults.length === 0 && (
+                  <div style={{
+                    marginTop: 8, padding: '10px 14px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--surface)',
+                  }}>
+                    <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>
+                      No matching schools found.
+                    </div>
+                    <button
+                      onClick={handleAddSchool}
+                      disabled={addingSchool}
+                      className="btn btn-secondary btn-sm"
+                      style={{ opacity: addingSchool ? 0.6 : 1 }}
+                    >
+                      {addingSchool ? 'Adding...' : `+ Add "${schoolQuery.trim()}" as my school`}
+                    </button>
+                  </div>
+                )}
+                {schoolResults.length > 0 && (
+                  <div style={{
+                    marginTop: 8, border: '1px solid var(--border)', borderRadius: 8,
+                    overflow: 'hidden',
+                  }}>
+                    {schoolResults.map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => { setSelectedSchool(s); setSchoolResults([]); }}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left',
+                          padding: '10px 14px', fontSize: 13,
+                          background: 'var(--surface)', color: 'var(--text)',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button
+              className="btn btn-primary"
+              style={{ padding: '11px 28px', opacity: canProceedProfile ? 1 : 0.4 }}
+              disabled={!canProceedProfile}
+              onClick={() => setPart('quiz')}
+            >
+              Next: Knowledge Quiz →
+            </button>
+          </div>
+        </>
       )}
 
       {/* ── PART 1: QUIZ ─────────────────────────────────────────────────────── */}
@@ -440,16 +670,19 @@ export default function Assessment() {
             </div>
           </div>
 
-          {SHORT_ANSWER_QUESTIONS.map((q, qi) => (
+          {SHORT_ANSWER_QUESTIONS.map((q, qi) => {
+            const charCount = shortAnswers[qi].trim().length;
+            const meetsMin = charCount >= MIN_SHORT_ANSWER_LENGTH;
+            return (
             <div key={qi} className="card" style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 12 }}>
                 <div style={{
                   width: 24, height: 24, borderRadius: 5, flexShrink: 0,
-                  background: shortAnswers[qi].trim().length > 0 ? 'rgba(249,199,79,0.12)' : 'var(--surface2)',
-                  border: `1px solid ${shortAnswers[qi].trim().length > 0 ? 'var(--yellow)' : 'var(--border)'}`,
+                  background: meetsMin ? 'rgba(249,199,79,0.12)' : 'var(--surface2)',
+                  border: `1px solid ${meetsMin ? 'var(--yellow)' : 'var(--border)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 700,
-                  color: shortAnswers[qi].trim().length > 0 ? 'var(--yellow)' : 'var(--text3)',
+                  color: meetsMin ? 'var(--yellow)' : 'var(--text3)',
                 }}>
                   {qi + 1}
                 </div>
@@ -457,7 +690,7 @@ export default function Assessment() {
               </div>
               <textarea
                 rows={3}
-                placeholder="Write your answer here..."
+                placeholder="Write your answer here... (at least 100 characters)"
                 value={shortAnswers[qi]}
                 onChange={e => {
                   const updated = [...shortAnswers];
@@ -470,18 +703,19 @@ export default function Assessment() {
                   padding: '10px 12px',
                   fontSize: 13,
                   background: 'var(--surface)',
-                  border: '1px solid var(--border)',
+                  border: `1px solid ${meetsMin ? 'var(--gr)' : 'var(--border)'}`,
                   borderRadius: 8,
                   color: 'var(--text)',
                   lineHeight: 1.6,
                   boxSizing: 'border-box',
                 }}
               />
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, textAlign: 'right' }}>
-                {shortAnswers[qi].trim().split(/\s+/).filter(Boolean).length} words
+              <div style={{ fontSize: 11, color: meetsMin ? 'var(--gr)' : 'var(--text3)', marginTop: 4, textAlign: 'right' }}>
+                {meetsMin ? `✓ ${charCount} characters` : `${charCount} / ${MIN_SHORT_ANSWER_LENGTH} characters minimum`}
               </div>
             </div>
-          ))}
+            );
+          })}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
             <button className="btn btn-secondary" onClick={() => setPart('confidence')}>← Back</button>

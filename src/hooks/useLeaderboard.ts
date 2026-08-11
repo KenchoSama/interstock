@@ -6,6 +6,7 @@ export interface LeaderboardEntry {
   full_name: string;
   xp: number;
   school_id: string | null;
+  school_name: string | null;
   global_rank: number;
   return_pct: number;
   total_value: number;
@@ -22,7 +23,7 @@ export function useLeaderboard(userId?: string, limit = 5, pollMs = 60000) {
     async function fetchLeaderboard() {
       const { data } = await supabase
         .from('leaderboard')
-        .select('id, full_name, xp, school_id, global_rank, return_pct, total_value')
+        .select('id, full_name, xp, school_id, school_name, global_rank, return_pct, total_value')
         .order('global_rank', { ascending: true })
         .limit(limit);
 
@@ -32,7 +33,7 @@ export function useLeaderboard(userId?: string, limit = 5, pollMs = 60000) {
       if (userId) {
         const { data: me } = await supabase
           .from('leaderboard')
-          .select('id, full_name, xp, school_id, global_rank, return_pct, total_value')
+          .select('id, full_name, xp, school_id, school_name, global_rank, return_pct, total_value')
           .eq('id', userId)
           .single();
         if (!cancelled) setMyEntry(me ?? null);
