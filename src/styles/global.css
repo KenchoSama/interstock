@@ -107,10 +107,6 @@ input:focus, textarea:focus, select:focus {
   letter-spacing: -0.5px;
 }
 
-.topbar-logo span {
-  color: var(--text);
-}
-
 /* ── Ticker marquee ──────────────────────────────────────── */
 
 @keyframes ticker-scroll {
@@ -565,12 +561,9 @@ tbody td {
 }
 
 .login-logo {
-  font-size: 32px;
-  font-weight: 800;
-  color: #fff;
-  text-transform: uppercase;
+  height: 40px;
+  width: auto;
   margin-bottom: 6px;
-  letter-spacing: -1px;
 }
 
 .login-tagline {

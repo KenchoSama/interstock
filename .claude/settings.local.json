@@ -5,7 +5,15 @@
       "Bash(npx tsc *)",
       "Bash(curl -s http://localhost:5173/)",
       "Bash(curl -s http://localhost:5174/)",
-      "Bash(curl -s \"https://query1.finance.yahoo.com/v8/finance/chart/AAPL?interval=1d&range=1d\" -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/120.0.0.0 Safari/537.36\" -H \"Accept: application/json\")"
+      "Bash(curl -s \"https://query1.finance.yahoo.com/v8/finance/chart/AAPL?interval=1d&range=1d\" -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/120.0.0.0 Safari/537.36\" -H \"Accept: application/json\")",
+      "Bash(where magick *)",
+      "Bash(python -c \"import PIL; print\\(PIL.__version__\\)\")",
+      "Bash(git mv *)",
+      "Bash(mv src/hooks/Usementorschedule.ts src/hooks/useMentorSchedule_tmp.ts)",
+      "Bash(mv src/hooks/useMentorSchedule_tmp.ts src/hooks/useMentorSchedule.ts)",
+      "Bash(mv src/pages/Mentorschedule.tsx src/pages/MentorSchedule_tmp.tsx)",
+      "Bash(mv src/pages/MentorSchedule_tmp.tsx src/pages/MentorSchedule.tsx)",
+      "Bash(mv src/hooks/Useavailablementors.ts src/hooks/useAvailableMentors_tmp.ts)"
     ]
   }
 }

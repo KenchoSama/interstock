@@ -3,7 +3,7 @@ import { useApp, getLevelName, getNextLevelXP, isLocked } from '../state/AppCont
 import { STOCKS } from '../data/stocks';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import MentorBookingModal from '../components/MentorBookingModal';
-import { useMentor } from '../hooks/useMentor';
+import { useAvailableMentors } from '../hooks/useAvailableMentors';
 import { DIPLOMA_COURSES } from '../data/courses';
 import { genPrices, lineChart, candleChart, bucketSnapshotsToCandles, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
@@ -29,8 +29,7 @@ export default function Dashboard() {
   const { state, dispatch } = useApp();
   const user = state.u[state.role];
 
-  const userId = user.supabaseId ?? undefined;
-  const { mentor } = useMentor(userId);
+  const { mentors, loading: mentorsLoading } = useAvailableMentors();
   const { quotes } = useStockQuotes();
 
   const [customPrices, setCustomPrices] = useState<Record<string, number>>({});
@@ -63,7 +62,7 @@ export default function Dashboard() {
   const candlesAllowed = chartTf === '1D' || chartTf === '1W';
   const effectiveChartStyle = candlesAllowed ? chartStyle : 'line';
   const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000, chartTf);
-  const [showBooking, setShowBooking] = useState(false);
+  const [bookingMentor, setBookingMentor] = useState<typeof mentors[number] | null>(null);
 
   const startDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -541,40 +540,61 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Your Mentor widget */}
+          {/* Available Mentors widget */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div className="card-title" style={{ margin: 0 }}>YOUR MENTOR</div>
-              <span className="badge badge-green">ASSIGNED</span>
+              <div className="card-title" style={{ margin: 0 }}>AVAILABLE MENTORS</div>
+              {!mentorsLoading && (
+                <span className="badge badge-green">{mentors.length} AVAILABLE</span>
+              )}
             </div>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: '50%',
-                background: 'var(--surface2)', border: '2px solid var(--gr)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 700, fontSize: 15, color: 'var(--gr)', flexShrink: 0,
-              }}>
-                {mentor?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+
+            {mentorsLoading && (
+              <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '10px 0' }}>
+                Loading mentors...
               </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{mentor?.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{mentor?.title}</div>
+            )}
+
+            {!mentorsLoading && mentors.length === 0 && (
+              <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '10px 0' }}>
+                No mentors available right now.
               </div>
-            </div>
-            <button
-              className="btn btn-primary"
-              style={{ width: '100%', fontSize: 13 }}
-              onClick={() => setShowBooking(true)}
-            >
-              Book a Meeting
-            </button>
+            )}
+
+            {!mentorsLoading && mentors.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {mentors.map(m => (
+                  <div key={m.id} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: '50%',
+                      background: 'var(--surface2)', border: '2px solid var(--gr)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 700, fontSize: 14, color: 'var(--gr)', flexShrink: 0,
+                    }}>
+                      {m.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{m.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text2)' }}>{m.title}</div>
+                    </div>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ fontSize: 12, flexShrink: 0 }}
+                      onClick={() => setBookingMentor(m)}
+                    >
+                      Book
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>
       </div>
 
-      {showBooking && mentor && (
-        <MentorBookingModal mentor={mentor} onClose={() => setShowBooking(false)} />
+      {bookingMentor && (
+        <MentorBookingModal mentor={bookingMentor} onClose={() => setBookingMentor(null)} />
       )}
     </div>
   );

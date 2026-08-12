@@ -1,5 +1,6 @@
 import { useApp, getLevelName, getNextLevelXP } from '../../state/AppContext';
 import { useStockQuotes } from '../../hooks/useStockQuotes';
+import interstockLogo from '../../assets/interstock-logo.png';
 
 export default function Topbar() {
   const { state, dispatch } = useApp();
@@ -17,8 +18,7 @@ export default function Topbar() {
   return (
     <div className="topbar">
       <div className="topbar-logo">
-        <div style={{width:40,height:40,background:'var(--gr)',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--m)',fontSize:18,fontWeight:700,color:'#000'}}>IS</div>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: '#f0f8ff', letterSpacing: 2 }}>INTERSTOCK</span>
+        <img src={interstockLogo} alt="InterStock" style={{ height: 22, width: 'auto' }} />
       </div>
 
       <div className="topbar-ticker-wrap">

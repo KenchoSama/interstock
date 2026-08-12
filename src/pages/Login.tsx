@@ -3,6 +3,7 @@ import { useApp } from '../state/AppContext';
 import { supabase } from '../lib/supabase';
 import { hydrateUser } from '../hooks/useAuthSync';
 import type { Role } from '../types';
+import interstockLogo from '../assets/interstock-logo.png';
 
 const ROLE_LABELS: Record<Role, string> = {
   student: 'Student',
@@ -58,7 +59,7 @@ export default function Login() {
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <div className="login-logo">InterStock</div>
+        <img className="login-logo" src={interstockLogo} alt="InterStock" />
         <div className="login-tagline">Financial Literacy for the Next Generation</div>
 
         {isSignUp && (

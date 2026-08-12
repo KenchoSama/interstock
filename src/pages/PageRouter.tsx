@@ -30,6 +30,7 @@ import PartnerDash from './PartnerDash';
 import Mentors from './Mentors';
 import Sponsorships from './Sponsorships';
 import AdminDash from './AdminDash';
+import MentorSchedule from './Mentorschedule';
 import CRA from './CRA';
 import Competitions from './Competitions';
 import StaffTraining from './StaffTraining';
@@ -72,6 +73,7 @@ export default function PageRouter() {
     'mentors': <Mentors />,
     'sponsorships': <Sponsorships />,
     'admin-dash': <AdminDash />,
+    'mentor-schedule': <MentorSchedule />,
     'all-students': <AdminDash />,
     'competitions': <Competitions />,
     'cra': <CRA />,
