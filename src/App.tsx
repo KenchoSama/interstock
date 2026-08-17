@@ -6,6 +6,7 @@ import SchoolShell   from './shells/SchoolShell';
 import PartnerShell  from './shells/PartnerShell';
 import AdminShell    from './shells/AdminShell';
 import Login         from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import './styles/global.css';
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
   const { state } = useApp();
 
   if (state.screen === 'login') return <Login />;
+  if (state.screen === 'reset-password') return <ResetPassword />;
 
   switch (state.role) {
     case 'student':      return <StudentShell />;

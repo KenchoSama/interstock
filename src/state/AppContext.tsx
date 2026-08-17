@@ -91,6 +91,7 @@ const initialState: AppState = {
 
 type Action =
   | { type: 'SET_SCREEN'; screen: AppState['screen'] }
+  | { type: 'SHOW_RESET_PASSWORD' }
   | { type: 'SET_ROLE'; role: Role }
   | { type: 'SET_VIEW'; view: string }
   | { type: 'SET_MODAL'; modal: string | null }
@@ -181,6 +182,10 @@ function reducer(state: AppState, action: Action): AppState {
       }
 
       return base;
+    }
+
+    case 'SHOW_RESET_PASSWORD': {
+      return { ...state, screen: 'reset-password' };
     }
 
     case 'UPDATE_STUDENT_INFO': {

@@ -278,6 +278,56 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Available Mentors widget */}
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <div className="card-title" style={{ margin: 0 }}>AVAILABLE MENTORS</div>
+                {!mentorsLoading && (
+                  <span className="badge badge-green">{mentors.length} AVAILABLE</span>
+                )}
+              </div>
+
+              {mentorsLoading && (
+                <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '10px 0' }}>
+                  Loading mentors...
+                </div>
+              )}
+
+              {!mentorsLoading && mentors.length === 0 && (
+                <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '10px 0' }}>
+                  No mentors available right now.
+                </div>
+              )}
+
+              {!mentorsLoading && mentors.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {mentors.map(m => (
+                    <div key={m.id} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <div style={{
+                        width: 40, height: 40, borderRadius: '50%',
+                        background: 'var(--surface2)', border: '2px solid var(--gr)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 700, fontSize: 14, color: 'var(--gr)', flexShrink: 0,
+                      }}>
+                        {m.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{m.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text2)' }}>{m.title}</div>
+                      </div>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ fontSize: 12, flexShrink: 0 }}
+                        onClick={() => setBookingMentor(m)}
+                      >
+                        Book
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Build an ETF card
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -475,56 +525,6 @@ export default function Dashboard() {
                 </span>
               </div>
             </div>
-          </div>
-
-          {/* Available Mentors widget */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div className="card-title" style={{ margin: 0 }}>AVAILABLE MENTORS</div>
-              {!mentorsLoading && (
-                <span className="badge badge-green">{mentors.length} AVAILABLE</span>
-              )}
-            </div>
-
-            {mentorsLoading && (
-              <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '10px 0' }}>
-                Loading mentors...
-              </div>
-            )}
-
-            {!mentorsLoading && mentors.length === 0 && (
-              <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '10px 0' }}>
-                No mentors available right now.
-              </div>
-            )}
-
-            {!mentorsLoading && mentors.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {mentors.map(m => (
-                  <div key={m.id} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: '50%',
-                      background: 'var(--surface2)', border: '2px solid var(--gr)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 700, fontSize: 14, color: 'var(--gr)', flexShrink: 0,
-                    }}>
-                      {m.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{m.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text2)' }}>{m.title}</div>
-                    </div>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      style={{ fontSize: 12, flexShrink: 0 }}
-                      onClick={() => setBookingMentor(m)}
-                    >
-                      Book
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
         </div>

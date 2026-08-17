@@ -1,5 +1,5 @@
 export type Role = 'student' | 'school_admin' | 'parent' | 'partner' | 'admin' | 'staff';
-export type Screen = 'login' | 'main';
+export type Screen = 'login' | 'main' | 'reset-password';
 export type TradeAction = 'buy' | 'sell';
 
 export interface Stock {

@@ -7,18 +7,32 @@ export function useAuthSync() {
   const { dispatch } = useApp();
 
   useEffect(() => {
-    // Restore session on page load
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user) return;
-      await hydrateUser(session.user.id, dispatch);
-    });
+    // If this page load came from a password-recovery email link, go straight to
+    // the reset-password screen and skip normal session restoration entirely —
+    // otherwise getSession() below can race ahead and log the user in normally
+    // before the recovery flow has a chance to take over.
+    const url = new URL(window.location.href);
+    const isRecovery =
+      window.location.hash.includes('type=recovery') || url.searchParams.get('type') === 'recovery';
+
+    if (isRecovery) {
+      dispatch({ type: 'SHOW_RESET_PASSWORD' });
+    } else {
+      // Restore session on page load
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        if (!session?.user) return;
+        await hydrateUser(session.user.id, dispatch);
+      });
+    }
 
     // React to login / logout events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_OUT') {
+        if (event === 'PASSWORD_RECOVERY') {
+          dispatch({ type: 'SHOW_RESET_PASSWORD' });
+        } else if (event === 'SIGNED_OUT') {
           dispatch({ type: 'LOGOUT' });
-        } else if (session?.user) {
+        } else if (!isRecovery && session?.user) {
           await hydrateUser(session.user.id, dispatch);
         }
       }
