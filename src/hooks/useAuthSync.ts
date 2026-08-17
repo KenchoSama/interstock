@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../state/AppContext';
 import type { Role } from '../types';
+import { CURRENT_COC_VERSION } from '../pages/CodeOfConduct';
 
 export function useAuthSync() {
   const { dispatch } = useApp();
@@ -86,6 +87,15 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
     .maybeSingle();
   const hasAssessment = !!assessment;
 
+  // 5. Check if student has agreed to the current version of the code of conduct
+  const { data: cocAgreement } = await supabase
+    .from('code_of_conduct_agreements')
+    .select('id')
+    .eq('student_id', userId)
+    .eq('version', CURRENT_COC_VERSION)
+    .maybeSingle();
+  const hasAgreedToCoC = !!cocAgreement;
+
   dispatch({
     type: 'LOGIN',
     role: 'student',
@@ -98,6 +108,7 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
       supabaseId: userId,
       portfolioId: portfolio?.id ?? null,
       hasAssessment,
+      hasAgreedToCoC,
       school_id: profile.school_id ?? null,
       grade: profile.grade ?? null,
       age: profile.age ?? null,

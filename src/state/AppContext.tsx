@@ -25,6 +25,7 @@ function makeUser(name: string, xp = 0): AppState['u'][Role] {
     supabaseId: null as string | null,
     portfolioId: null as string | null,
     hasAssessment: false,
+    hasAgreedToCoC: false,
     school_id: null as string | null,
     grade: null as number | null,
     age: null as number | null,
@@ -122,7 +123,8 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string }; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string }; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; hasAgreedToCoC?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'AGREE_TO_CODE_OF_CONDUCT' }
   | { type: 'UPDATE_STUDENT_INFO'; grade: number | null; age: number | null; school_id: string | null }
   | { type: 'LOGOUT' }
   | { type: 'SET_HAS_ASSESSMENT' };
@@ -158,6 +160,7 @@ function reducer(state: AppState, action: Action): AppState {
               supabaseId: d.supabaseId ?? null,
               portfolioId: d.portfolioId ?? null,
               hasAssessment: d.hasAssessment ?? false,
+              hasAgreedToCoC: d.hasAgreedToCoC ?? false,
               school_id: d.school_id ?? null,
               grade: d.grade ?? null,
               age: d.age ?? null,
@@ -186,6 +189,19 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'SHOW_RESET_PASSWORD': {
       return { ...state, screen: 'reset-password' };
+    }
+
+    case 'AGREE_TO_CODE_OF_CONDUCT': {
+      return {
+        ...state,
+        u: {
+          ...state.u,
+          student: {
+            ...state.u.student,
+            hasAgreedToCoC: true,
+          },
+        },
+      };
     }
 
     case 'UPDATE_STUDENT_INFO': {

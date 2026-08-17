@@ -230,6 +230,7 @@ export interface UserProfile {
   supabaseId: string | null;
   portfolioId: string | null;
   hasAssessment: boolean;
+  hasAgreedToCoC: boolean;
   school_id: string | null;
   grade: number | null;
   age: number | null;
