@@ -2,17 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { supabase } from '../lib/supabase';
 import { hydrateUser } from '../hooks/useAuthSync';
-import type { Role } from '../types';
 import interstockLogo from '../assets/interstock-logo.png';
-
-const ROLE_LABELS: Record<Role, string> = {
-  student: 'Student',
-  school_admin: 'School Admin',
-  parent: 'Parent',
-  partner: 'Partner',
-  admin: 'Admin',
-  staff: 'Staff',
-};
 
 export default function Login() {
   const { dispatch } = useApp();
@@ -20,14 +10,9 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
-  const [demoRole, setDemoRole] = useState<Role>('student');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-
-  function handleDemo() {
-    dispatch({ type: 'LOGIN', role: demoRole });
-  }
 
   async function handleEmailAuth() {
     setError('');
@@ -104,31 +89,6 @@ export default function Login() {
 
         {error && <div className="login-error">{error}</div>}
         {message && <div style={{ color: '#4ade80', fontSize: 13, marginTop: 8 }}>{message}</div>}
-
-        {/* Demo section */}
-        <div style={{ marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
-            Demo — sign in as:
-          </div>
-          <div className="login-roles">
-            {(Object.keys(ROLE_LABELS) as Role[]).map(r => (
-              <button
-                key={r}
-                className={`role-chip ${demoRole === r ? 'active' : ''}`}
-                onClick={() => setDemoRole(r)}
-              >
-                {ROLE_LABELS[r]}
-              </button>
-            ))}
-          </div>
-          <button
-            className="btn btn-secondary"
-            style={{ width: '100%', marginTop: 12 }}
-            onClick={handleDemo}
-          >
-            Enter as {ROLE_LABELS[demoRole]}
-          </button>
-        </div>
       </div>
     </div>
   );

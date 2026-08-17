@@ -1,5 +1,5 @@
 import { useApp } from '../state/AppContext';
-import { useMentorSchedule } from '../hooks/useMentorSchedule';
+import { useMentorSchedule } from '../hooks/Usementorschedule';
 
 const TIMES = ['9:00 AM', '10:00 AM', '11:00 AM', '2:00 PM', '3:00 PM'];
 

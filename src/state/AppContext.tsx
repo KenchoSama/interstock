@@ -121,7 +121,7 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string }; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; portfolio: AppState['u']['student']['portfolio'] } }
   | { type: 'UPDATE_STUDENT_INFO'; grade: number | null; age: number | null; school_id: string | null }
   | { type: 'LOGOUT' }
   | { type: 'SET_HAS_ASSESSMENT' };
@@ -164,6 +164,22 @@ function reducer(state: AppState, action: Action): AppState {
           },
         };
       }
+      if (action.role !== 'student' && action.basicData) {
+        const b = action.basicData;
+        return {
+          ...base,
+          u: {
+            ...state.u,
+            [action.role]: {
+              ...state.u[action.role],
+              name: b.name,
+              avatar: b.name[0]?.toUpperCase() ?? '?',
+              supabaseId: b.supabaseId,
+            },
+          },
+        };
+      }
+
       return base;
     }
 

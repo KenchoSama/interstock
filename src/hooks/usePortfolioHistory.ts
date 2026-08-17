@@ -47,6 +47,10 @@ export function usePortfolioHistory(
           fromDate.setMonth(now.getMonth() - 6);
           interval = 'daily';
           break;
+        case 'YTD':
+          fromDate = new Date(now.getFullYear(), 0, 1);
+          interval = 'daily';
+          break;
         case '1Y':
           fromDate = new Date(now);
           fromDate.setFullYear(now.getFullYear() - 1);

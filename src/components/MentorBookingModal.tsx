@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Mentor } from '../hooks/useMentor';
-import { useMentorAvailability } from '../hooks/useMentorAvailability';
+import { useMentorAvailability } from '../hooks/Usementoravailability';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../state/AppContext';
 

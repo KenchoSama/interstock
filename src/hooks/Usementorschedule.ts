@@ -34,7 +34,7 @@ export function useMentorSchedule(mentorId: string | undefined, dates: Date[], t
         .in('date', dateStrs),
       supabase
         .from('mentor_booking_requests')
-        .select('id, student_id, date, time_slot, status, profiles ( full_name )')
+        .select('id, student_id, date, time_slot, status, profiles!student_id ( full_name )')
         .eq('mentor_id', mentorId)
         .in('date', dateStrs),
     ]);

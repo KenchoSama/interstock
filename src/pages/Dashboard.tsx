@@ -5,7 +5,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard';
 import MentorBookingModal from '../components/MentorBookingModal';
 import { useAvailableMentors } from '../hooks/useAvailableMentors';
 import { DIPLOMA_COURSES } from '../data/courses';
-import { genPrices, lineChart, candleChart, bucketSnapshotsToCandles, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
+import { lineChart, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import ChartWithTooltip from '../components/ChartWithTooltip';
@@ -14,15 +14,15 @@ const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 const ETF_COLORS = ['var(--gr)', '#4d9fff', '#f9c74f', '#a855f7', '#f97316'];
 const SP500_YTD = 10.8;
 
-const TF_OPTIONS = ['1D', '1W', '1M', '6M', '1Y'] as const;
+const TF_OPTIONS = ['1D', '1W', '1M', '6M', 'YTD', '1Y'] as const;
 type TfOption = typeof TF_OPTIONS[number];
 
-const FEATURE_LIST = [
-  { label: 'AI Tutor', view: 'ai' },
-  { label: 'Scenario Game', view: 'game' },
-  { label: 'Competitions', view: 'compete' },
-  { label: 'Options', view: 'options' },
-  { label: 'ETF Builder', view: 'etf' },
+const FEATURE_LIST: { label: string; view: string }[] = [
+  // { label: 'AI Tutor', view: 'ai' },
+  // { label: 'Scenario Game', view: 'game' },
+  // { label: 'Competitions', view: 'compete' },
+  // { label: 'Options', view: 'options' },
+  // { label: 'ETF Builder', view: 'etf' },
 ];
 
 export default function Dashboard() {
@@ -58,9 +58,6 @@ export default function Dashboard() {
     ?? 0;
 
   const [chartTf, setChartTf] = useState<TfOption>('1D');
-  const [chartStyle, setChartStyle] = useState<'line' | 'candle'>('line');
-  const candlesAllowed = chartTf === '1D' || chartTf === '1W';
-  const effectiveChartStyle = candlesAllowed ? chartStyle : 'line';
   const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000, chartTf);
   const [bookingMentor, setBookingMentor] = useState<typeof mentors[number] | null>(null);
 
@@ -84,7 +81,7 @@ export default function Dashboard() {
   const diplomasTotal = DIPLOMA_COURSES.length;
   const diplomaPct = Math.round((diplomasEarned / diplomasTotal) * 100);
 
-  const isDailyTf = chartTf === '1M' || chartTf === '6M' || chartTf === '1Y';
+  const isDailyTf = chartTf === '1M' || chartTf === '6M' || chartTf === 'YTD' || chartTf === '1Y';
 
   const chartCutoffDate = useMemo(() => {
     const now = new Date();
@@ -94,6 +91,7 @@ export default function Dashboard() {
       case '1W': cutoff.setDate(now.getDate() - 7); break;
       case '1M': cutoff.setMonth(now.getMonth() - 1); break;
       case '6M': cutoff.setMonth(now.getMonth() - 6); break;
+      case 'YTD': cutoff.setMonth(0, 1); break;
       case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
     }
     return cutoff;
@@ -122,16 +120,7 @@ export default function Dashboard() {
     return chartCutoffDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }, [chartCutoffDate, snapshots, flatLine, startDate]);
 
-  const candleData = useMemo(() => {
-    if (!candlesAllowed || snapshots.length === 0) return { candles: [], dates: [] };
-    return bucketSnapshotsToCandles(snapshots, chartTf === '1D' ? '15min' : 'hour');
-  }, [snapshots, chartTf, candlesAllowed]);
-
   const chartSvg = useMemo(() => {
-    if (effectiveChartStyle === 'candle') {
-      if (candleData.candles.length === 0) return '';
-      return candleChart(candleData.candles, 530, 120);
-    }
     if (isDailyTf) {
       if (alignedDailySeries.values.length === 0) return '';
       return lineChartWithPlaceholder(alignedDailySeries.values, 530, 120);
@@ -143,7 +132,7 @@ export default function Dashboard() {
       530, 120,
       points[points.length - 1] >= points[0] ? 'var(--gr)' : 'var(--red)'
     );
-  }, [effectiveChartStyle, candleData, filteredChartPoints, isDailyTf, alignedDailySeries]);
+  }, [filteredChartPoints, isDailyTf, alignedDailySeries]);
 
   const portfolioChange = holdingsValue > 0
     ? user.portfolio.reduce((sum, h) => sum + (getLivePrice(h.sym) - h.avg) * h.shares, 0)
@@ -224,22 +213,6 @@ export default function Dashboard() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div className="card-title" style={{ margin: 0 }}>PORTFOLIO PERFORMANCE</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {candlesAllowed && (
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {(['line', 'candle'] as const).map(style => (
-                        <button key={style} onClick={() => setChartStyle(style)}
-                          style={{
-                            padding: '3px 9px', fontSize: 11, borderRadius: 6,
-                            background: chartStyle === style ? 'var(--surface2)' : 'var(--surface)',
-                            color: chartStyle === style ? 'var(--text)' : 'var(--text3)',
-                            fontWeight: chartStyle === style ? 700 : 400,
-                            border: chartStyle === style ? '1px solid var(--border)' : '1px solid transparent',
-                          }}>
-                          {style === 'line' ? 'Line' : 'Candles'}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                   <div style={{ display: 'flex', gap: 4 }}>
                     {TF_OPTIONS.map(tf => (
                       <button key={tf} onClick={() => setChartTf(tf)}
@@ -275,9 +248,7 @@ export default function Dashboard() {
                 chartPoints={displayPoints}
                 flatLine={flatLine}
                 totalValue={totalValue}
-                dates={effectiveChartStyle === 'candle' ? candleData.dates : displayDates}
-                mode={effectiveChartStyle}
-                candles={candleData.candles}
+                dates={displayDates}
               />
 
               {/* Date range */}
@@ -290,28 +261,6 @@ export default function Dashboard() {
             <div className="card">
               <div className="section-title">Quick Actions</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <button
-                  className="btn btn-primary"
-                  style={{ justifyContent: 'center', gap: 8, padding: '12px 16px' }}
-                  onClick={() => dispatch({ type: 'SET_VIEW', view: 'game' })}
-                >
-                  Scenario Challenge
-                </button>
-                <button
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    padding: '12px 16px', borderRadius: 'var(--radius)', fontWeight: 500,
-                    fontSize: 14, cursor: 'pointer', border: 'none',
-                    background: 'var(--blue)', color: '#fff',
-                  }}
-                  onClick={() => dispatch({ type: 'SET_VIEW', view: 'level-game' })}
-                >
-                  Level Up Game
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, background: 'var(--yellow)', color: 'var(--bg)',
-                    borderRadius: 4, padding: '2px 5px', letterSpacing: '0.5px',
-                  }}>NEW</span>
-                </button>
                 <button
                   className="btn btn-secondary"
                   style={{ justifyContent: 'center', gap: 8, padding: '12px 16px', color: 'var(--gr)', borderColor: 'var(--gr)' }}
@@ -326,18 +275,6 @@ export default function Dashboard() {
                 >
                   Assignments
                 </button>
-              </div>
-
-              <div style={{ marginTop: 20, padding: '14px 16px', background: 'var(--bg3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
-                  Diplomas
-                </div>
-                <div className="progress-bar" style={{ marginBottom: 6 }}>
-                  <div className="progress-fill" style={{ width: `${diplomaPct}%` }} />
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>
-                  {diplomasEarned} of {diplomasTotal} diplomas earned
-                </div>
               </div>
             </div>
 
@@ -507,7 +444,7 @@ export default function Dashboard() {
                       {entry.full_name}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {entry.school_id ?? '—'}
+                      {entry.school_name ?? '—'}
                     </div>
                   </div>
                   <span style={{ fontSize: 12, fontWeight: 600, color: entry.return_pct >= 0 ? 'var(--gr)' : 'var(--red)', flexShrink: 0 }}>

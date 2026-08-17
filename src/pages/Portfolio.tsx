@@ -1,14 +1,14 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useApp } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
-import { lineChart, candleChart, bucketSnapshotsToCandles, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
+import { lineChart, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
 import { persistTrade } from '../lib/persistTrade';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 import ChartWithTooltip from '../components/ChartWithTooltip';
 import { useStockLookup } from '../hooks/useStockLookup';
 
-const TF_OPTIONS = ['1D', '1W', '1M', '6M', '1Y'] as const;
+const TF_OPTIONS = ['1D', '1W', '1M', '6M', 'YTD', '1Y'] as const;
 type TfOption = typeof TF_OPTIONS[number];
 
 export default function Portfolio() {
@@ -17,9 +17,6 @@ export default function Portfolio() {
   const { tradeAction, sym, qty } = state;
   const { quotes } = useStockQuotes();
   const [chartTf, setChartTf] = useState<TfOption>('1D');
-  const [chartStyle, setChartStyle] = useState<'line' | 'candle'>('line');
-  const candlesAllowed = chartTf === '1D' || chartTf === '1W';
-  const effectiveChartStyle = candlesAllowed ? chartStyle : 'line';
   const { flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000, chartTf);
 
   const { result: lookupResult, loading: lookupLoading, error: lookupError, lookup } = useStockLookup();
@@ -99,7 +96,7 @@ export default function Portfolio() {
   const returnPct = ((totalValue - startValue) / startValue) * 100;
   const returnAmt = totalValue - startValue;
 
-  const isDailyTf = chartTf === '1M' || chartTf === '6M' || chartTf === '1Y';
+  const isDailyTf = chartTf === '1M' || chartTf === '6M' || chartTf === 'YTD' || chartTf === '1Y';
 
   const chartCutoffDate = useMemo(() => {
     const now = new Date();
@@ -109,6 +106,7 @@ export default function Portfolio() {
       case '1W': cutoff.setDate(now.getDate() - 7); break;
       case '1M': cutoff.setMonth(now.getMonth() - 1); break;
       case '6M': cutoff.setMonth(now.getMonth() - 6); break;
+      case 'YTD': cutoff.setMonth(0, 1); break;
       case '1Y': cutoff.setFullYear(now.getFullYear() - 1); break;
     }
     return cutoff;
@@ -137,16 +135,7 @@ export default function Portfolio() {
     return chartCutoffDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }, [chartCutoffDate, snapshots, flatLine, startDate]);
 
-  const candleData = useMemo(() => {
-    if (!candlesAllowed || snapshots.length === 0) return { candles: [], dates: [] };
-    return bucketSnapshotsToCandles(snapshots, chartTf === '1D' ? '15min' : 'hour');
-  }, [snapshots, chartTf, candlesAllowed]);
-
   const chartSvg = useMemo(() => {
-    if (effectiveChartStyle === 'candle') {
-      if (candleData.candles.length === 0) return '';
-      return candleChart(candleData.candles, 580, 160);
-    }
     if (isDailyTf) {
       if (alignedDailySeries.values.length === 0) return '';
       return lineChartWithPlaceholder(alignedDailySeries.values, 580, 160);
@@ -158,7 +147,7 @@ export default function Portfolio() {
       580, 160,
       points[points.length - 1] >= points[0] ? 'var(--gr)' : 'var(--red)'
     );
-  }, [effectiveChartStyle, candleData, filteredChartPoints, isDailyTf, alignedDailySeries]);
+  }, [filteredChartPoints, isDailyTf, alignedDailySeries]);
 
   const cost = localQty * livePrice;
   const holding = user.portfolio.find(h => h.sym === sym);
@@ -296,22 +285,6 @@ export default function Portfolio() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <div className="section-title" style={{ margin: 0 }}>PORTFOLIO CHART</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {candlesAllowed && (
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {(['line', 'candle'] as const).map(style => (
-                      <button key={style} onClick={() => setChartStyle(style)}
-                        style={{
-                          padding: '3px 9px', fontSize: 11, borderRadius: 6,
-                          background: chartStyle === style ? 'var(--surface2)' : 'var(--surface)',
-                          color: chartStyle === style ? 'var(--text)' : 'var(--text3)',
-                          fontWeight: chartStyle === style ? 700 : 400,
-                          border: chartStyle === style ? '1px solid var(--border)' : '1px solid transparent',
-                        }}>
-                        {style === 'line' ? 'Line' : 'Candles'}
-                      </button>
-                    ))}
-                  </div>
-                )}
                 <div style={{ display: 'flex', gap: 4 }}>
                   {TF_OPTIONS.map(tf => (
                     <button key={tf} onClick={() => setChartTf(tf)}
@@ -346,9 +319,7 @@ export default function Portfolio() {
               chartPoints={displayPoints}
               flatLine={flatLine}
               totalValue={totalValue}
-              dates={effectiveChartStyle === 'candle' ? candleData.dates : displayDates}
-              mode={effectiveChartStyle}
-              candles={candleData.candles}
+              dates={displayDates}
             />
 
             {/* Date range */}

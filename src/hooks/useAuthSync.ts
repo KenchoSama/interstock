@@ -39,7 +39,14 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
   if (!profile) return;
 
   if (profile.role !== 'student') {
-    dispatch({ type: 'LOGIN', role: profile.role as Role });
+    dispatch({
+      type: 'LOGIN',
+      role: profile.role as Role,
+      basicData: {
+        name: profile.full_name ?? profile.role,
+        supabaseId: userId,
+      },
+    });
     return;
   }
 
