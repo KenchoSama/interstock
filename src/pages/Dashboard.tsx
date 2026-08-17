@@ -3,7 +3,7 @@ import { useApp, getLevelName, getNextLevelXP, isLocked } from '../state/AppCont
 import { STOCKS } from '../data/stocks';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import MentorBookingModal from '../components/MentorBookingModal';
-import { useAvailableMentors } from '../hooks/useAvailableMentors';
+import { useAvailableMentors } from '../hooks/Useavailablementors';
 import { DIPLOMA_COURSES } from '../data/courses';
 import { lineChart, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
