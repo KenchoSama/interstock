@@ -19,6 +19,7 @@ import Leaderboard from './Leaderboard';
 import FieldTrips from './FieldTrips';
 import Interns from './Interns';
 import Achievements from './Achievements';
+import StudentDirectory from './StudentDirectory';
 import Profile from './Profile';
 import AI from './AI';
 import Help from './Help';
@@ -30,7 +31,7 @@ import PartnerDash from './PartnerDash';
 import Mentors from './Mentors';
 import Sponsorships from './Sponsorships';
 import AdminDash from './AdminDash';
-import MentorSchedule from './Mentorschedule';
+import MentorSchedule from './MentorSchedule';
 import CRA from './CRA';
 import Competitions from './Competitions';
 import StaffTraining from './StaffTraining';
@@ -61,6 +62,7 @@ export default function PageRouter() {
     'field-trips': <FieldTrips />,
     'interns': <Interns />,
     'achievements': <Achievements />,
+    'student-directory': <StudentDirectory />,
     'profile': <Profile />,
     'ai': <AI />,
     'help': <Help />,

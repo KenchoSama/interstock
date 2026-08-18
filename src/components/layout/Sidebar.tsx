@@ -30,6 +30,7 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'messages', label: 'Messages', section: 'School' },
     // { id: 'compete', label: 'Compete' },
     { id: 'leaderboard', label: 'Leaderboard' },
+    { id: 'student-directory', label: 'Student Directory' },
     // { id: 'field-trips', label: 'Field Trips' },
     // { id: 'interns', label: 'Internships' },
     { id: 'achievements', label: 'Achievements', section: 'Profile' },

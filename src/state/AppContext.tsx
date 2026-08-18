@@ -88,6 +88,7 @@ const initialState: AppState = {
     admin: makeUser('Admin User', 0),
     staff: makeUser('Staff Member', 0),
   },
+  viewedProfileId: null,
 };
 
 type Action =
@@ -95,6 +96,7 @@ type Action =
   | { type: 'SHOW_RESET_PASSWORD' }
   | { type: 'SET_ROLE'; role: Role }
   | { type: 'SET_VIEW'; view: string }
+  | { type: 'VIEW_STUDENT_PROFILE'; studentId: string }
   | { type: 'SET_MODAL'; modal: string | null }
   | { type: 'SET_TRADE_ACTION'; action: TradeAction }
   | { type: 'SET_SYM'; sym: string }
@@ -239,7 +241,10 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, role: action.role, view: defaultView(action.role) };
 
     case 'SET_VIEW':
-      return { ...state, view: action.view, modal: null };
+      return { ...state, view: action.view, modal: null, viewedProfileId: null };
+
+    case 'VIEW_STUDENT_PROFILE':
+      return { ...state, view: 'profile', modal: null, viewedProfileId: action.studentId };
 
     case 'SET_MODAL':
       return { ...state, modal: action.modal };

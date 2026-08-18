@@ -3,7 +3,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard';
 import { useFriends } from '../hooks/useFriends';
 
 export default function Leaderboard() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const user = state.u[state.role];
   const { entries, myEntry, loading, leader } = useLeaderboard(user.supabaseId ?? undefined, 20);
   const { sendRequest, sentIds } = useFriends(user.supabaseId);
@@ -116,7 +116,16 @@ export default function Leaderboard() {
                       <td>
                         <div style={rankBadge(e.global_rank)}>{e.global_rank}</div>
                       </td>
-                      <td style={{ fontWeight: 600 }}>
+                      <td
+                        style={{ fontWeight: 600, cursor: 'pointer' }}
+                        onClick={() =>
+                          dispatch(
+                            e.id === user.supabaseId
+                              ? { type: 'SET_VIEW', view: 'profile' }
+                              : { type: 'VIEW_STUDENT_PROFILE', studentId: e.id }
+                          )
+                        }
+                      >
                         {e.full_name}
                         {e.id === myEntry?.id && (
                           <span

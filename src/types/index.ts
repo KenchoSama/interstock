@@ -260,4 +260,5 @@ export interface AppState {
   mentors: Mentor[];
   diplomas: DiplomaRecord[];
   u: Record<Role, UserProfile>;
+  viewedProfileId: string | null;
 }
