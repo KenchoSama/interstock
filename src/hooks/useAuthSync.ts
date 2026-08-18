@@ -88,13 +88,13 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
   const hasAssessment = !!assessment;
 
   // 5. Check if student has agreed to the current version of the code of conduct
-  const { data: cocAgreement } = await supabase
+  const { data: cocAgreements } = await supabase
     .from('code_of_conduct_agreements')
     .select('id')
     .eq('student_id', userId)
     .eq('version', CURRENT_COC_VERSION)
-    .maybeSingle();
-  const hasAgreedToCoC = !!cocAgreement;
+    .limit(1);
+  const hasAgreedToCoC = (cocAgreements?.length ?? 0) > 0;
 
   dispatch({
     type: 'LOGIN',

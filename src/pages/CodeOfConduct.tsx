@@ -19,10 +19,13 @@ export default function CodeOfConduct() {
     setSubmitting(true);
     setError(null);
 
-    const { error } = await supabase.from('code_of_conduct_agreements').insert({
-      student_id: user.supabaseId,
-      version: CURRENT_COC_VERSION,
-    });
+    const { error } = await supabase.from('code_of_conduct_agreements').upsert(
+      {
+        student_id: user.supabaseId,
+        version: CURRENT_COC_VERSION,
+      },
+      { onConflict: 'student_id,version', ignoreDuplicates: true }
+    );
 
     setSubmitting(false);
     if (error) {
