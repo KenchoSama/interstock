@@ -332,15 +332,17 @@ function OwnProfile() {
                     disabled={privacyUpdating}
                     title={user.isPrivate ? 'Make profile public' : 'Make profile private'}
                     style={{
-                      position: 'relative', flexShrink: 0, width: 40, height: 22, borderRadius: 20, border: 'none',
-                      background: user.isPrivate ? 'var(--surface2)' : 'linear-gradient(90deg, var(--gr2), #00e676)',
+                      position: 'relative', flexShrink: 0, width: 40, height: 22, borderRadius: 20,
+                      border: `1px solid ${user.isPrivate ? 'var(--red)' : 'rgba(0,230,118,0.5)'}`,
+                      background: user.isPrivate ? 'rgba(255,77,109,0.15)' : 'linear-gradient(90deg, var(--gr2), #00e676)',
                       cursor: privacyUpdating ? 'default' : 'pointer', opacity: privacyUpdating ? 0.6 : 1, padding: 0,
                     }}
                   >
                     <span
                       style={{
-                        position: 'absolute', top: 2, left: user.isPrivate ? 2 : 20, width: 18, height: 18,
-                        borderRadius: '50%', background: 'var(--bg)', transition: 'left 0.15s ease',
+                        position: 'absolute', top: 2, left: user.isPrivate ? 2 : 20, width: 16, height: 16,
+                        borderRadius: '50%', background: user.isPrivate ? 'var(--red)' : '#fff',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.5)', transition: 'left 0.15s ease',
                       }}
                     />
                   </button>

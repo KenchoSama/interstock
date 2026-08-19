@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAdminOverview } from '../hooks/useAdminOverview';
 import { useAllStudents } from '../hooks/useAllStudents';
+import { useAdminFeedback } from '../hooks/useAdminFeedback';
 
 function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
   const header = ['Name', 'School', 'Grade', 'Level', 'XP', 'Rank'];
@@ -26,6 +27,7 @@ function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
 export default function AdminDash() {
   const { schools, totalStudents, totalCompetitions, activeCompetitions, loading: overviewLoading, error: overviewError, addSchool, deleteSchool } = useAdminOverview();
   const { students, loading: studentsLoading, error: studentsError, deleteStudent } = useAllStudents();
+  const { feedback, loading: feedbackLoading, error: feedbackError } = useAdminFeedback();
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [confirmText, setConfirmText] = useState('');
@@ -247,6 +249,44 @@ export default function AdminDash() {
               </tbody>
             </table>
           )}
+        </div>
+
+        {/* Student Feedback */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: 20 }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+            Student Feedback {!feedbackLoading && `(${feedback.length})`}
+          </div>
+
+          {feedbackLoading && (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+              Loading feedback...
+            </div>
+          )}
+
+          {!feedbackLoading && feedbackError && (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--red)', fontSize: 13 }}>
+              Couldn't load feedback. {feedbackError}
+            </div>
+          )}
+
+          {!feedbackLoading && !feedbackError && feedback.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+              No feedback submitted yet.
+            </div>
+          )}
+
+          {!feedbackLoading && !feedbackError && feedback.map(f => (
+            <div key={f.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{f.subject}</div>
+                <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
+                  {new Date(f.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--blue)', marginBottom: 6 }}>{f.studentName}</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>{f.description}</div>
+            </div>
+          ))}
         </div>
 
       </div>

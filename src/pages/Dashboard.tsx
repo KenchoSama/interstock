@@ -3,6 +3,7 @@ import { useApp, getLevelName, getNextLevelXP, isLocked } from '../state/AppCont
 import { STOCKS } from '../data/stocks';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import MentorBookingModal from '../components/MentorBookingModal';
+import FeedbackModal from '../components/FeedbackModal';
 import MonthCalendar from '../components/MonthCalendar';
 import { useAvailableMentors } from '../hooks/useAvailableMentors';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
@@ -63,6 +64,7 @@ export default function Dashboard() {
   const [chartTf, setChartTf] = useState<TfOption>('1D');
   const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000, chartTf);
   const [bookingMentor, setBookingMentor] = useState<typeof mentors[number] | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const startDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -532,11 +534,23 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Feedback button */}
+          <button
+            className="btn btn-secondary"
+            style={{ width: '100%', justifyContent: 'center', gap: 8, padding: '12px 16px' }}
+            onClick={() => setShowFeedback(true)}
+          >
+            💬 Send Feedback
+          </button>
+
         </div>
       </div>
 
       {bookingMentor && (
         <MentorBookingModal mentor={bookingMentor} onClose={() => setBookingMentor(null)} />
+      )}
+      {showFeedback && (
+        <FeedbackModal studentId={user.supabaseId} onClose={() => setShowFeedback(false)} />
       )}
     </div>
   );

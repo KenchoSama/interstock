@@ -88,30 +88,30 @@ export default function AdminAssignments() {
 
           {/* New assignment form */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
               New Assignment
             </div>
 
             <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.15)', borderRadius: 6, fontSize: 12, color: 'var(--text2)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.15)', borderRadius: 6, fontSize: 12, color: '#fff' }}>
                 <span style={{ flexShrink: 0 }}>📋</span>
                 <span>This will be assigned to all {totalStudents} student{totalStudents === 1 ? '' : 's'} on InterStock.</span>
               </div>
 
               <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+                <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
                   Assignment Title
                 </div>
                 <input
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="e.g. Q3 Market Analysis"
-                  style={{ width: '100%', boxSizing: 'border-box' }}
+                  style={{ width: '100%', boxSizing: 'border-box', color: '#fff' }}
                 />
               </div>
 
               <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+                <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
                   Description
                 </div>
                 <textarea
@@ -119,24 +119,24 @@ export default function AdminAssignments() {
                   onChange={e => setDescription(e.target.value)}
                   rows={4}
                   placeholder="Describe what students should do and how it will be graded..."
-                  style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+                  style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', color: '#fff' }}
                 />
               </div>
 
               <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+                <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
                   Due Date
                 </div>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={e => setDueDate(e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box' }}
+                  style={{ width: '100%', boxSizing: 'border-box', color: '#fff', colorScheme: 'dark' }}
                 />
               </div>
 
               <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+                <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
                   Attachment (optional)
                 </div>
                 {file ? (
@@ -147,7 +147,7 @@ export default function AdminAssignments() {
                     }}
                   >
                     <span style={{ fontSize: 20 }}>📄</span>
-                    <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{file.name}</div>
+                    <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#fff' }}>{file.name}</div>
                     <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} onClick={() => setFile(null)}>
                       Remove
                     </button>
@@ -172,10 +172,10 @@ export default function AdminAssignments() {
                     }}
                   >
                     <div style={{ fontSize: 20, marginBottom: 6 }}>📁</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 2 }}>
                       Drop PDF or click to upload
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>PDF only, up to 15MB</div>
+                    <div style={{ fontSize: 11, color: '#fff' }}>PDF only, up to 15MB</div>
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -207,12 +207,12 @@ export default function AdminAssignments() {
 
           {/* Issued assignments list */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
               Issued Assignments
             </div>
 
             {loading && (
-              <div style={{ textAlign: 'center', padding: 30, color: 'var(--text3)', fontSize: 13 }}>
+              <div style={{ textAlign: 'center', padding: 30, color: '#fff', fontSize: 13 }}>
                 Loading...
               </div>
             )}
@@ -224,7 +224,7 @@ export default function AdminAssignments() {
             )}
 
             {!loading && !error && assignments.length === 0 && (
-              <div style={{ textAlign: 'center', padding: 30, color: 'var(--text3)', fontSize: 13 }}>
+              <div style={{ textAlign: 'center', padding: 30, color: '#fff', fontSize: 13 }}>
                 No assignments issued yet.
               </div>
             )}
@@ -232,7 +232,7 @@ export default function AdminAssignments() {
             {!loading && !error && assignments.map(a => (
               <div key={a.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 5 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{a.title}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{a.title}</div>
                   <button
                     className="btn btn-secondary btn-sm"
                     style={{ fontSize: 10, padding: '2px 8px', color: 'var(--red)', flexShrink: 0 }}
@@ -252,7 +252,7 @@ export default function AdminAssignments() {
                   </a>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 4 }}>
-                  <span style={{ color: 'var(--text3)' }}>Due: {formatDate(a.due_date)}</span>
+                  <span style={{ color: '#fff' }}>Due: {formatDate(a.due_date)}</span>
                   <span style={{ fontFamily: 'monospace', color: '#00e676' }}>
                     {a.submissionCount}/{totalStudents}
                   </span>
@@ -275,9 +275,9 @@ export default function AdminAssignments() {
             style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 32, textAlign: 'center', maxWidth: 360, width: '100%' }}
           >
             <div style={{ fontSize: 52, marginBottom: 14 }}>📤</div>
-            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '1px', marginBottom: 10 }}>ASSIGNMENT ISSUED!</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>
-              Sent to <strong style={{ color: 'var(--text)' }}>{successCount} student{successCount === 1 ? '' : 's'}</strong>
+            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '1px', marginBottom: 10, color: '#fff' }}>ASSIGNMENT ISSUED!</div>
+            <div style={{ fontSize: 13, color: '#fff', marginBottom: 20 }}>
+              Sent to <strong style={{ color: '#fff' }}>{successCount} student{successCount === 1 ? '' : 's'}</strong>
             </div>
             <button
               onClick={() => setSuccessCount(null)}
@@ -299,7 +299,7 @@ export default function AdminAssignments() {
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--red)', marginBottom: 8 }}>
               Delete "{deleteTarget.title}"?
             </div>
-            <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, color: '#fff', lineHeight: 1.6, marginBottom: 16 }}>
               This removes the assignment for every student. This cannot be undone.
             </div>
             {deleteError && (
