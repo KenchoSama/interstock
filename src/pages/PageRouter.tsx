@@ -37,6 +37,7 @@ import Competitions from './Competitions';
 import StaffTraining from './StaffTraining';
 import CertExam from './CertExam';
 import StaffAssign from './StaffAssign';
+import Perks from './Perks';
 
 export default function PageRouter() {
   const { state } = useApp();
@@ -82,6 +83,7 @@ export default function PageRouter() {
     'staff-training': <StaffTraining />,
     'cert-exam': <CertExam />,
     'staff-assign': <StaffAssign />,
+    'perks': <Perks />,
   };
 
   const page = pages[view];
