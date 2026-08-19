@@ -47,7 +47,7 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
   // 1. Fetch profile
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name, xp, created_at, school_id, grade, age')
+    .select('role, full_name, xp, created_at, school_id, grade, age, avatar_url, linkedin_url, bio')
     .eq('id', userId)
     .single();
 
@@ -112,6 +112,9 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
       school_id: profile.school_id ?? null,
       grade: profile.grade ?? null,
       age: profile.age ?? null,
+      avatarUrl: profile.avatar_url ?? null,
+      linkedinUrl: profile.linkedin_url ?? null,
+      bio: profile.bio ?? null,
       portfolio: holdings.map(h => ({
         sym: h.ticker,
         shares: h.shares,

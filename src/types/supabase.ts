@@ -7,5 +7,7 @@ export interface Profile {
   full_name: string | null;
   xp: number;
   avatar_url: string | null;
+  linkedin_url: string | null;
+  bio: string | null;
   created_at: string | null;
 }

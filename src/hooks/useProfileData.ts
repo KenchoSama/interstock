@@ -33,6 +33,7 @@ interface UseProfileDataResult {
   hasEtfSubmission: boolean;
   diplomas: ProfileDiploma[];
   recentTrades: RecentTrade[];
+  tradeCount: number;
   refetch: () => Promise<void>;
 }
 
@@ -48,6 +49,7 @@ export function useProfileData(): UseProfileDataResult {
   const [hasEtfSubmission, setHasEtfSubmission] = useState(false);
   const [diplomas, setDiplomas] = useState<ProfileDiploma[]>([]);
   const [recentTrades, setRecentTrades] = useState<RecentTrade[]>([]);
+  const [tradeCount, setTradeCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +70,7 @@ export function useProfileData(): UseProfileDataResult {
       etfRes,
       diplomasRes,
       transactionsRes,
+      tradeCountRes,
     ] = await Promise.all([
       user.school_id
         ? supabase.from('schools').select('name').eq('id', user.school_id).maybeSingle()
@@ -89,6 +92,12 @@ export function useProfileData(): UseProfileDataResult {
             .order('executed_at', { ascending: false })
             .limit(5)
         : Promise.resolve({ data: [], error: null }),
+      user.portfolioId
+        ? supabase
+            .from('transactions')
+            .select('id', { count: 'exact', head: true })
+            .eq('portfolio_id', user.portfolioId)
+        : Promise.resolve({ count: 0, error: null }),
     ]);
 
     const firstError =
@@ -98,7 +107,8 @@ export function useProfileData(): UseProfileDataResult {
       gameSessionsRes.error ??
       etfRes.error ??
       diplomasRes.error ??
-      transactionsRes.error;
+      transactionsRes.error ??
+      tradeCountRes.error;
 
     if (firstError) {
       setError(firstError.message);
@@ -136,6 +146,7 @@ export function useProfileData(): UseProfileDataResult {
         executedAt: t.executed_at,
       }))
     );
+    setTradeCount(tradeCountRes.count ?? 0);
 
     setLoading(false);
   }, [userId, user.school_id, user.portfolioId]);
@@ -154,6 +165,7 @@ export function useProfileData(): UseProfileDataResult {
     hasEtfSubmission,
     diplomas,
     recentTrades,
+    tradeCount,
     refetch: fetchProfileData,
   };
 }

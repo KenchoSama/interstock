@@ -15,6 +15,9 @@ function makeUser(name: string, xp = 0): AppState['u'][Role] {
     name,
     email: `${name.toLowerCase().replace(' ', '.')}@interstock.edu`,
     avatar: name[0].toUpperCase(),
+    avatarUrl: null as string | null,
+    linkedinUrl: null as string | null,
+    bio: null as string | null,
     xp,
     cash: 10000,
     portfolio: PORT,
@@ -125,9 +128,10 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string }; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; hasAgreedToCoC?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string }; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; hasAgreedToCoC?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null; portfolio: AppState['u']['student']['portfolio'] } }
   | { type: 'AGREE_TO_CODE_OF_CONDUCT' }
   | { type: 'UPDATE_STUDENT_INFO'; grade: number | null; age: number | null; school_id: string | null }
+  | { type: 'UPDATE_STUDENT_PROFILE_DETAILS'; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null }
   | { type: 'LOGOUT' }
   | { type: 'SET_HAS_ASSESSMENT' };
 
@@ -166,6 +170,9 @@ function reducer(state: AppState, action: Action): AppState {
               school_id: d.school_id ?? null,
               grade: d.grade ?? null,
               age: d.age ?? null,
+              avatarUrl: d.avatarUrl ?? null,
+              linkedinUrl: d.linkedinUrl ?? null,
+              bio: d.bio ?? null,
             },
           },
         };
@@ -216,6 +223,21 @@ function reducer(state: AppState, action: Action): AppState {
             grade: action.grade,
             age: action.age,
             school_id: action.school_id,
+          },
+        },
+      };
+    }
+
+    case 'UPDATE_STUDENT_PROFILE_DETAILS': {
+      return {
+        ...state,
+        u: {
+          ...state.u,
+          student: {
+            ...state.u.student,
+            ...(action.avatarUrl !== undefined ? { avatarUrl: action.avatarUrl } : {}),
+            ...(action.linkedinUrl !== undefined ? { linkedinUrl: action.linkedinUrl } : {}),
+            ...(action.bio !== undefined ? { bio: action.bio } : {}),
           },
         },
       };

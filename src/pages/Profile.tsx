@@ -1,9 +1,11 @@
+import { useRef, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { useFieldTrips } from '../hooks/useFieldTrips';
 import { useProfileData } from '../hooks/useProfileData';
 import { usePublicStudentProfile } from '../hooks/usePublicStudentProfile';
 import { INTERNSHIP_DATA } from '../data/internships';
 import { STOCKS } from '../data';
+import { uploadAvatar, updateProfileDetails } from '../lib/studentProfile';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 
@@ -70,12 +72,69 @@ function OwnProfile() {
   const xp = user.xp;
 
   const { trips } = useFieldTrips();
-  const { loading, error, schoolName, globalRank, mentor, hasCompletedScenario, hasEtfSubmission, diplomas, recentTrades } =
+  const { loading, error, schoolName, globalRank, mentor, hasCompletedScenario, hasEtfSubmission, diplomas, recentTrades, tradeCount } =
     useProfileData();
 
   const initials = initialsOf(user.name);
   const levelNum = LEVEL_THRESHOLDS.filter(t => t <= xp).length;
   const pf101Diploma = diplomas.find(d => d.certType === 'PF101');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  const [editingBio, setEditingBio] = useState(false);
+  const [bioDraft, setBioDraft] = useState(user.bio ?? '');
+  const [linkedinDraft, setLinkedinDraft] = useState(user.linkedinUrl ?? '');
+  const [savingBio, setSavingBio] = useState(false);
+  const [bioError, setBioError] = useState<string | null>(null);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !user.supabaseId) return;
+
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      const avatarUrl = await uploadAvatar(user.supabaseId, file);
+      dispatch({ type: 'UPDATE_STUDENT_PROFILE_DETAILS', avatarUrl });
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Failed to upload photo.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
+  function startEditingBio() {
+    setBioDraft(user.bio ?? '');
+    setLinkedinDraft(user.linkedinUrl ?? '');
+    setBioError(null);
+    setEditingBio(true);
+  }
+
+  async function handleSaveBio() {
+    if (!user.supabaseId) return;
+    const trimmedLinkedin = linkedinDraft.trim();
+    if (trimmedLinkedin && !/^https?:\/\/.+/i.test(trimmedLinkedin)) {
+      setBioError('LinkedIn URL should start with http:// or https://');
+      return;
+    }
+
+    setSavingBio(true);
+    setBioError(null);
+    try {
+      const bio = bioDraft.trim() || null;
+      const linkedin_url = trimmedLinkedin || null;
+      await updateProfileDetails(user.supabaseId, { bio, linkedin_url });
+      dispatch({ type: 'UPDATE_STUDENT_PROFILE_DETAILS', bio, linkedinUrl: linkedin_url });
+      setEditingBio(false);
+    } catch (err) {
+      setBioError(err instanceof Error ? err.message : 'Failed to save changes.');
+    } finally {
+      setSavingBio(false);
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -103,14 +162,56 @@ function OwnProfile() {
                 <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(0,230,118,0.04)', pointerEvents: 'none' }} />
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, var(--gr2), #00e676)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: 'var(--bg)', flexShrink: 0 }}>
-                    {initials}
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <div
+                      style={{
+                        width: 56, height: 56, borderRadius: '50%',
+                        background: user.avatarUrl ? undefined : 'linear-gradient(135deg, var(--gr2), #00e676)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 22, fontWeight: 700, color: 'var(--bg)', overflow: 'hidden',
+                      }}
+                    >
+                      {user.avatarUrl ? (
+                        <img src={user.avatarUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        initials
+                      )}
+                    </div>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={avatarUploading}
+                      title="Change profile picture"
+                      style={{
+                        position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, borderRadius: '50%',
+                        background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)',
+                        fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: avatarUploading ? 'default' : 'pointer', padding: 0,
+                      }}
+                    >
+                      {avatarUploading ? '…' : '📷'}
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      style={{ display: 'none' }}
+                    />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{user.name}</div>
-                    {schoolName && (
-                      <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{schoolName}</div>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{user.name}</div>
+                        {schoolName && (
+                          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{schoolName}</div>
+                        )}
+                      </div>
+                      {!editingBio && (
+                        <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, flexShrink: 0 }} onClick={startEditingBio}>
+                          Edit Bio
+                        </button>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'rgba(0,230,118,0.12)', color: '#00e676' }}>
                         Level {levelNum} Investor
@@ -123,13 +224,76 @@ function OwnProfile() {
                           Rank #{globalRank} Nationally
                         </span>
                       )}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text2)' }}>
+                        {tradeCount.toLocaleString()} Trades
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
-                  High school student investor{schoolName ? ` at ${schoolName}` : ''}. Passionate about capital markets, equity research, and financial technology. Aspiring finance professional with hands-on experience in portfolio management and quantitative analysis through InterStock.
-                </div>
+                {avatarError && (
+                  <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: 12 }}>{avatarError}</div>
+                )}
+
+                {editingBio ? (
+                  <div>
+                    <textarea
+                      value={bioDraft}
+                      onChange={e => setBioDraft(e.target.value)}
+                      placeholder="A quick bio — your goals, interests, what you're working toward."
+                      rows={3}
+                      maxLength={500}
+                      style={{
+                        width: '100%', resize: 'vertical', fontFamily: 'inherit', fontSize: 13,
+                        color: 'var(--text)', background: 'var(--surface2)', border: '1px solid var(--border)',
+                        borderRadius: 8, padding: '8px 10px', marginBottom: 8,
+                      }}
+                    />
+                    <input
+                      value={linkedinDraft}
+                      onChange={e => setLinkedinDraft(e.target.value)}
+                      placeholder="LinkedIn URL (https://linkedin.com/in/...)"
+                      style={{
+                        width: '100%', fontSize: 13, color: 'var(--text)', background: 'var(--surface2)',
+                        border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', marginBottom: 8,
+                      }}
+                    />
+                    {bioError && (
+                      <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: 8 }}>{bioError}</div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-primary btn-sm" disabled={savingBio} onClick={handleSaveBio}>
+                        {savingBio ? 'Saving…' : 'Save'}
+                      </button>
+                      <button className="btn btn-secondary btn-sm" disabled={savingBio} onClick={() => setEditingBio(false)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
+                      {user.bio || (
+                        <span style={{ color: 'var(--text3)', fontStyle: 'italic' }}>
+                          No bio yet — add a quick note about your goals.
+                        </span>
+                      )}
+                    </div>
+                    {user.linkedinUrl && (
+                      <a
+                        href={user.linkedinUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10,
+                          fontSize: 12, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none',
+                        }}
+                      >
+                        🔗 LinkedIn Profile
+                      </a>
+                    )}
+                  </>
+                )}
               </div>
 
               {/* Recent Trades */}
@@ -308,7 +472,8 @@ function PublicProfile({ studentId }: { studentId: string }) {
   const { dispatch } = useApp();
   const {
     loading, error, name, xp, schoolName, globalRank, mentor,
-    hasCompletedScenario, hasEtfSubmission, diplomas, recentTrades, holdings,
+    hasCompletedScenario, hasEtfSubmission, diplomas, recentTrades, tradeCount, holdings,
+    avatarUrl, linkedinUrl, bio,
   } = usePublicStudentProfile(studentId);
 
   const { trips } = useFieldTrips();
@@ -348,8 +513,12 @@ function PublicProfile({ studentId }: { studentId: string }) {
                 <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(0,230,118,0.04)', pointerEvents: 'none' }} />
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, var(--gr2), #00e676)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: 'var(--bg)', flexShrink: 0 }}>
-                    {initialsOf(name ?? 'Student')}
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: avatarUrl ? undefined : 'linear-gradient(135deg, var(--gr2), #00e676)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: 'var(--bg)', flexShrink: 0, overflow: 'hidden' }}>
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt={name ?? 'Student'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      initialsOf(name ?? 'Student')
+                    )}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{name}</div>
@@ -368,9 +537,26 @@ function PublicProfile({ studentId }: { studentId: string }) {
                           Rank #{globalRank} Nationally
                         </span>
                       )}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text2)' }}>
+                        {tradeCount.toLocaleString()} Trades
+                      </span>
                     </div>
                   </div>
                 </div>
+
+                {bio && (
+                  <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>{bio}</div>
+                )}
+                {linkedinUrl && (
+                  <a
+                    href={linkedinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, fontSize: 12, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none' }}
+                  >
+                    🔗 LinkedIn Profile
+                  </a>
+                )}
               </div>
 
               {/* Recent Trades */}

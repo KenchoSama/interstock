@@ -40,7 +40,11 @@ interface UsePublicStudentProfileResult {
   hasEtfSubmission: boolean;
   diplomas: PublicDiploma[];
   recentTrades: PublicTrade[];
+  tradeCount: number;
   holdings: PublicHolding[];
+  avatarUrl: string | null;
+  linkedinUrl: string | null;
+  bio: string | null;
   refetch: () => Promise<void>;
 }
 
@@ -54,7 +58,11 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
   const [hasEtfSubmission, setHasEtfSubmission] = useState(false);
   const [diplomas, setDiplomas] = useState<PublicDiploma[]>([]);
   const [recentTrades, setRecentTrades] = useState<PublicTrade[]>([]);
+  const [tradeCount, setTradeCount] = useState(0);
   const [holdings, setHoldings] = useState<PublicHolding[]>([]);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [linkedinUrl, setLinkedinUrl] = useState<string | null>(null);
+  const [bio, setBio] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,7 +77,7 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
 
     const profileRes = await supabase
       .from('profiles')
-      .select('full_name, xp, school_id')
+      .select('full_name, xp, school_id, avatar_url, linkedin_url, bio')
       .eq('id', studentId)
       .maybeSingle();
 
@@ -107,6 +115,9 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
 
     setName(profileRes.data.full_name ?? 'Student');
     setXp(profileRes.data.xp ?? 0);
+    setAvatarUrl(profileRes.data.avatar_url ?? null);
+    setLinkedinUrl(profileRes.data.linkedin_url ?? null);
+    setBio(profileRes.data.bio ?? null);
     setSchoolName((schoolRes.data as any)?.name ?? null);
     setGlobalRank((leaderboardRes.data as any)?.global_rank ?? null);
 
@@ -130,7 +141,7 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
     const portfolioId = (portfolioRes.data as any)?.id ?? null;
 
     if (portfolioId) {
-      const [transactionsRes, holdingsRes] = await Promise.all([
+      const [transactionsRes, holdingsRes, tradeCountRes] = await Promise.all([
         supabase
           .from('transactions')
           .select('id, ticker, type, shares, price, executed_at')
@@ -138,6 +149,7 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
           .order('executed_at', { ascending: false })
           .limit(5),
         supabase.from('holdings').select('ticker, shares, avg_cost').eq('portfolio_id', portfolioId),
+        supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('portfolio_id', portfolioId),
       ]);
 
       setRecentTrades(
@@ -158,9 +170,11 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
           avg: h.avg_cost,
         }))
       );
+      setTradeCount(tradeCountRes.count ?? 0);
     } else {
       setRecentTrades([]);
       setHoldings([]);
+      setTradeCount(0);
     }
 
     setLoading(false);
@@ -182,7 +196,11 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
     hasEtfSubmission,
     diplomas,
     recentTrades,
+    tradeCount,
     holdings,
+    avatarUrl,
+    linkedinUrl,
+    bio,
     refetch: fetchProfile,
   };
 }

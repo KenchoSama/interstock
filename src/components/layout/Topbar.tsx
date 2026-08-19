@@ -67,8 +67,13 @@ export default function Topbar() {
           className="avatar-btn"
           onClick={() => dispatch({ type: 'SET_VIEW', view: 'profile' })}
           title={user.name}
+          style={user.avatarUrl ? { padding: 0, overflow: 'hidden' } : undefined}
         >
-          {user.avatar || user.name[0]}
+          {user.avatarUrl ? (
+            <img src={user.avatarUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            user.avatar || user.name[0]
+          )}
         </div>
         <button
           className="btn btn-secondary btn-sm"

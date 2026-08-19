@@ -220,6 +220,9 @@ export interface UserProfile {
   name: string;
   email: string;
   avatar: string;
+  avatarUrl: string | null;
+  linkedinUrl: string | null;
+  bio: string | null;
   xp: number;
   cash: number;
   portfolio: Holding[];
