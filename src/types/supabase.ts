@@ -10,5 +10,7 @@ export interface Profile {
   linkedin_url: string | null;
   bio: string | null;
   is_private: boolean;
+  last_active_date: string | null;
+  login_streak: number;
   created_at: string | null;
 }

@@ -247,12 +247,13 @@ export default function Portfolio() {
                     <th>CURRENT</th>
                     <th>VALUE</th>
                     <th>RETURN</th>
+                    <th>P&amp;L</th>
                   </tr>
                 </thead>
                 <tbody>
                   {user.portfolio.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text3)', padding: '24px 16px' }}>
+                      <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text3)', padding: '24px 16px' }}>
                         No holdings yet. Use the trade panel to buy your first stock.
                       </td>
                     </tr>
@@ -261,6 +262,7 @@ export default function Portfolio() {
                       const price = getLivePrice(h.sym);
                       const gainPct = ((price - h.avg) / h.avg) * 100;
                       const totalVal = price * h.shares;
+                      const pnl = (price - h.avg) * h.shares;
                       return (
                         <tr key={h.sym}>
                           <td style={{ fontWeight: 700, color: '#ffc107' }}>{h.sym}</td>
@@ -270,6 +272,9 @@ export default function Portfolio() {
                           <td>${fmt(totalVal)}</td>
                           <td style={{ color: gainPct >= 0 ? '#00e676' : 'var(--red)', fontWeight: 600 }}>
                             {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                          </td>
+                          <td style={{ color: pnl >= 0 ? '#00e676' : 'var(--red)', fontWeight: 600 }}>
+                            {pnl >= 0 ? '+' : '-'}${fmt(Math.abs(pnl))}
                           </td>
                         </tr>
                       );

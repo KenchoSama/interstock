@@ -19,6 +19,7 @@ function makeUser(name: string, xp = 0): AppState['u'][Role] {
     linkedinUrl: null as string | null,
     bio: null as string | null,
     isPrivate: false,
+    loginStreak: 0,
     xp,
     cash: 10000,
     portfolio: PORT,
@@ -129,7 +130,7 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string }; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; hasAgreedToCoC?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null; isPrivate?: boolean; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string }; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; hasAgreedToCoC?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null; isPrivate?: boolean; loginStreak?: number; portfolio: AppState['u']['student']['portfolio'] } }
   | { type: 'AGREE_TO_CODE_OF_CONDUCT' }
   | { type: 'UPDATE_STUDENT_INFO'; grade: number | null; age: number | null; school_id: string | null }
   | { type: 'UPDATE_STUDENT_PROFILE_DETAILS'; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null; isPrivate?: boolean }
@@ -175,6 +176,7 @@ function reducer(state: AppState, action: Action): AppState {
               linkedinUrl: d.linkedinUrl ?? null,
               bio: d.bio ?? null,
               isPrivate: d.isPrivate ?? false,
+              loginStreak: d.loginStreak ?? 0,
             },
           },
         };

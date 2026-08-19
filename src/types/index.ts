@@ -224,6 +224,7 @@ export interface UserProfile {
   linkedinUrl: string | null;
   bio: string | null;
   isPrivate: boolean;
+  loginStreak: number;
   xp: number;
   cash: number;
   portfolio: Holding[];

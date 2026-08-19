@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useApp } from '../state/AppContext';
 import type { Role } from '../types';
 import { CURRENT_COC_VERSION } from '../pages/CodeOfConduct';
+import { syncLoginStreak } from '../lib/loginStreak';
 
 export function useAuthSync() {
   const { dispatch } = useApp();
@@ -47,7 +48,7 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
   // 1. Fetch profile
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name, xp, created_at, school_id, grade, age, avatar_url, linkedin_url, bio, is_private')
+    .select('role, full_name, xp, created_at, school_id, grade, age, avatar_url, linkedin_url, bio, is_private, last_active_date, login_streak')
     .eq('id', userId)
     .single();
 
@@ -96,6 +97,9 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
     .limit(1);
   const hasAgreedToCoC = (cocAgreements?.length ?? 0) > 0;
 
+  // 6. Update today's login streak (no-op if already recorded today)
+  const loginStreak = await syncLoginStreak(userId, profile.last_active_date, profile.login_streak ?? 0);
+
   dispatch({
     type: 'LOGIN',
     role: 'student',
@@ -116,6 +120,7 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
       linkedinUrl: profile.linkedin_url ?? null,
       bio: profile.bio ?? null,
       isPrivate: profile.is_private ?? false,
+      loginStreak,
       portfolio: holdings.map(h => ({
         sym: h.ticker,
         shares: h.shares,

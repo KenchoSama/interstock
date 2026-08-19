@@ -243,6 +243,11 @@ function OwnProfile() {
                       <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text2)' }}>
                         {tradeCount.toLocaleString()} Trades
                       </span>
+                      {user.loginStreak > 2 && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'rgba(249,199,79,0.12)', color: 'var(--yellow)' }}>
+                          🔥 {user.loginStreak} Day Streak
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
