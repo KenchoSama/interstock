@@ -39,3 +39,8 @@ export async function updateProfileDetails(
   const { error } = await supabase.from('profiles').update(details).eq('id', userId);
   if (error) throw error;
 }
+
+export async function updateProfilePrivacy(userId: string, isPrivate: boolean): Promise<void> {
+  const { error } = await supabase.from('profiles').update({ is_private: isPrivate }).eq('id', userId);
+  if (error) throw error;
+}

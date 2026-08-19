@@ -9,5 +9,6 @@ export interface Profile {
   avatar_url: string | null;
   linkedin_url: string | null;
   bio: string | null;
+  is_private: boolean;
   created_at: string | null;
 }

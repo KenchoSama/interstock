@@ -5,7 +5,7 @@ import { useProfileData } from '../hooks/useProfileData';
 import { usePublicStudentProfile } from '../hooks/usePublicStudentProfile';
 import { INTERNSHIP_DATA } from '../data/internships';
 import { STOCKS } from '../data';
-import { uploadAvatar, updateProfileDetails } from '../lib/studentProfile';
+import { uploadAvatar, updateProfileDetails, updateProfilePrivacy } from '../lib/studentProfile';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 
@@ -71,13 +71,11 @@ function OwnProfile() {
   const user = state.u[state.role];
   const xp = user.xp;
 
-  const { trips } = useFieldTrips();
-  const { loading, error, schoolName, globalRank, mentor, hasCompletedScenario, hasEtfSubmission, diplomas, recentTrades, tradeCount } =
+  const { loading, error, schoolName, globalRank, recentTrades, tradeCount } =
     useProfileData();
 
   const initials = initialsOf(user.name);
   const levelNum = LEVEL_THRESHOLDS.filter(t => t <= xp).length;
-  const pf101Diploma = diplomas.find(d => d.certType === 'PF101');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -88,6 +86,24 @@ function OwnProfile() {
   const [linkedinDraft, setLinkedinDraft] = useState(user.linkedinUrl ?? '');
   const [savingBio, setSavingBio] = useState(false);
   const [bioError, setBioError] = useState<string | null>(null);
+
+  const [privacyUpdating, setPrivacyUpdating] = useState(false);
+  const [privacyError, setPrivacyError] = useState<string | null>(null);
+
+  async function handleTogglePrivacy() {
+    if (!user.supabaseId) return;
+    const nextIsPrivate = !user.isPrivate;
+    setPrivacyUpdating(true);
+    setPrivacyError(null);
+    try {
+      await updateProfilePrivacy(user.supabaseId, nextIsPrivate);
+      dispatch({ type: 'UPDATE_STUDENT_PROFILE_DETAILS', isPrivate: nextIsPrivate });
+    } catch (err) {
+      setPrivacyError(err instanceof Error ? err.message : 'Failed to update privacy setting.');
+    } finally {
+      setPrivacyUpdating(false);
+    }
+  }
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -152,13 +168,10 @@ function OwnProfile() {
         )}
 
         {!loading && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-            {/* ── Main column ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-              {/* Hero card */}
-              <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+            {/* Hero card */}
+            <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(0,230,118,0.04)', pointerEvents: 'none' }} />
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
@@ -294,6 +307,39 @@ function OwnProfile() {
                     )}
                   </>
                 )}
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
+                      {user.isPrivate ? '🔒 Private Profile' : '🌐 Public Profile'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                      {user.isPrivate
+                        ? "Other students can't view your profile details."
+                        : 'Other students can view your profile via the directory and leaderboard.'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleTogglePrivacy}
+                    disabled={privacyUpdating}
+                    title={user.isPrivate ? 'Make profile public' : 'Make profile private'}
+                    style={{
+                      position: 'relative', flexShrink: 0, width: 40, height: 22, borderRadius: 20, border: 'none',
+                      background: user.isPrivate ? 'var(--surface2)' : 'linear-gradient(90deg, var(--gr2), #00e676)',
+                      cursor: privacyUpdating ? 'default' : 'pointer', opacity: privacyUpdating ? 0.6 : 1, padding: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: 'absolute', top: 2, left: user.isPrivate ? 2 : 20, width: 18, height: 18,
+                        borderRadius: '50%', background: 'var(--bg)', transition: 'left 0.15s ease',
+                      }}
+                    />
+                  </button>
+                </div>
+                {privacyError && (
+                  <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 8 }}>{privacyError}</div>
+                )}
               </div>
 
               {/* Recent Trades */}
@@ -340,124 +386,6 @@ function OwnProfile() {
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>No trades yet.</div>
                 )}
               </div>
-            </div>
-
-            {/* ── Sidebar ── */}
-            <div>
-
-              {/* Credentials & Unlocks */}
-              <SidePanel title="Credentials &amp; Unlocks">
-                {trips.map(trip => (
-                  <RowDivider key={trip.id}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text)' }}>{trip.title}</span>
-                    </div>
-                    <StatusPill label={xp >= trip.xp_required ? 'ELIGIBLE' : 'LOCKED'} earned={xp >= trip.xp_required} />
-                  </RowDivider>
-                ))}
-
-                {INTERNSHIP_DATA.map(intern => (
-                  <RowDivider key={intern.id}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text)' }}>{intern.title}</span>
-                    </div>
-                    <StatusPill label={xp >= intern.xpReq ? 'ELIGIBLE' : 'LOCKED'} earned={xp >= intern.xpReq} />
-                  </RowDivider>
-                ))}
-
-                <RowDivider>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text)' }}>
-                      {mentor ? `Mentor: ${mentor.name}` : 'Mentor'}
-                    </span>
-                  </div>
-                  <StatusPill label={mentor ? 'ACTIVE' : 'UNASSIGNED'} earned={!!mentor} />
-                </RowDivider>
-
-                <RowDivider>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text)' }}>Scenario Challenge</span>
-                  </div>
-                  <StatusPill label={hasCompletedScenario ? 'COMPLETED' : 'AVAILABLE'} earned={hasCompletedScenario} />
-                </RowDivider>
-
-                <RowDivider>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text)' }}>PF101 Diploma</span>
-                  </div>
-                  <StatusPill label={pf101Diploma ? 'EARNED' : 'AVAILABLE'} earned={!!pf101Diploma} />
-                </RowDivider>
-
-                <RowDivider>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text)' }}>ETF Builder</span>
-                  </div>
-                  <StatusPill label={hasEtfSubmission ? 'SUBMITTED' : 'AVAILABLE'} earned={hasEtfSubmission} />
-                </RowDivider>
-              </SidePanel>
-
-              {/* Portfolio Summary */}
-              <SidePanel title="Portfolio Summary">
-                {user.portfolio.map(h => {
-                  const stock = STOCKS.find(s => s.sym === h.sym);
-                  const price = stock?.price ?? h.avg;
-                  const retPct = ((price - h.avg) / h.avg) * 100;
-                  const pos = retPct >= 0;
-                  return (
-                    <RowDivider key={h.sym}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--yellow)', fontFamily: 'monospace' }}>{h.sym}</span>
-                        <span style={{ fontSize: 10, color: 'var(--text3)' }}>{h.shares} shares</span>
-                      </div>
-                      <span style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 600, color: pos ? '#00e676' : 'var(--red)' }}>
-                        {pos ? '+' : ''}{retPct.toFixed(1)}%
-                      </span>
-                    </RowDivider>
-                  );
-                })}
-              </SidePanel>
-
-              {/* Share Profile */}
-              <SidePanel title="Share Profile">
-                <div style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 10 }}>
-                  Share with colleges, internship programs, and financial firms to showcase your education and performance.
-                </div>
-                <button className="btn btn-primary btn-sm" style={{ width: '100%', marginBottom: 6, background: 'linear-gradient(90deg, var(--gr2), #00e676)', color: 'var(--bg)' }}>
-                  Share Profile Link
-                </button>
-                <button className="btn btn-secondary btn-sm" style={{ width: '100%' }}>
-                  Download PDF Resume
-                </button>
-              </SidePanel>
-
-              {/* My Diplomas */}
-              <SidePanel title="My Diplomas">
-                {diplomas.length > 0 ? (
-                  diplomas.map(d => (
-                    <RowDivider key={d.id}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{d.certType}</span>
-                      </div>
-                      <button className="btn btn-secondary btn-sm" style={{ padding: '2px 8px', fontSize: 10 }}>
-                        PDF
-                      </button>
-                    </RowDivider>
-                  ))
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>
-                    Pass a diploma exam to earn certificates!{' '}
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      style={{ display: 'inline-flex', padding: '2px 8px', fontSize: 10, marginTop: 6 }}
-                      onClick={() => dispatch({ type: 'SET_VIEW', view: 'diplomas' })}
-                    >
-                      Go to Diplomas
-                    </button>
-                  </div>
-                )}
-              </SidePanel>
-
-            </div>
           </div>
         )}
       </div>
@@ -469,12 +397,13 @@ function OwnProfile() {
 // Public profile — viewing another student, read-only
 // ────────────────────────────────────────────────────────────────────────
 function PublicProfile({ studentId }: { studentId: string }) {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
+  const viewerId = state.u[state.role].supabaseId;
   const {
-    loading, error, name, xp, schoolName, globalRank, mentor,
+    loading, error, isPrivate, name, xp, schoolName, globalRank, mentor,
     hasCompletedScenario, hasEtfSubmission, diplomas, recentTrades, tradeCount, holdings,
     avatarUrl, linkedinUrl, bio,
-  } = usePublicStudentProfile(studentId);
+  } = usePublicStudentProfile(studentId, viewerId);
 
   const { trips } = useFieldTrips();
 
@@ -502,7 +431,21 @@ function PublicProfile({ studentId }: { studentId: string }) {
           </div>
         )}
 
-        {!loading && !error && (
+        {!loading && !error && isPrivate && (
+          <div className="card" style={{ maxWidth: 420, margin: '40px auto', textAlign: 'center', padding: '32px 24px' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 14px' }}>
+              🔒
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+              {name ?? 'This student'}'s profile is private
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text3)', lineHeight: 1.6 }}>
+              This student has chosen not to share their profile details with other students.
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && !isPrivate && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>
 
             {/* ── Main column ── */}

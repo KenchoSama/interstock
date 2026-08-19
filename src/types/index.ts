@@ -223,6 +223,7 @@ export interface UserProfile {
   avatarUrl: string | null;
   linkedinUrl: string | null;
   bio: string | null;
+  isPrivate: boolean;
   xp: number;
   cash: number;
   portfolio: Holding[];

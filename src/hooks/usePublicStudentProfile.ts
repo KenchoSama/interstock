@@ -31,6 +31,7 @@ export interface PublicHolding {
 interface UsePublicStudentProfileResult {
   loading: boolean;
   error: string | null;
+  isPrivate: boolean;
   name: string | null;
   xp: number;
   schoolName: string | null;
@@ -48,7 +49,8 @@ interface UsePublicStudentProfileResult {
   refetch: () => Promise<void>;
 }
 
-export function usePublicStudentProfile(studentId: string | undefined): UsePublicStudentProfileResult {
+export function usePublicStudentProfile(studentId: string | undefined, viewerId?: string | null): UsePublicStudentProfileResult {
+  const [isPrivate, setIsPrivate] = useState(false);
   const [name, setName] = useState<string | null>(null);
   const [xp, setXp] = useState(0);
   const [schoolName, setSchoolName] = useState<string | null>(null);
@@ -77,12 +79,22 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
 
     const profileRes = await supabase
       .from('profiles')
-      .select('full_name, xp, school_id, avatar_url, linkedin_url, bio')
+      .select('full_name, xp, school_id, avatar_url, linkedin_url, bio, is_private')
       .eq('id', studentId)
       .maybeSingle();
 
     if (profileRes.error || !profileRes.data) {
       setError(profileRes.error?.message ?? 'Student not found');
+      setLoading(false);
+      return;
+    }
+
+    const isOwnProfile = !!viewerId && viewerId === studentId;
+    const privateProfile = !!profileRes.data.is_private && !isOwnProfile;
+    setIsPrivate(privateProfile);
+    setName(profileRes.data.full_name ?? 'Student');
+
+    if (privateProfile) {
       setLoading(false);
       return;
     }
@@ -113,7 +125,6 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
       supabase.from('portfolios').select('id').eq('user_id', studentId).maybeSingle(),
     ]);
 
-    setName(profileRes.data.full_name ?? 'Student');
     setXp(profileRes.data.xp ?? 0);
     setAvatarUrl(profileRes.data.avatar_url ?? null);
     setLinkedinUrl(profileRes.data.linkedin_url ?? null);
@@ -178,7 +189,7 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
     }
 
     setLoading(false);
-  }, [studentId]);
+  }, [studentId, viewerId]);
 
   useEffect(() => {
     fetchProfile();
@@ -187,6 +198,7 @@ export function usePublicStudentProfile(studentId: string | undefined): UsePubli
   return {
     loading,
     error,
+    isPrivate,
     name,
     xp,
     schoolName,
