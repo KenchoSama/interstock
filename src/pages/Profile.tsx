@@ -1,55 +1,54 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../state/AppContext';
-import { useFieldTrips } from '../hooks/useFieldTrips';
 import { useProfileData } from '../hooks/useProfileData';
 import { usePublicStudentProfile } from '../hooks/usePublicStudentProfile';
-import { INTERNSHIP_DATA } from '../data/internships';
-import { STOCKS } from '../data';
 import { uploadAvatar, updateProfileDetails, updateProfilePrivacy } from '../lib/studentProfile';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 
-function SidePanel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 12 }}>
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-        {title}
-      </div>
-      <div style={{ padding: '10px 14px' }}>{children}</div>
-    </div>
-  );
-}
-
-function RowDivider({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-      {children}
-    </div>
-  );
-}
-
-function StatusPill({ label, earned }: { label: string; earned: boolean }) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '1px 7px',
-        borderRadius: 20,
-        fontSize: 10,
-        fontWeight: 700,
-        whiteSpace: 'nowrap',
-        background: earned ? 'rgba(0,230,118,0.12)' : 'var(--surface2)',
-        color: earned ? '#00e676' : 'var(--text3)',
-      }}
-    >
-      {label}
-    </span>
-  );
-}
-
 function initialsOf(name: string) {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function AvatarLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out',
+      }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: 'min(480px, 90vw)', maxHeight: '80vh', borderRadius: 12,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.5)', cursor: 'default', objectFit: 'contain',
+        }}
+      />
+      <button
+        onClick={onClose}
+        title="Close"
+        style={{
+          position: 'absolute', top: 20, right: 20, width: 36, height: 36, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff',
+          fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
 }
 
 export default function Profile() {
@@ -80,6 +79,7 @@ function OwnProfile() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
 
   const [editingBio, setEditingBio] = useState(false);
   const [bioDraft, setBioDraft] = useState(user.bio ?? '');
@@ -177,11 +177,14 @@ function OwnProfile() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <div
+                      onClick={() => user.avatarUrl && setAvatarPreviewOpen(true)}
+                      title={user.avatarUrl ? 'View profile picture' : undefined}
                       style={{
                         width: 56, height: 56, borderRadius: '50%',
                         background: user.avatarUrl ? undefined : 'linear-gradient(135deg, var(--gr2), #00e676)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: 22, fontWeight: 700, color: 'var(--bg)', overflow: 'hidden',
+                        cursor: user.avatarUrl ? 'zoom-in' : 'default',
                       }}
                     >
                       {user.avatarUrl ? (
@@ -389,6 +392,10 @@ function OwnProfile() {
           </div>
         )}
       </div>
+
+      {avatarPreviewOpen && user.avatarUrl && (
+        <AvatarLightbox src={user.avatarUrl} alt={user.name} onClose={() => setAvatarPreviewOpen(false)} />
+      )}
     </div>
   );
 }
@@ -400,15 +407,13 @@ function PublicProfile({ studentId }: { studentId: string }) {
   const { state, dispatch } = useApp();
   const viewerId = state.u[state.role].supabaseId;
   const {
-    loading, error, isPrivate, name, xp, schoolName, globalRank, mentor,
-    hasCompletedScenario, hasEtfSubmission, diplomas, recentTrades, tradeCount, holdings,
-    avatarUrl, linkedinUrl, bio,
+    loading, error, isPrivate, name, xp, schoolName, globalRank,
+    recentTrades, tradeCount, avatarUrl, linkedinUrl, bio,
   } = usePublicStudentProfile(studentId, viewerId);
 
-  const { trips } = useFieldTrips();
-
   const levelNum = LEVEL_THRESHOLDS.filter(t => t <= xp).length;
-  const pf101Diploma = diplomas.find(d => d.certType === 'PF101');
+
+  const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -446,17 +451,18 @@ function PublicProfile({ studentId }: { studentId: string }) {
         )}
 
         {!loading && !error && !isPrivate && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-            {/* ── Main column ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-              {/* Hero card */}
-              <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+            {/* Hero card */}
+            <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(0,230,118,0.04)', pointerEvents: 'none' }} />
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: avatarUrl ? undefined : 'linear-gradient(135deg, var(--gr2), #00e676)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: 'var(--bg)', flexShrink: 0, overflow: 'hidden' }}>
+                  <div
+                    onClick={() => avatarUrl && setAvatarPreviewOpen(true)}
+                    title={avatarUrl ? 'View profile picture' : undefined}
+                    style={{ width: 56, height: 56, borderRadius: '50%', background: avatarUrl ? undefined : 'linear-gradient(135deg, var(--gr2), #00e676)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: 'var(--bg)', flexShrink: 0, overflow: 'hidden', cursor: avatarUrl ? 'zoom-in' : 'default' }}
+                  >
                     {avatarUrl ? (
                       <img src={avatarUrl} alt={name ?? 'Student'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
@@ -546,108 +552,13 @@ function PublicProfile({ studentId }: { studentId: string }) {
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>No trades yet.</div>
                 )}
               </div>
-            </div>
-
-            {/* ── Sidebar ── */}
-            <div>
-
-              {/* Credentials & Unlocks */}
-              <SidePanel title="Credentials &amp; Unlocks">
-                {trips.map(trip => (
-                  <RowDivider key={trip.id}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text)' }}>{trip.title}</span>
-                    </div>
-                    <StatusPill label={xp >= trip.xp_required ? 'ELIGIBLE' : 'LOCKED'} earned={xp >= trip.xp_required} />
-                  </RowDivider>
-                ))}
-
-                {INTERNSHIP_DATA.map(intern => (
-                  <RowDivider key={intern.id}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text)' }}>{intern.title}</span>
-                    </div>
-                    <StatusPill label={xp >= intern.xpReq ? 'ELIGIBLE' : 'LOCKED'} earned={xp >= intern.xpReq} />
-                  </RowDivider>
-                ))}
-
-                <RowDivider>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text)' }}>
-                      {mentor ? `Mentor: ${mentor.name}` : 'Mentor'}
-                    </span>
-                  </div>
-                  <StatusPill label={mentor ? 'ACTIVE' : 'UNASSIGNED'} earned={!!mentor} />
-                </RowDivider>
-
-                <RowDivider>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text)' }}>Scenario Challenge</span>
-                  </div>
-                  <StatusPill label={hasCompletedScenario ? 'COMPLETED' : 'AVAILABLE'} earned={hasCompletedScenario} />
-                </RowDivider>
-
-                <RowDivider>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text)' }}>PF101 Diploma</span>
-                  </div>
-                  <StatusPill label={pf101Diploma ? 'EARNED' : 'AVAILABLE'} earned={!!pf101Diploma} />
-                </RowDivider>
-
-                <RowDivider>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text)' }}>ETF Builder</span>
-                  </div>
-                  <StatusPill label={hasEtfSubmission ? 'SUBMITTED' : 'AVAILABLE'} earned={hasEtfSubmission} />
-                </RowDivider>
-              </SidePanel>
-
-              {/* Portfolio Summary */}
-              <SidePanel title="Portfolio Summary">
-                {holdings.length > 0 ? (
-                  holdings.map(h => {
-                    const stock = STOCKS.find(s => s.sym === h.sym);
-                    const price = stock?.price ?? h.avg;
-                    const retPct = ((price - h.avg) / h.avg) * 100;
-                    const pos = retPct >= 0;
-                    return (
-                      <RowDivider key={h.sym}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--yellow)', fontFamily: 'monospace' }}>{h.sym}</span>
-                          <span style={{ fontSize: 10, color: 'var(--text3)' }}>{h.shares} shares</span>
-                        </div>
-                        <span style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 600, color: pos ? '#00e676' : 'var(--red)' }}>
-                          {pos ? '+' : ''}{retPct.toFixed(1)}%
-                        </span>
-                      </RowDivider>
-                    );
-                  })
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>No holdings yet.</div>
-                )}
-              </SidePanel>
-
-              {/* Diplomas */}
-              <SidePanel title="Diplomas">
-                {diplomas.length > 0 ? (
-                  diplomas.map(d => (
-                    <RowDivider key={d.id}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{d.certType}</span>
-                      </div>
-                    </RowDivider>
-                  ))
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>
-                    No diplomas earned yet.
-                  </div>
-                )}
-              </SidePanel>
-
-            </div>
           </div>
         )}
       </div>
+
+      {avatarPreviewOpen && avatarUrl && (
+        <AvatarLightbox src={avatarUrl} alt={name ?? 'Student'} onClose={() => setAvatarPreviewOpen(false)} />
+      )}
     </div>
   );
 }

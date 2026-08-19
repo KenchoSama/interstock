@@ -38,6 +38,7 @@ import StaffTraining from './StaffTraining';
 import CertExam from './CertExam';
 import StaffAssign from './StaffAssign';
 import Perks from './Perks';
+import AdminAssignments from './AdminAssignments';
 
 export default function PageRouter() {
   const { state } = useApp();
@@ -84,6 +85,7 @@ export default function PageRouter() {
     'cert-exam': <CertExam />,
     'staff-assign': <StaffAssign />,
     'perks': <Perks />,
+    'admin-assignments': <AdminAssignments />,
   };
 
   const page = pages[view];

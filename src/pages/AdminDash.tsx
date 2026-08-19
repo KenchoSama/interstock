@@ -24,13 +24,22 @@ function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
 }
 
 export default function AdminDash() {
-  const { schools, totalStudents, totalCompetitions, activeCompetitions, loading: overviewLoading, error: overviewError } = useAdminOverview();
+  const { schools, totalStudents, totalCompetitions, activeCompetitions, loading: overviewLoading, error: overviewError, addSchool, deleteSchool } = useAdminOverview();
   const { students, loading: studentsLoading, error: studentsError, deleteStudent } = useAllStudents();
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [showAddSchool, setShowAddSchool] = useState(false);
+  const [newSchoolName, setNewSchoolName] = useState('');
+  const [addingSchool, setAddingSchool] = useState(false);
+  const [addSchoolError, setAddSchoolError] = useState<string | null>(null);
+
+  const [deleteSchoolTarget, setDeleteSchoolTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingSchool, setDeletingSchool] = useState(false);
+  const [deleteSchoolError, setDeleteSchoolError] = useState<string | null>(null);
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
@@ -44,6 +53,32 @@ export default function AdminDash() {
     }
     setDeleteTarget(null);
     setConfirmText('');
+  }
+
+  async function handleAddSchool() {
+    setAddingSchool(true);
+    setAddSchoolError(null);
+    const { error } = await addSchool(newSchoolName);
+    setAddingSchool(false);
+    if (error) {
+      setAddSchoolError(error);
+      return;
+    }
+    setShowAddSchool(false);
+    setNewSchoolName('');
+  }
+
+  async function handleConfirmDeleteSchool() {
+    if (!deleteSchoolTarget) return;
+    setDeletingSchool(true);
+    setDeleteSchoolError(null);
+    const { error } = await deleteSchool(deleteSchoolTarget.id);
+    setDeletingSchool(false);
+    if (error) {
+      setDeleteSchoolError(error);
+      return;
+    }
+    setDeleteSchoolTarget(null);
   }
 
   return (
@@ -81,7 +116,11 @@ export default function AdminDash() {
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
               Schools Overview
             </span>
-            <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 14px', background: 'linear-gradient(90deg, rgba(0,230,118,0.8), #00e676)', color: 'var(--bg)', fontWeight: 700 }}>
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: 11, padding: '4px 14px', background: 'linear-gradient(90deg, rgba(0,230,118,0.8), #00e676)', color: 'var(--bg)', fontWeight: 700 }}
+              onClick={() => { setShowAddSchool(true); setNewSchoolName(''); setAddSchoolError(null); }}
+            >
               + Add School
             </button>
           </div>
@@ -100,12 +139,13 @@ export default function AdminDash() {
                   <th>Students</th>
                   <th>Quiz Avg</th>
                   <th>Avg Lessons Completed</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {schools.length === 0 && (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
                       No schools yet.
                     </td>
                   </tr>
@@ -116,6 +156,15 @@ export default function AdminDash() {
                     <td style={{ fontFamily: 'monospace' }}>{s.student_count}</td>
                     <td style={{ fontFamily: 'monospace' }}>{s.avg_quiz_score !== null ? `${s.avg_quiz_score}%` : '—'}</td>
                     <td style={{ fontFamily: 'monospace' }}>{s.avg_lessons_completed ?? '—'}</td>
+                    <td>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 11, color: 'var(--red)' }}
+                        onClick={() => { setDeleteSchoolTarget({ id: s.school_id, name: s.school_name }); setDeleteSchoolError(null); }}
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -253,6 +302,102 @@ export default function AdminDash() {
                 onClick={handleConfirmDelete}
               >
                 {deleting ? 'Deleting...' : 'Permanently Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddSchool && (
+        <div
+          onClick={() => !addingSchool && setShowAddSchool(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="card"
+            style={{ maxWidth: 440, width: '100%', padding: 24 }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>
+              Add School
+            </div>
+            <input
+              type="text"
+              placeholder="School name"
+              value={newSchoolName}
+              onChange={e => setNewSchoolName(e.target.value)}
+              autoFocus
+              style={{
+                width: '100%', padding: '10px 14px', fontSize: 14, marginBottom: 12,
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)',
+                boxSizing: 'border-box',
+              }}
+            />
+            {addSchoolError && (
+              <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>{addSchoolError}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowAddSchool(false)}
+                disabled={addingSchool}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ opacity: newSchoolName.trim() && !addingSchool ? 1 : 0.4 }}
+                disabled={!newSchoolName.trim() || addingSchool}
+                onClick={handleAddSchool}
+              >
+                {addingSchool ? 'Adding...' : 'Add School'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteSchoolTarget && (
+        <div
+          onClick={() => !deletingSchool && setDeleteSchoolTarget(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="card"
+            style={{ maxWidth: 440, width: '100%', padding: 24 }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--red)', marginBottom: 8 }}>
+              Delete {deleteSchoolTarget.name}?
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 16 }}>
+              This cannot be undone. Schools with students still enrolled can't be deleted — reassign or
+              remove those students first.
+            </div>
+            {deleteSchoolError && (
+              <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>{deleteSchoolError}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setDeleteSchoolTarget(null)}
+                disabled={deletingSchool}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn"
+                style={{ background: 'var(--red)', color: '#fff', opacity: deletingSchool ? 0.4 : 1 }}
+                disabled={deletingSchool}
+                onClick={handleConfirmDeleteSchool}
+              >
+                {deletingSchool ? 'Deleting...' : 'Permanently Delete'}
               </button>
             </div>
           </div>

@@ -3,7 +3,9 @@ import { useApp, getLevelName, getNextLevelXP, isLocked } from '../state/AppCont
 import { STOCKS } from '../data/stocks';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import MentorBookingModal from '../components/MentorBookingModal';
+import MonthCalendar from '../components/MonthCalendar';
 import { useAvailableMentors } from '../hooks/useAvailableMentors';
+import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { DIPLOMA_COURSES } from '../data/courses';
 import { lineChart, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
@@ -30,6 +32,7 @@ export default function Dashboard() {
   const user = state.u[state.role];
 
   const { mentors, loading: mentorsLoading } = useAvailableMentors();
+  const { events: calendarEvents, loading: calendarLoading } = useCalendarEvents(user.supabaseId);
   const { quotes } = useStockQuotes();
 
   const [customPrices, setCustomPrices] = useState<Record<string, number>>({});
@@ -199,6 +202,8 @@ export default function Dashboard() {
             <div className="stat-sub up">{diplomaPct}% complete</div>
           </div>
         </div>
+
+        <MonthCalendar events={calendarEvents} loading={calendarLoading} />
 
       </div>
 
