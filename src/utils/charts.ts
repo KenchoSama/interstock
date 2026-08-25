@@ -151,6 +151,106 @@ export function alignDailySnapshots(
   return { values, dates };
 }
 
+export interface ComparisonOverlay {
+  values: number[]; // raw series (e.g. index closing prices), any scale
+  color: string;
+}
+
+// Plots a primary series (e.g. portfolio value, may contain leading nulls for
+// days without a snapshot) as a % change line from its first real value,
+// alongside 0+ overlay series each normalized to their own % change from
+// their first value — so a portfolio and one or more market indexes can be
+// compared on a shared percentage axis regardless of their native scale.
+export function comparisonChart(
+  primary: (number | null)[],
+  overlays: ComparisonOverlay[],
+  width = 580,
+  height = 160,
+): string {
+  const firstRealIdx = primary.findIndex(v => v !== null && v !== undefined);
+  if (firstRealIdx === -1) return '';
+
+  const baseline = primary[firstRealIdx] as number;
+  const primaryPct = primary.map(v => (v === null || v === undefined ? null : ((v - baseline) / baseline) * 100));
+  const n = primaryPct.length;
+
+  const resample = (vals: number[], count: number): number[] => {
+    if (vals.length === 0 || count <= 1) return vals.length ? [vals[0]] : [];
+    const out: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const srcIdx = Math.min(vals.length - 1, Math.round((i / (count - 1)) * (vals.length - 1)));
+      out.push(vals[srcIdx]);
+    }
+    return out;
+  };
+
+  const overlayPct = overlays
+    .filter(o => o.values.length > 0)
+    .map(o => {
+      const resampled = resample(o.values, n);
+      const base = resampled[0];
+      return { color: o.color, pct: base ? resampled.map(v => ((v - base) / base) * 100) : resampled.map(() => 0) };
+    });
+
+  const primaryReal = primaryPct.filter((v): v is number => v !== null);
+  const allValues = [0, ...primaryReal, ...overlayPct.flatMap(o => o.pct)];
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
+  const range = max - min || 1;
+
+  const pad = 8;
+  const w = width - pad * 2;
+  const h = height - pad * 2;
+  const xAt = (i: number) => pad + (n <= 1 ? 0 : (i / (n - 1)) * w);
+  const yAt = (v: number) => pad + h - ((v - min) / range) * h;
+  const zeroY = yAt(0);
+
+  const isUp = primaryReal.length > 0 && primaryReal[primaryReal.length - 1] >= primaryReal[0];
+  const primaryColor = isUp ? '#00d4a8' : '#ff4d6d';
+
+  const parts: string[] = [
+    `<line x1="${pad}" y1="${zeroY}" x2="${pad + w}" y2="${zeroY}" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="4,4"/>`,
+  ];
+
+  if (firstRealIdx > 0) {
+    const dashY = yAt(primaryPct[firstRealIdx] as number);
+    parts.push(
+      `<line x1="${xAt(0)}" y1="${dashY}" x2="${xAt(firstRealIdx)}" y2="${dashY}" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="5 4"/>`
+    );
+  }
+
+  const realPts: string[] = [];
+  for (let i = firstRealIdx; i < n; i++) {
+    const v = primaryPct[i];
+    if (v === null) continue;
+    realPts.push(`${xAt(i)},${yAt(v)}`);
+  }
+  const polyline = realPts.join(' ');
+  const firstPt = realPts[0]?.split(',');
+  const lastPt = realPts[realPts.length - 1]?.split(',');
+  const area = firstPt && lastPt ? `M${firstPt[0]},${zeroY} L${polyline} L${lastPt[0]},${zeroY} Z` : '';
+
+  const overlayLines = overlayPct
+    .map(o => {
+      const pts = o.pct.map((v, i) => `${xAt(i)},${yAt(v)}`).join(' ');
+      return `<polyline points="${pts}" fill="none" stroke="${o.color}" stroke-width="1.75" stroke-dasharray="5,3" stroke-linejoin="round" stroke-linecap="round"/>`;
+    })
+    .join('\n  ');
+
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lgc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${primaryColor}" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="${primaryColor}" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  ${parts.join('\n  ')}
+  ${area ? `<path d="${area}" fill="url(#lgc)" />` : ''}
+  <polyline points="${polyline}" fill="none" stroke="${primaryColor}" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>
+  ${overlayLines}
+</svg>`;
+}
+
 export function lineChartWithPlaceholder(
   series: (number | null)[],
   width = 400,

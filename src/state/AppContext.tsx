@@ -112,6 +112,7 @@ type Action =
   | { type: 'ADD_XP'; amount: number }
   | { type: 'BUY_STOCK'; sym: string; shares: number; price: number }
   | { type: 'SELL_STOCK'; sym: string; shares: number; price: number }
+  | { type: 'ADJUST_CASH'; amount: number }
   | { type: 'START_GAME' }
   | { type: 'ANSWER_GAME'; answerIdx: number; correct: boolean }
   | { type: 'TICK_GAME'; elapsed: number }
@@ -298,6 +299,12 @@ function reducer(state: AppState, action: Action): AppState {
       const u = { ...state.u };
       const roleUser = { ...u[state.role], xp: u[state.role].xp + action.amount };
       u[state.role] = roleUser;
+      return { ...state, u };
+    }
+
+    case 'ADJUST_CASH': {
+      const u = { ...state.u };
+      u[state.role] = { ...u[state.role], cash: u[state.role].cash + action.amount };
       return { ...state, u };
     }
 

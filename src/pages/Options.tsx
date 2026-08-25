@@ -2,6 +2,9 @@ import { useMemo, useState, useEffect } from 'react';
 import { STOCKS } from '../data/stocks';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import { useStockLookup } from '../hooks/useStockLookup';
+import { useApp } from '../state/AppContext';
+import { useOptionPositions, type OptionPosition } from '../hooks/useOptionPositions';
+import { supabase } from '../lib/supabase';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
@@ -58,33 +61,6 @@ const GREEKS = [
   },
 ];
 
-const STRATEGIES = [
-  {
-    name: 'Covered Call',
-    icon: '📞',
-    description: 'Own shares of a stock and sell a call option against them. You collect the premium and agree to sell your shares at the strike price if the option is exercised.',
-    risk: 'Limited upside beyond strike price',
-    reward: 'Premium income + stock appreciation up to strike',
-    outlook: 'Neutral to slightly bullish',
-  },
-  {
-    name: 'Protective Put',
-    icon: '🛡️',
-    description: 'Buy a put option on a stock you already own. Acts like insurance — if the stock falls below the strike price, your put gains value, offsetting the loss.',
-    risk: 'Cost of the premium',
-    reward: 'Unlimited upside with downside protection',
-    outlook: 'Bullish with downside hedge',
-  },
-  {
-    name: 'Iron Condor',
-    icon: '🦅',
-    description: 'Sell an OTM call spread and an OTM put spread simultaneously. Profits when the underlying stock stays within a defined range.',
-    risk: 'Defined maximum loss if stock breaks out of range',
-    reward: 'Maximum profit = net premium collected',
-    outlook: 'Neutral (range-bound market)',
-  },
-];
-
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function OptionsTipBanner() {
@@ -104,7 +80,15 @@ function OptionsTipBanner() {
   );
 }
 
-function OptionsChainTable({ chain, spotPrice, ticker }: { chain: OptionRow[]; spotPrice: number; ticker: string }) {
+function OptionsChainTable({
+  chain, spotPrice, ticker, selected, onSelect,
+}: {
+  chain: OptionRow[];
+  spotPrice: number;
+  ticker: string;
+  selected: { type: 'call' | 'put'; strike: number } | null;
+  onSelect: (type: 'call' | 'put', strike: number, askPremium: number) => void;
+}) {
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -112,6 +96,10 @@ function OptionsChainTable({ chain, spotPrice, ticker }: { chain: OptionRow[]; s
         <span style={{ fontSize: 11, padding: '2px 8px', background: 'var(--yellow)', color: '#000', borderRadius: 4, fontWeight: 700 }}>
           EDUCATIONAL ONLY
         </span>
+      </div>
+
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
+        Click a bid/ask price to buy that contract to open a position.
       </div>
 
       {/* Column headers */}
@@ -128,6 +116,8 @@ function OptionsChainTable({ chain, spotPrice, ticker }: { chain: OptionRow[]; s
       {/* Rows */}
       {chain.map(row => {
         const atm = Math.abs(row.k - spotPrice) < 5;
+        const callSelected = selected?.type === 'call' && selected.strike === row.k;
+        const putSelected = selected?.type === 'put' && selected.strike === row.k;
         return (
           <div key={row.k} style={{
             display: 'flex', fontSize: 12,
@@ -136,14 +126,30 @@ function OptionsChainTable({ chain, spotPrice, ticker }: { chain: OptionRow[]; s
             background: atm ? 'rgba(249,199,79,0.07)' : 'transparent',
             borderRadius: atm ? 4 : 0,
           }}>
-            <span style={{ color: '#00e676', flex: 1, fontFamily: 'monospace' }}>
+            <span
+              onClick={() => onSelect('call', row.k, parseFloat(row.ca))}
+              title={`Buy 1 ${ticker} $${row.k} Call @ $${row.ca}`}
+              style={{
+                color: '#00e676', flex: 1, fontFamily: 'monospace', cursor: 'pointer',
+                textDecoration: callSelected ? 'underline' : 'none',
+                fontWeight: callSelected ? 700 : 400,
+              }}
+            >
               {row.cb}/{row.ca}{' '}
               <span style={{ color: 'var(--text3)', fontSize: 10 }}>{row.civ} {row.coi.toLocaleString()}</span>
             </span>
             <span style={{ color: '#ffc107', fontWeight: 700, width: 80, textAlign: 'center' }}>
               ${row.k}
             </span>
-            <span style={{ color: 'var(--red)', flex: 1, textAlign: 'right', fontFamily: 'monospace' }}>
+            <span
+              onClick={() => onSelect('put', row.k, parseFloat(row.pa))}
+              title={`Buy 1 ${ticker} $${row.k} Put @ $${row.pa}`}
+              style={{
+                color: 'var(--red)', flex: 1, textAlign: 'right', fontFamily: 'monospace', cursor: 'pointer',
+                textDecoration: putSelected ? 'underline' : 'none',
+                fontWeight: putSelected ? 700 : 400,
+              }}
+            >
               {row.pb}/{row.pa}{' '}
               <span style={{ color: 'var(--text3)', fontSize: 10 }}>{row.piv} {row.poi.toLocaleString()}</span>
             </span>
@@ -177,6 +183,10 @@ function GreeksGrid() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Options() {
+  const { state, dispatch } = useApp();
+  const user = state.u[state.role];
+  const { positions, loading: positionsLoading, openPosition, closePosition } = useOptionPositions(user.portfolioId);
+
   const { quotes } = useStockQuotes();
   const { result, loading: lookupLoading, error: lookupError, lookup, clear } = useStockLookup();
   const [selectedTicker, setSelectedTicker] = useState('AAPL');
@@ -210,49 +220,91 @@ export default function Options() {
 
   const chain = useMemo(() => buildChain(spotPrice), [spotPrice]);
 
-  const [optionType, setOptionType] = useState<'call' | 'put'>('call');
-  const [stockPrice, setStockPrice] = useState(spotPrice);
-  const [strikePrice, setStrikePrice] = useState(Math.round(spotPrice / 5) * 5);
-  const [premium, setPremium] = useState(5.00);
-  const [expiry, setExpiry] = useState(30);
+  function getSpotFor(ticker: string): number {
+    return quotes.find(q => q.sym === ticker)?.price
+      ?? STOCKS.find(s => s.sym === ticker)?.price
+      ?? 0;
+  }
 
-  useEffect(() => {
-    setStockPrice(spotPrice);
-    setStrikePrice(Math.round(spotPrice / 5) * 5);
-  }, [spotPrice]);
+  // ── Trading ──
+  const [selectedContract, setSelectedContract] = useState<{ type: 'call' | 'put'; strike: number; premium: number } | null>(null);
+  const [tradeContracts, setTradeContracts] = useState(1);
+  const [tradeExpiryDays, setTradeExpiryDays] = useState(30);
+  const [trading, setTrading] = useState(false);
+  const [tradeMsg, setTradeMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
-  const intrinsicValue = optionType === 'call'
-    ? Math.max(0, stockPrice - strikePrice)
-    : Math.max(0, strikePrice - stockPrice);
-  const timeValue = Math.max(0, premium - intrinsicValue);
-  const breakeven = optionType === 'call' ? strikePrice + premium : strikePrice - premium;
-  const cost = premium * 100;
+  function selectContract(type: 'call' | 'put', strike: number, askPremium: number) {
+    setSelectedContract({ type, strike, premium: askPremium });
+    setTradeMsg(null);
+  }
 
-  const pnlSvg = useMemo(() => {
-    const low  = stockPrice * 0.7;
-    const high = stockPrice * 1.3;
-    const step = (high - low) / 40;
-    const pnl: number[] = [];
-    for (let p = low; p <= high; p += step) {
-      const iv = optionType === 'call' ? Math.max(0, p - strikePrice) : Math.max(0, strikePrice - p);
-      pnl.push(iv - premium);
+  const tradeCost = selectedContract ? selectedContract.premium * 100 * tradeContracts : 0;
+
+  async function handleOpenPosition() {
+    if (!selectedContract) return;
+    if (tradeCost > user.cash) {
+      setTradeMsg({ text: 'Insufficient cash balance.', ok: false });
+      return;
     }
-    const pnlMin = Math.min(...pnl);
-    const pnlMax = Math.max(...pnl);
-    const range  = pnlMax - pnlMin || 1;
-    const W = 400; const H = 140; const pad = 8;
-    const w = W - pad * 2; const h = H - pad * 2;
-    const pts = pnl.map((v, i) => {
-      const x = pad + (i / (pnl.length - 1)) * w;
-      const y = pad + h - ((v - pnlMin) / range) * h;
-      return `${x},${y}`;
+
+    setTrading(true);
+    const { error } = await openPosition({
+      ticker: selectedTicker,
+      optionType: selectedContract.type,
+      strike: selectedContract.strike,
+      contracts: tradeContracts,
+      premium: selectedContract.premium,
+      expiryDays: tradeExpiryDays,
     });
-    const zeroY = pad + h - ((0 - pnlMin) / range) * h;
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-      <line x1="${pad}" y1="${zeroY}" x2="${W - pad}" y2="${zeroY}" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="4,4"/>
-      <polyline points="${pts.join(' ')}" fill="none" stroke="#4d9fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    </svg>`;
-  }, [stockPrice, strikePrice, premium, optionType]);
+    setTrading(false);
+
+    if (error) {
+      setTradeMsg({ text: error, ok: false });
+      return;
+    }
+
+    dispatch({ type: 'ADJUST_CASH', amount: -tradeCost });
+    dispatch({ type: 'ADD_XP', amount: 10 });
+    if (user.supabaseId) await supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: 10 });
+
+    setTradeMsg({
+      text: `Bought ${tradeContracts} ${selectedTicker} $${selectedContract.strike} ${selectedContract.type} contract${tradeContracts > 1 ? 's' : ''}!`,
+      ok: true,
+    });
+    setSelectedContract(null);
+    setTradeContracts(1);
+  }
+
+  async function handleClosePosition(pos: OptionPosition) {
+    const spot = getSpotFor(pos.ticker);
+    if (spot === 0) {
+      setTradeMsg({ text: `No live price available for ${pos.ticker} right now. Try again shortly.`, ok: false });
+      return;
+    }
+
+    const expired = new Date(pos.expiryDate + 'T00:00:00') < new Date();
+
+    let exitPremium: number;
+    if (expired) {
+      exitPremium = pos.optionType === 'call' ? Math.max(0, spot - pos.strike) : Math.max(0, pos.strike - spot);
+    } else {
+      const row = buildChain(spot).find(r => r.k === pos.strike);
+      exitPremium = row ? parseFloat(pos.optionType === 'call' ? row.cb : row.pb) : 0;
+    }
+
+    const proceeds = exitPremium * 100 * pos.contracts;
+    const { error } = await closePosition(pos.id, exitPremium);
+    if (error) {
+      setTradeMsg({ text: error, ok: false });
+      return;
+    }
+
+    dispatch({ type: 'ADJUST_CASH', amount: proceeds });
+    dispatch({ type: 'ADD_XP', amount: 10 });
+    if (user.supabaseId) await supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: 10 });
+
+    setTradeMsg({ text: `Closed ${pos.ticker} $${pos.strike} ${pos.optionType} for $${proceeds.toFixed(2)}.`, ok: true });
+  }
 
   return (
     <div className="page-body">
@@ -324,143 +376,155 @@ export default function Options() {
       <OptionsTipBanner />
 
       {/* 2. Options chain */}
-      <OptionsChainTable chain={chain} spotPrice={spotPrice} ticker={selectedTicker} />
+      <OptionsChainTable
+        chain={chain}
+        spotPrice={spotPrice}
+        ticker={selectedTicker}
+        selected={selectedContract ? { type: selectedContract.type, strike: selectedContract.strike } : null}
+        onSelect={selectContract}
+      />
+
+      {/* 2b. Trade ticket */}
+      {selectedContract && (
+        <div className="card" style={{ marginBottom: 16, border: '1px solid var(--gr)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div className="section-title" style={{ margin: 0 }}>
+              Buy to Open — {selectedTicker} ${selectedContract.strike} {selectedContract.type === 'call' ? 'Call' : 'Put'}
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedContract(null)}>Cancel</button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Contracts</label>
+              <input
+                type="number"
+                min={1}
+                style={{ width: '100%' }}
+                value={tradeContracts}
+                onChange={e => setTradeContracts(Math.max(1, parseInt(e.target.value) || 1))}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Expiration (days)</label>
+              <select style={{ width: '100%' }} value={tradeExpiryDays} onChange={e => setTradeExpiryDays(parseInt(e.target.value))}>
+                {[7, 14, 30, 60, 90].map(d => <option key={d} value={d}>{d} days</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Premium (ask)</label>
+              <div style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                ${selectedContract.premium.toFixed(2)}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, padding: '10px 14px', background: 'var(--bg3)', borderRadius: 'var(--radius)' }}>
+            <span style={{ color: 'var(--text2)', fontWeight: 600 }}>Total Cost</span>
+            <span style={{ color: 'var(--gr)', fontSize: 18, fontWeight: 700 }}>
+              ${tradeCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+
+          {tradeMsg && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 'var(--radius)', marginBottom: 12, fontSize: 13,
+              background: tradeMsg.ok ? 'var(--gr-dim)' : 'var(--red-dim)',
+              color: tradeMsg.ok ? 'var(--gr)' : 'var(--red)',
+            }}>
+              {tradeMsg.text}
+            </div>
+          )}
+
+          <button
+            onClick={handleOpenPosition}
+            disabled={trading}
+            style={{
+              width: '100%', padding: 12, fontSize: 13, fontWeight: 700, border: 'none', borderRadius: 8,
+              background: '#00e676', color: '#000', cursor: trading ? 'default' : 'pointer', opacity: trading ? 0.6 : 1,
+            }}
+          >
+            {trading ? 'Placing Order...' : `Buy ${tradeContracts} Contract${tradeContracts > 1 ? 's' : ''}`}
+          </button>
+        </div>
+      )}
+
+      {/* 2c. My positions */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="section-title">My Option Positions</div>
+
+        {positionsLoading && (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text3)', fontSize: 13 }}>Loading positions...</div>
+        )}
+
+        {!positionsLoading && positions.filter(p => p.status === 'open').length === 0 && (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text3)', fontSize: 13 }}>
+            No open positions. Buy a contract from the chain above to get started.
+          </div>
+        )}
+
+        {!positionsLoading && positions.filter(p => p.status === 'open').length > 0 && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Type</th>
+                  <th>Strike</th>
+                  <th>Contracts</th>
+                  <th>Premium Paid</th>
+                  <th>Current</th>
+                  <th>P&amp;L</th>
+                  <th>Expiry</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {positions.filter(p => p.status === 'open').map(pos => {
+                  const spot = getSpotFor(pos.ticker);
+                  const hasPrice = spot > 0;
+                  const expired = new Date(pos.expiryDate + 'T00:00:00') < new Date();
+                  const chainRow = hasPrice ? buildChain(spot).find(r => r.k === pos.strike) : undefined;
+                  const currentPremium = !hasPrice
+                    ? null
+                    : expired || !chainRow
+                    ? (pos.optionType === 'call' ? Math.max(0, spot - pos.strike) : Math.max(0, pos.strike - spot))
+                    : parseFloat(pos.optionType === 'call' ? chainRow.cb : chainRow.pb);
+                  const pnl = currentPremium !== null ? (currentPremium - pos.premiumPaid) * 100 * pos.contracts : null;
+                  return (
+                    <tr key={pos.id}>
+                      <td style={{ fontWeight: 700, color: '#ffc107' }}>{pos.ticker}</td>
+                      <td style={{ textTransform: 'capitalize' }}>{pos.optionType}</td>
+                      <td>${pos.strike}</td>
+                      <td>{pos.contracts}</td>
+                      <td>${pos.premiumPaid.toFixed(2)}</td>
+                      <td>
+                        {currentPremium !== null ? `$${currentPremium.toFixed(2)}` : '—'}
+                        {expired && <span style={{ color: 'var(--text3)', fontSize: 10 }}> (expired)</span>}
+                      </td>
+                      <td style={{ color: pnl === null ? 'var(--text3)' : pnl >= 0 ? '#00e676' : 'var(--red)', fontWeight: 600 }}>
+                        {pnl === null ? '—' : `${pnl >= 0 ? '+' : '-'}$${Math.abs(pnl).toFixed(2)}`}
+                      </td>
+                      <td style={{ color: expired ? 'var(--red)' : 'var(--text3)' }}>
+                        {new Date(pos.expiryDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </td>
+                      <td>
+                        <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} onClick={() => handleClosePosition(pos)}>
+                          Close
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* 3. Greeks grid */}
       <GreeksGrid />
 
-      {/* 4. Calculator */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div className="section-title">Options Calculator</div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
-          {([
-            { label: 'Option Type', el: (
-              <select style={{ width: '100%' }} value={optionType} onChange={e => setOptionType(e.target.value as 'call' | 'put')}>
-                <option value="call">Call</option>
-                <option value="put">Put</option>
-              </select>
-            )},
-            { label: 'Stock Price ($)', el: <input type="number" style={{ width: '100%' }} value={stockPrice} onChange={e => setStockPrice(parseFloat(e.target.value) || 0)} /> },
-            { label: 'Strike Price ($)', el: <input type="number" style={{ width: '100%' }} value={strikePrice} onChange={e => setStrikePrice(parseFloat(e.target.value) || 0)} /> },
-            { label: 'Premium ($)', el: <input type="number" step="0.01" style={{ width: '100%' }} value={premium} onChange={e => setPremium(parseFloat(e.target.value) || 0)} /> },
-            { label: 'Days to Expiry', el: <input type="number" style={{ width: '100%' }} value={expiry} onChange={e => setExpiry(parseInt(e.target.value) || 1)} /> },
-          ] as { label: string; el: React.ReactNode }[]).map(f => (
-            <div key={f.label}>
-              <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>{f.label}</label>
-              {f.el}
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-          {[
-            { label: 'Intrinsic Value',  value: `$${intrinsicValue.toFixed(2)}`, color: intrinsicValue > 0 ? 'var(--gr)' : 'var(--text3)' },
-            { label: 'Time Value',       value: `$${timeValue.toFixed(2)}`,       color: 'var(--blue)'   },
-            { label: 'Breakeven Price',  value: `$${breakeven.toFixed(2)}`,       color: 'var(--yellow)' },
-            { label: 'Contract Value',   value: `$${cost.toFixed(2)}`,            color: 'var(--text)'   },
-          ].map(item => (
-            <div key={item.label} style={{ background: 'var(--bg3)', borderRadius: 'var(--radius)', padding: '12px 14px' }}>
-              <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>{item.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: item.color }}>{item.value}</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>
-            P&amp;L at Expiration — {optionType === 'call' ? 'Call' : 'Put'} Option
-          </div>
-          <div className="chart-wrap" dangerouslySetInnerHTML={{ __html: pnlSvg }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-            <span>${(stockPrice * 0.7).toFixed(0)}</span>
-            <span>Stock Price at Expiration</span>
-            <span>${(stockPrice * 1.3).toFixed(0)}</span>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 12, padding: '12px 14px', background: 'var(--bg3)', borderRadius: 'var(--radius)', fontSize: 13 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, color: 'var(--text2)' }}>
-            <div>
-              At expiry, {optionType} is{' '}
-              <strong style={{ color: intrinsicValue > 0 ? 'var(--gr)' : 'var(--red)' }}>
-                {intrinsicValue > 0 ? 'in-the-money (ITM)' : strikePrice === stockPrice ? 'at-the-money (ATM)' : 'out-of-the-money (OTM)'}
-              </strong>
-            </div>
-            <div>
-              Max loss: <strong style={{ color: 'var(--red)' }}>${cost.toFixed(2)}</strong> per contract ({expiry} days remaining)
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 5. Calls vs Puts reference table */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div className="section-title">Calls vs. Puts</div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Feature</th>
-                <th style={{ color: 'var(--gr)' }}>Call Option</th>
-                <th style={{ color: 'var(--red)' }}>Put Option</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ color: 'var(--text2)' }}>Right to</td>
-                <td className="up">Buy shares at strike price</td>
-                <td className="dn">Sell shares at strike price</td>
-              </tr>
-              <tr>
-                <td style={{ color: 'var(--text2)' }}>Profit when</td>
-                <td className="up">Stock rises above strike + premium</td>
-                <td className="dn">Stock falls below strike − premium</td>
-              </tr>
-              <tr>
-                <td style={{ color: 'var(--text2)' }}>Market outlook</td>
-                <td className="up">Bullish</td>
-                <td className="dn">Bearish</td>
-              </tr>
-              <tr>
-                <td style={{ color: 'var(--text2)' }}>Max loss</td>
-                <td>Premium paid</td>
-                <td>Premium paid</td>
-              </tr>
-              <tr>
-                <td style={{ color: 'var(--text2)' }}>Max gain</td>
-                <td className="up">Unlimited</td>
-                <td className="dn">Strike price minus premium</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 6. Strategies */}
-      <div className="section-title">Options Strategies</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-        {STRATEGIES.map(strat => (
-          <div key={strat.name} className="card">
-            <div style={{ fontSize: 28, marginBottom: 10 }}>{strat.icon}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>{strat.name}</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 12 }}>{strat.description}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <span style={{ color: 'var(--red)', fontWeight: 600, flexShrink: 0 }}>Risk:</span>
-                <span style={{ color: 'var(--text2)' }}>{strat.risk}</span>
-              </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <span style={{ color: 'var(--gr)', fontWeight: 600, flexShrink: 0 }}>Reward:</span>
-                <span style={{ color: 'var(--text2)' }}>{strat.reward}</span>
-              </div>
-              <div style={{ marginTop: 4 }}>
-                <span className="badge badge-blue">{strat.outlook}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

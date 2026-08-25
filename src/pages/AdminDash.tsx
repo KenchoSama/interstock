@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAdminOverview } from '../hooks/useAdminOverview';
 import { useAllStudents } from '../hooks/useAllStudents';
 import { useAdminFeedback } from '../hooks/useAdminFeedback';
+import { useSchoolLeaderboard } from '../hooks/useSchoolLeaderboard';
 
 function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
   const header = ['Name', 'School', 'Grade', 'Level', 'XP', 'Rank'];
@@ -28,6 +29,7 @@ export default function AdminDash() {
   const { schools, totalStudents, totalCompetitions, activeCompetitions, loading: overviewLoading, error: overviewError, addSchool, deleteSchool } = useAdminOverview();
   const { students, loading: studentsLoading, error: studentsError, deleteStudent } = useAllStudents();
   const { feedback, loading: feedbackLoading, error: feedbackError } = useAdminFeedback();
+  const { entries: schoolRanks } = useSchoolLeaderboard();
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [confirmText, setConfirmText] = useState('');
@@ -137,8 +139,10 @@ export default function AdminDash() {
             <table style={{ width: '100%' }}>
               <thead>
                 <tr>
+                  <th>Rank</th>
                   <th>School</th>
                   <th>Students</th>
+                  <th>Avg Return</th>
                   <th>Quiz Avg</th>
                   <th>Avg Lessons Completed</th>
                   <th></th>
@@ -147,15 +151,21 @@ export default function AdminDash() {
               <tbody>
                 {schools.length === 0 && (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
                       No schools yet.
                     </td>
                   </tr>
                 )}
-                {schools.map(s => (
+                {schools.map(s => {
+                  const rankEntry = schoolRanks.find(r => r.schoolId === s.school_id);
+                  return (
                   <tr key={s.school_id}>
+                    <td style={{ fontFamily: 'monospace', color: 'var(--text3)' }}>{rankEntry ? `#${rankEntry.rank}` : '—'}</td>
                     <td style={{ fontWeight: 600 }}>{s.school_name}</td>
                     <td style={{ fontFamily: 'monospace' }}>{s.student_count}</td>
+                    <td style={{ fontFamily: 'monospace', color: rankEntry ? (rankEntry.avgReturnPct >= 0 ? '#00e676' : 'var(--red)') : 'var(--text3)' }}>
+                      {rankEntry ? `${rankEntry.avgReturnPct >= 0 ? '+' : ''}${rankEntry.avgReturnPct.toFixed(2)}%` : '—'}
+                    </td>
                     <td style={{ fontFamily: 'monospace' }}>{s.avg_quiz_score !== null ? `${s.avg_quiz_score}%` : '—'}</td>
                     <td style={{ fontFamily: 'monospace' }}>{s.avg_lessons_completed ?? '—'}</td>
                     <td>
@@ -168,7 +178,8 @@ export default function AdminDash() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}

@@ -3,6 +3,7 @@ import { useApp } from '../state/AppContext';
 import { useProfileData } from '../hooks/useProfileData';
 import { usePublicStudentProfile } from '../hooks/usePublicStudentProfile';
 import { uploadAvatar, updateProfileDetails, updateProfilePrivacy } from '../lib/studentProfile';
+import { FAQS } from '../data';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 
@@ -89,6 +90,8 @@ function OwnProfile() {
 
   const [privacyUpdating, setPrivacyUpdating] = useState(false);
   const [privacyError, setPrivacyError] = useState<string | null>(null);
+
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   async function handleTogglePrivacy() {
     if (!user.supabaseId) return;
@@ -395,6 +398,36 @@ function OwnProfile() {
                 ) : (
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>No trades yet.</div>
                 )}
+              </div>
+
+              {/* FAQ */}
+              <div className="card">
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 14 }}>
+                  Frequently Asked Questions
+                </div>
+                {FAQS.map((faq, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: '10px 0',
+                      borderBottom: i < FAQS.length - 1 ? '1px solid var(--border)' : 'none',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{faq.q}</span>
+                      <span style={{ color: 'var(--gr)', fontSize: 16, flexShrink: 0, marginLeft: 12 }}>
+                        {openFaq === i ? '−' : '+'}
+                      </span>
+                    </div>
+                    {openFaq === i && (
+                      <div style={{ marginTop: 8, color: 'var(--text2)', fontSize: 12, lineHeight: 1.6 }}>
+                        {faq.a}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
           </div>
         )}

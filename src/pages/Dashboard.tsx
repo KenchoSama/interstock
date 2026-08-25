@@ -8,9 +8,10 @@ import MonthCalendar from '../components/MonthCalendar';
 import { useAvailableMentors } from '../hooks/useAvailableMentors';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { DIPLOMA_COURSES } from '../data/courses';
-import { lineChart, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
+import { lineChart, alignDailySnapshots, lineChartWithPlaceholder, comparisonChart } from '../utils/charts';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 import { useStockQuotes } from '../hooks/useStockQuotes';
+import { useIndexPerformance, KEY_INDEXES } from '../hooks/useIndexPerformance';
 import ChartWithTooltip from '../components/ChartWithTooltip';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
@@ -65,6 +66,11 @@ export default function Dashboard() {
   const { chartPoints, flatLine, snapshots } = usePortfolioHistory(user.portfolioId, 10000, chartTf);
   const [bookingMentor, setBookingMentor] = useState<typeof mentors[number] | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+
+  const [compareKeys, setCompareKeys] = useState<string[]>([]);
+  const [showAddCompare, setShowAddCompare] = useState(false);
+  const { series: indexSeries } = useIndexPerformance(compareKeys, chartTf);
+  const availableIndexes = KEY_INDEXES.filter(i => !compareKeys.includes(i.key));
 
   const startDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -125,7 +131,21 @@ export default function Dashboard() {
     return chartCutoffDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }, [chartCutoffDate, snapshots, flatLine, startDate]);
 
+  const compareOverlays = useMemo(() => {
+    return compareKeys
+      .map(key => {
+        const def = KEY_INDEXES.find(i => i.key === key);
+        const s = indexSeries[key];
+        return def && s ? { values: s.values, color: def.color } : null;
+      })
+      .filter((o): o is { values: number[]; color: string } => o !== null);
+  }, [compareKeys, indexSeries]);
+
   const chartSvg = useMemo(() => {
+    if (compareKeys.length > 0) {
+      if (displayPoints.length === 0) return '';
+      return comparisonChart(displayPoints, compareOverlays, 530, 120);
+    }
     if (isDailyTf) {
       if (alignedDailySeries.values.length === 0) return '';
       return lineChartWithPlaceholder(alignedDailySeries.values, 530, 120);
@@ -137,7 +157,7 @@ export default function Dashboard() {
       530, 120,
       points[points.length - 1] >= points[0] ? 'var(--gr)' : 'var(--red)'
     );
-  }, [filteredChartPoints, isDailyTf, alignedDailySeries]);
+  }, [filteredChartPoints, isDailyTf, alignedDailySeries, compareKeys, compareOverlays, displayPoints]);
 
   const portfolioChange = holdingsValue > 0
     ? user.portfolio.reduce((sum, h) => sum + (getLivePrice(h.sym) - h.avg) * h.shares, 0)
@@ -149,6 +169,15 @@ export default function Dashboard() {
   const startValue = 10000;
   const returnPct = ((totalValue - startValue) / startValue) * 100;
   const returnAmt = totalValue - startValue;
+
+  // % change since the start of the selected chart timeframe, falling back to
+  // all-time return when there's no snapshot history yet for that window.
+  const timeframeReturn = useMemo(() => {
+    const baseline = displayPoints.find((v): v is number => v !== null && v !== undefined && v > 0);
+    if (baseline === undefined) return { amt: returnAmt, pct: returnPct };
+    const amt = totalValue - baseline;
+    return { amt, pct: (amt / baseline) * 100 };
+  }, [displayPoints, totalValue, returnAmt, returnPct]);
 
   const levelNum = LEVEL_THRESHOLDS.filter(t => t <= user.xp).length;
   const { top5, myEntry } = useLeaderboard();
@@ -241,12 +270,87 @@ export default function Dashboard() {
                 <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)' }}>
                   ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
-                <div style={{ fontSize: 13, color: returnPct >= 0 ? 'var(--gr)' : 'var(--red)' }}>
-                  {returnPct >= 0 ? '+' : '-'}${Math.abs(returnAmt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%)
+                <div style={{ fontSize: 13, color: timeframeReturn.pct >= 0 ? 'var(--gr)' : 'var(--red)' }}>
+                  {timeframeReturn.pct >= 0 ? '+' : '-'}${Math.abs(timeframeReturn.amt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({timeframeReturn.pct >= 0 ? '+' : ''}{timeframeReturn.pct.toFixed(2)}%)
+                  <span style={{ color: 'var(--text3)', fontWeight: 400 }}> {chartTf}</span>
                 </div>
                 <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto' }}>
                   Holdings: ${holdingsValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
+              </div>
+
+              {/* Compare vs key indexes */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--text3)' }}>Compare:</span>
+                {compareKeys.map(key => {
+                  const def = KEY_INDEXES.find(i => i.key === key);
+                  if (!def) return null;
+                  const s = indexSeries[key];
+                  return (
+                    <span
+                      key={key}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px',
+                        borderRadius: 20, fontSize: 11, fontWeight: 600,
+                        background: `${def.color}22`, border: `1px solid ${def.color}66`, color: def.color,
+                      }}
+                    >
+                      {def.label}
+                      {s && (
+                        <span style={{ color: s.pct >= 0 ? 'var(--gr)' : 'var(--red)' }}>
+                          {s.pct >= 0 ? '+' : ''}{s.pct.toFixed(2)}%
+                        </span>
+                      )}
+                      <button
+                        onClick={() => setCompareKeys(prev => prev.filter(k => k !== key))}
+                        title={`Remove ${def.label}`}
+                        style={{ background: 'none', border: 'none', color: def.color, cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1 }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+                {availableIndexes.length > 0 && (
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: 11 }}
+                      onClick={() => setShowAddCompare(v => !v)}
+                    >
+                      + Add Index
+                    </button>
+                    {showAddCompare && (
+                      <>
+                        <div
+                          onClick={() => setShowAddCompare(false)}
+                          style={{ position: 'fixed', inset: 0, zIndex: 19 }}
+                        />
+                        <div style={{
+                          position: 'absolute', top: '110%', left: 0, zIndex: 20, minWidth: 190,
+                          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
+                          padding: 4, boxShadow: '0 8px 20px rgba(0,0,0,0.35)',
+                        }}>
+                          {availableIndexes.map(def => (
+                            <div
+                              key={def.key}
+                              onClick={() => { setCompareKeys(prev => [...prev, def.key]); setShowAddCompare(false); }}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
+                                fontSize: 12, color: 'var(--text)', cursor: 'pointer', borderRadius: 6,
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--surface2)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+                            >
+                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: def.color, flexShrink: 0 }} />
+                              {def.label}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Chart with tooltip overlay */}

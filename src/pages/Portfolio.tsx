@@ -130,6 +130,15 @@ export default function Portfolio() {
   const displayPoints = isDailyTf ? alignedDailySeries.values : filteredChartPoints;
   const displayDates = isDailyTf ? alignedDailySeries.dates : filteredChartDates;
 
+  // % change since the start of the selected chart timeframe, falling back to
+  // all-time return when there's no snapshot history yet for that window.
+  const timeframeReturn = useMemo(() => {
+    const baseline = displayPoints.find((v): v is number => v !== null && v !== undefined && v > 0);
+    if (baseline === undefined) return { amt: returnAmt, pct: returnPct };
+    const amt = totalValue - baseline;
+    return { amt, pct: (amt / baseline) * 100 };
+  }, [displayPoints, totalValue, returnAmt, returnPct]);
+
   const filteredStartDate = useMemo(() => {
     if (flatLine || snapshots.length === 0) return startDate;
     return chartCutoffDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -311,8 +320,9 @@ export default function Portfolio() {
               <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)' }}>
                 ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
-              <div style={{ fontSize: 13, color: returnPct >= 0 ? 'var(--gr)' : 'var(--red)' }}>
-                {returnPct >= 0 ? '+' : '-'}${Math.abs(returnAmt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%)
+              <div style={{ fontSize: 13, color: timeframeReturn.pct >= 0 ? 'var(--gr)' : 'var(--red)' }}>
+                {timeframeReturn.pct >= 0 ? '+' : '-'}${Math.abs(timeframeReturn.amt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({timeframeReturn.pct >= 0 ? '+' : ''}{timeframeReturn.pct.toFixed(2)}%)
+                <span style={{ color: 'var(--text3)', fontWeight: 400 }}> {chartTf}</span>
               </div>
               <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto' }}>
                 Holdings: ${portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

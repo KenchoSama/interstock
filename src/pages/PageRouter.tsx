@@ -39,6 +39,9 @@ import CertExam from './CertExam';
 import StaffAssign from './StaffAssign';
 import Perks from './Perks';
 import AdminAssignments from './AdminAssignments';
+import SchoolLeaderboard from './SchoolLeaderboard';
+import Notes from './Notes';
+import OrderHistory from './OrderHistory';
 
 export default function PageRouter() {
   const { state } = useApp();
@@ -86,6 +89,9 @@ export default function PageRouter() {
     'staff-assign': <StaffAssign />,
     'perks': <Perks />,
     'admin-assignments': <AdminAssignments />,
+    'school-leaderboard': <SchoolLeaderboard />,
+    'notes': <Notes />,
+    'order-history': <OrderHistory />,
   };
 
   const page = pages[view];

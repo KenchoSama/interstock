@@ -1,13 +1,19 @@
+import { useState } from 'react';
 import { useFuturesQuotes } from '../hooks/useFuturesQuotes';
+import { useApp } from '../state/AppContext';
+import { useFuturesPositions, type FuturesPosition } from '../hooks/useFuturesPositions';
+import { supabase } from '../lib/supabase';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
+// marginPerContract / multiplier are numeric versions of the margin/contract
+// columns below, used to actually price and settle a paper-trading position.
 
 const FUTURES_DATA = [
-  { name: 'Crude Oil',    ticker: 'CL', price: 78.42,   chg: -0.87, chgPct: -1.10, unit: 'bbl',   exchange: 'NYMEX', margin: '$5,940',  contract: '1,000 bbl' },
-  { name: 'Gold',         ticker: 'GC', price: 2342.60,  chg:  8.30, chgPct:  0.36, unit: 'oz',    exchange: 'COMEX', margin: '$9,900',  contract: '100 oz'    },
-  { name: 'S&P 500',      ticker: 'ES', price: 5218.75,  chg: 12.25, chgPct:  0.24, unit: 'index', exchange: 'CME',   margin: '$13,200', contract: '$50 × Index' },
-  { name: 'Corn',         ticker: 'ZC', price: 452.25,   chg: -3.50, chgPct: -0.77, unit: 'bu',    exchange: 'CBOT',  margin: '$1,650',  contract: '5,000 bu'  },
-  { name: 'Natural Gas',  ticker: 'NG', price: 2.184,    chg:  0.042, chgPct: 1.96, unit: 'MMBtu', exchange: 'NYMEX', margin: '$2,310',  contract: '10,000 MMBtu' },
+  { name: 'Crude Oil',    ticker: 'CL', price: 78.42,   chg: -0.87, chgPct: -1.10, unit: 'bbl',   exchange: 'NYMEX', margin: '$5,940',  contract: '1,000 bbl',    marginPerContract: 5940,  multiplier: 1000 },
+  { name: 'Gold',         ticker: 'GC', price: 2342.60,  chg:  8.30, chgPct:  0.36, unit: 'oz',    exchange: 'COMEX', margin: '$9,900',  contract: '100 oz',       marginPerContract: 9900,  multiplier: 100  },
+  { name: 'S&P 500',      ticker: 'ES', price: 5218.75,  chg: 12.25, chgPct:  0.24, unit: 'index', exchange: 'CME',   margin: '$13,200', contract: '$50 × Index',  marginPerContract: 13200, multiplier: 50   },
+  { name: 'Corn',         ticker: 'ZC', price: 452.25,   chg: -3.50, chgPct: -0.77, unit: 'bu',    exchange: 'CBOT',  margin: '$1,650',  contract: '5,000 bu',     marginPerContract: 1650,  multiplier: 50   },
+  { name: 'Natural Gas',  ticker: 'NG', price: 2.184,    chg:  0.042, chgPct: 1.96, unit: 'MMBtu', exchange: 'NYMEX', margin: '$2,310',  contract: '10,000 MMBtu', marginPerContract: 2310,  multiplier: 10000 },
 ];
 
 const CONCEPTS = [
@@ -37,33 +43,6 @@ const CONCEPTS = [
   },
 ];
 
-const HEDGING_EXAMPLES = [
-  {
-    title: 'Corn Farmer',
-    icon: '🌽',
-    scenario: 'Planting Season Hedge',
-    description: 'A corn farmer plants 100,000 bushels in spring and worries corn prices will fall by harvest. The farmer shorts corn futures at $4.50/bu. If prices fall to $3.80 at harvest, the futures gain offsets the lower cash price — locking in $4.50/bu regardless.',
-    benefit: 'Price certainty for planning and operations',
-    risk: 'Misses out if corn prices rise significantly',
-  },
-  {
-    title: 'Airline Company',
-    icon: '✈️',
-    scenario: 'Fuel Cost Hedge',
-    description: 'An airline needing 10M gallons of jet fuel longs crude oil futures at $78/barrel. If oil rises to $95, the futures gain offsets higher fuel costs. This is why airlines report "hedging gains" during oil price spikes.',
-    benefit: 'Predictable operating costs, easier financial planning',
-    risk: 'If oil falls, the airline pays more than market price',
-  },
-  {
-    title: 'Investment Fund',
-    icon: '🏦',
-    scenario: 'Portfolio Hedge (S&P 500)',
-    description: 'A fund manager holding $50M in US stocks shorts S&P 500 futures before an uncertain macro event. If the market falls 5%, futures gains offset portfolio losses — without selling positions.',
-    benefit: 'Downside protection without liquidating positions',
-    risk: 'Reduces upside if market rallies instead',
-  },
-];
-
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function FuturesTipBanner() {
@@ -84,9 +63,15 @@ function FuturesTipBanner() {
   );
 }
 
-function FuturesContractsTable({ data }: { data: typeof FUTURES_DATA }) {
-  const { quotes, loading } = useFuturesQuotes();
-
+function FuturesContractsTable({
+  data, selectedTicker, onSelect, quotes, loading,
+}: {
+  data: typeof FUTURES_DATA;
+  selectedTicker: string | null;
+  onSelect: (ticker: string, price: number) => void;
+  quotes: ReturnType<typeof useFuturesQuotes>['quotes'];
+  loading: boolean;
+}) {
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -99,6 +84,10 @@ function FuturesContractsTable({ data }: { data: typeof FUTURES_DATA }) {
             EDUCATIONAL ONLY
           </span>
         </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
+        Click a contract row to trade it.
       </div>
 
       {/* Column headers */}
@@ -121,12 +110,19 @@ function FuturesContractsTable({ data }: { data: typeof FUTURES_DATA }) {
         const price = q?.price ?? f.price;
         const chg = q?.chg ?? f.chg;
         const chgPct = q?.chgPct ?? f.chgPct;
+        const isSelected = selectedTicker === f.ticker;
         return (
-          <div key={f.ticker} style={{
-            display: 'flex', alignItems: 'center', fontSize: 12,
-            borderBottom: '1px solid rgba(30,58,80,0.5)',
-            padding: '6px 0',
-          }}>
+          <div
+            key={f.ticker}
+            onClick={() => onSelect(f.ticker, price)}
+            style={{
+              display: 'flex', alignItems: 'center', fontSize: 12,
+              borderBottom: '1px solid rgba(30,58,80,0.5)',
+              padding: '6px 0', cursor: 'pointer',
+              background: isSelected ? 'rgba(0,230,118,0.06)' : 'transparent',
+              borderRadius: isSelected ? 4 : 0,
+            }}
+          >
             <span style={{ width: 120, fontWeight: 600, color: 'var(--text)' }}>{f.name}</span>
             <span style={{ width: 60, textAlign: 'center', fontFamily: 'monospace', background: 'var(--bg3)', padding: '1px 6px', borderRadius: 4, fontSize: 11, color: 'var(--yellow)', fontWeight: 700 }}>
               {f.ticker}
@@ -169,6 +165,80 @@ function FuturesConceptsGrid() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Futures() {
+  const { state, dispatch } = useApp();
+  const user = state.u[state.role];
+  const { positions, loading: positionsLoading, openPosition, closePosition } = useFuturesPositions(user.portfolioId);
+  const { quotes, loading: quotesLoading } = useFuturesQuotes();
+
+  function getPriceFor(ticker: string): number {
+    return quotes.find(q => q.ticker === ticker)?.price ?? FUTURES_DATA.find(f => f.ticker === ticker)?.price ?? 0;
+  }
+
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+  const [side, setSide] = useState<'long' | 'short'>('long');
+  const [contracts, setContracts] = useState(1);
+  const [trading, setTrading] = useState(false);
+  const [tradeMsg, setTradeMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const selectedProduct = selectedTicker ? FUTURES_DATA.find(f => f.ticker === selectedTicker) : null;
+  const entryPrice = selectedTicker ? getPriceFor(selectedTicker) : 0;
+  const marginRequired = selectedProduct ? selectedProduct.marginPerContract * contracts : 0;
+
+  function selectContract(ticker: string) {
+    setSelectedTicker(ticker);
+    setTradeMsg(null);
+  }
+
+  async function handleOpenPosition() {
+    if (!selectedProduct) return;
+    if (marginRequired > user.cash) {
+      setTradeMsg({ text: 'Insufficient cash balance for margin.', ok: false });
+      return;
+    }
+
+    setTrading(true);
+    const { error } = await openPosition({
+      ticker: selectedProduct.ticker,
+      side,
+      contracts,
+      entryPrice,
+      multiplier: selectedProduct.multiplier,
+      marginPosted: marginRequired,
+    });
+    setTrading(false);
+
+    if (error) {
+      setTradeMsg({ text: error, ok: false });
+      return;
+    }
+
+    dispatch({ type: 'ADJUST_CASH', amount: -marginRequired });
+    dispatch({ type: 'ADD_XP', amount: 10 });
+    if (user.supabaseId) await supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: 10 });
+
+    setTradeMsg({ text: `Opened ${side} ${contracts} ${selectedProduct.ticker} contract${contracts > 1 ? 's' : ''} @ $${entryPrice.toFixed(2)}!`, ok: true });
+    setSelectedTicker(null);
+    setContracts(1);
+  }
+
+  async function handleClosePosition(pos: FuturesPosition) {
+    const currentPrice = getPriceFor(pos.ticker);
+    const pnl = (currentPrice - pos.entryPrice) * pos.multiplier * pos.contracts * (pos.side === 'long' ? 1 : -1);
+    const closeValue = Math.max(0, pos.marginPosted + pnl);
+
+    const { error } = await closePosition(pos.id, currentPrice, closeValue);
+    if (error) {
+      setTradeMsg({ text: error, ok: false });
+      return;
+    }
+
+    dispatch({ type: 'ADJUST_CASH', amount: closeValue });
+    dispatch({ type: 'ADD_XP', amount: 10 });
+    if (user.supabaseId) await supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: 10 });
+
+    setTradeMsg({ text: `Closed ${pos.ticker} ${pos.side} for $${closeValue.toFixed(2)}.`, ok: true });
+  }
+
   return (
     <div className="page-body">
 
@@ -176,58 +246,165 @@ export default function Futures() {
       <FuturesTipBanner />
 
       {/* 2. Contracts table */}
-      <FuturesContractsTable data={FUTURES_DATA} />
+      <FuturesContractsTable
+        data={FUTURES_DATA}
+        selectedTicker={selectedTicker}
+        onSelect={selectContract}
+        quotes={quotes}
+        loading={quotesLoading}
+      />
+
+      {/* 2b. Trade ticket */}
+      {selectedProduct && (
+        <div className="card" style={{ marginBottom: 16, border: '1px solid var(--gr)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div className="section-title" style={{ margin: 0 }}>
+              Open Position — {selectedProduct.name} ({selectedProduct.ticker})
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedTicker(null)}>Cancel</button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+            <button
+              onClick={() => setSide('long')}
+              style={{ padding: 10, borderRadius: 8, fontWeight: 700, fontSize: 13, background: side === 'long' ? '#00e676' : 'var(--surface)', color: side === 'long' ? '#000' : 'var(--text2)' }}
+            >
+              ▲ LONG
+            </button>
+            <button
+              onClick={() => setSide('short')}
+              style={{ padding: 10, borderRadius: 8, fontWeight: 700, fontSize: 13, background: side === 'short' ? 'var(--red)' : 'var(--surface)', color: side === 'short' ? '#fff' : 'var(--text2)' }}
+            >
+              ▼ SHORT
+            </button>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Contracts</label>
+              <input
+                type="number"
+                min={1}
+                style={{ width: '100%' }}
+                value={contracts}
+                onChange={e => setContracts(Math.max(1, parseInt(e.target.value) || 1))}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14, padding: '10px 14px', background: 'var(--bg3)', borderRadius: 'var(--radius)', fontSize: 13 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text3)' }}>Entry Price</span>
+              <span>${entryPrice.toFixed(2)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text3)' }}>Margin per Contract</span>
+              <span>${selectedProduct.marginPerContract.toLocaleString()}</span>
+            </div>
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+              <span style={{ color: 'var(--text2)' }}>Margin Required</span>
+              <span style={{ color: 'var(--gr)', fontSize: 15 }}>
+                ${marginRequired.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12 }}>
+            Leveraged: each $1 move in price changes this position's value by ${selectedProduct.multiplier.toLocaleString()} per contract.
+            Losses are capped at the margin posted.
+          </div>
+
+          {tradeMsg && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 'var(--radius)', marginBottom: 12, fontSize: 13,
+              background: tradeMsg.ok ? 'var(--gr-dim)' : 'var(--red-dim)',
+              color: tradeMsg.ok ? 'var(--gr)' : 'var(--red)',
+            }}>
+              {tradeMsg.text}
+            </div>
+          )}
+
+          <button
+            onClick={handleOpenPosition}
+            disabled={trading}
+            style={{
+              width: '100%', padding: 12, fontSize: 13, fontWeight: 700, border: 'none', borderRadius: 8,
+              background: side === 'long' ? '#00e676' : 'var(--red)', color: side === 'long' ? '#000' : '#fff',
+              cursor: trading ? 'default' : 'pointer', opacity: trading ? 0.6 : 1,
+            }}
+          >
+            {trading ? 'Placing Order...' : `${side === 'long' ? 'Buy (Long)' : 'Sell (Short)'} ${contracts} Contract${contracts > 1 ? 's' : ''}`}
+          </button>
+        </div>
+      )}
+
+      {/* 2c. My positions */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="section-title">My Futures Positions</div>
+
+        {positionsLoading && (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text3)', fontSize: 13 }}>Loading positions...</div>
+        )}
+
+        {!positionsLoading && positions.filter(p => p.status === 'open').length === 0 && (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text3)', fontSize: 13 }}>
+            No open positions. Click a contract above to place a trade.
+          </div>
+        )}
+
+        {!positionsLoading && positions.filter(p => p.status === 'open').length > 0 && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Side</th>
+                  <th>Contracts</th>
+                  <th>Entry Price</th>
+                  <th>Current</th>
+                  <th>Margin Posted</th>
+                  <th>P&amp;L</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {positions.filter(p => p.status === 'open').map(pos => {
+                  const currentPrice = getPriceFor(pos.ticker);
+                  const hasPrice = currentPrice > 0;
+                  const pnl = hasPrice
+                    ? (currentPrice - pos.entryPrice) * pos.multiplier * pos.contracts * (pos.side === 'long' ? 1 : -1)
+                    : null;
+                  return (
+                    <tr key={pos.id}>
+                      <td style={{ fontWeight: 700, color: 'var(--yellow)' }}>{pos.ticker}</td>
+                      <td style={{ textTransform: 'capitalize', color: pos.side === 'long' ? '#00e676' : 'var(--red)' }}>{pos.side}</td>
+                      <td>{pos.contracts}</td>
+                      <td>${pos.entryPrice.toFixed(2)}</td>
+                      <td>{hasPrice ? `$${currentPrice.toFixed(2)}` : '—'}</td>
+                      <td>${pos.marginPosted.toLocaleString()}</td>
+                      <td style={{ color: pnl === null ? 'var(--text3)' : pnl >= 0 ? '#00e676' : 'var(--red)', fontWeight: 600 }}>
+                        {pnl === null ? '—' : `${pnl >= 0 ? '+' : '-'}$${Math.abs(pnl).toFixed(2)}`}
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: 11 }}
+                          disabled={!hasPrice}
+                          onClick={() => handleClosePosition(pos)}
+                        >
+                          Close
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* 3. Concepts grid */}
       <FuturesConceptsGrid />
 
-      {/* 4. What are futures */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div className="section-title">What Are Futures?</div>
-        <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 16 }}>
-          A futures contract is a legal agreement to buy or sell a specific commodity or financial asset at a predetermined price at a specified time in the future. Both parties are obligated to fulfill the contract — unlike options, where the buyer has a choice.
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-          {[
-            { icon: '📦', label: 'Standardized', desc: 'Each contract specifies exact quantity, quality, and delivery terms set by the exchange.' },
-            { icon: '🔄', label: 'Two-Sided',    desc: 'Every futures buyer (long) is matched with a seller (short). One profits while the other loses.' },
-            { icon: '🏛️', label: 'Exchange-Traded', desc: 'Traded on regulated exchanges like CME, NYMEX, and CBOT with central clearing for safety.' },
-          ].map(item => (
-            <div key={item.label} style={{ background: 'var(--bg3)', borderRadius: 'var(--radius)', padding: '14px 16px' }}>
-              <div style={{ fontSize: 24, marginBottom: 8 }}>{item.icon}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{item.label}</div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>{item.desc}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 5. Hedging examples */}
-      <div className="section-title">Hedging Examples</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {HEDGING_EXAMPLES.map(ex => (
-          <div key={ex.title} className="card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <div style={{ fontSize: 32 }}>{ex.icon}</div>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{ex.title}</div>
-                <span className="badge badge-blue" style={{ marginTop: 4 }}>{ex.scenario}</span>
-              </div>
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 14 }}>{ex.description}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div style={{ padding: '10px 14px', background: 'var(--gr-dim)', borderRadius: 'var(--radius)', border: '1px solid rgba(0,212,168,0.2)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gr)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Benefit</div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{ex.benefit}</div>
-              </div>
-              <div style={{ padding: '10px 14px', background: 'var(--red-dim)', borderRadius: 'var(--radius)', border: '1px solid rgba(255,77,109,0.2)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Trade-off</div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{ex.risk}</div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
