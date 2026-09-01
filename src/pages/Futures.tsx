@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useFuturesQuotes } from '../hooks/useFuturesQuotes';
+import { useFuturesLookup } from '../hooks/useFuturesLookup';
 import { useApp } from '../state/AppContext';
 import { useFuturesPositions, type FuturesPosition } from '../hooks/useFuturesPositions';
 import { supabase } from '../lib/supabase';
@@ -7,13 +8,45 @@ import { supabase } from '../lib/supabase';
 // ── Data ─────────────────────────────────────────────────────────────────────
 // marginPerContract / multiplier are numeric versions of the margin/contract
 // columns below, used to actually price and settle a paper-trading position.
+// price/chg/chgPct are just fallback placeholders shown for an instant before
+// live quotes load.
 
 const FUTURES_DATA = [
-  { name: 'Crude Oil',    ticker: 'CL', price: 78.42,   chg: -0.87, chgPct: -1.10, unit: 'bbl',   exchange: 'NYMEX', margin: '$5,940',  contract: '1,000 bbl',    marginPerContract: 5940,  multiplier: 1000 },
-  { name: 'Gold',         ticker: 'GC', price: 2342.60,  chg:  8.30, chgPct:  0.36, unit: 'oz',    exchange: 'COMEX', margin: '$9,900',  contract: '100 oz',       marginPerContract: 9900,  multiplier: 100  },
-  { name: 'S&P 500',      ticker: 'ES', price: 5218.75,  chg: 12.25, chgPct:  0.24, unit: 'index', exchange: 'CME',   margin: '$13,200', contract: '$50 × Index',  marginPerContract: 13200, multiplier: 50   },
-  { name: 'Corn',         ticker: 'ZC', price: 452.25,   chg: -3.50, chgPct: -0.77, unit: 'bu',    exchange: 'CBOT',  margin: '$1,650',  contract: '5,000 bu',     marginPerContract: 1650,  multiplier: 50   },
-  { name: 'Natural Gas',  ticker: 'NG', price: 2.184,    chg:  0.042, chgPct: 1.96, unit: 'MMBtu', exchange: 'NYMEX', margin: '$2,310',  contract: '10,000 MMBtu', marginPerContract: 2310,  multiplier: 10000 },
+  // Energy
+  { name: 'Crude Oil (WTI)',    ticker: 'CL',  price: 78.42,   chg: -0.87,  chgPct: -1.10, exchange: 'NYMEX', margin: '$5,940',  contract: '1,000 bbl',    marginPerContract: 5940,  multiplier: 1000  },
+  { name: 'Natural Gas',        ticker: 'NG',  price: 2.184,   chg: 0.042,  chgPct: 1.96,  exchange: 'NYMEX', margin: '$2,310',  contract: '10,000 MMBtu', marginPerContract: 2310,  multiplier: 10000 },
+  { name: 'RBOB Gasoline',      ticker: 'RB',  price: 2.15,    chg: 0.01,   chgPct: 0.47,  exchange: 'NYMEX', margin: '$7,500',  contract: '42,000 gal',   marginPerContract: 7500,  multiplier: 42000 },
+  { name: 'Heating Oil',        ticker: 'HO',  price: 2.45,    chg: -0.02,  chgPct: -0.81, exchange: 'NYMEX', margin: '$7,200',  contract: '42,000 gal',   marginPerContract: 7200,  multiplier: 42000 },
+  { name: 'Brent Crude',        ticker: 'BZ',  price: 82.10,   chg: -0.60,  chgPct: -0.73, exchange: 'ICE',   margin: '$6,200',  contract: '1,000 bbl',    marginPerContract: 6200,  multiplier: 1000  },
+  // Metals
+  { name: 'Gold',                ticker: 'GC',  price: 2342.60, chg: 8.30,   chgPct: 0.36,  exchange: 'COMEX', margin: '$9,900',  contract: '100 oz',       marginPerContract: 9900,  multiplier: 100   },
+  { name: 'Silver',               ticker: 'SI',  price: 68.93,   chg: 0.50,   chgPct: 0.73,  exchange: 'COMEX', margin: '$14,000', contract: '5,000 oz',     marginPerContract: 14000, multiplier: 5000  },
+  { name: 'Copper',               ticker: 'HG',  price: 6.71,    chg: 0.03,   chgPct: 0.45,  exchange: 'COMEX', margin: '$6,500',  contract: '25,000 lbs',   marginPerContract: 6500,  multiplier: 25000 },
+  { name: 'Platinum',             ticker: 'PL',  price: 1871.70, chg: -5.00,  chgPct: -0.27, exchange: 'COMEX', margin: '$3,200',  contract: '50 oz',        marginPerContract: 3200,  multiplier: 50    },
+  { name: 'Palladium',            ticker: 'PA',  price: 1150.00, chg: 3.00,   chgPct: 0.26,  exchange: 'COMEX', margin: '$15,000', contract: '100 oz',       marginPerContract: 15000, multiplier: 100   },
+  // Grains
+  { name: 'Corn',                  ticker: 'ZC',  price: 452.25,  chg: -3.50,  chgPct: -0.77, exchange: 'CBOT',  margin: '$1,650',  contract: '5,000 bu',     marginPerContract: 1650,  multiplier: 50    },
+  { name: 'Wheat',                 ticker: 'ZW',  price: 704.50,  chg: 2.00,   chgPct: 0.28,  exchange: 'CBOT',  margin: '$2,200',  contract: '5,000 bu',     marginPerContract: 2200,  multiplier: 50    },
+  { name: 'Soybeans',              ticker: 'ZS',  price: 1238.75, chg: -4.00,  chgPct: -0.32, exchange: 'CBOT',  margin: '$3,500',  contract: '5,000 bu',     marginPerContract: 3500,  multiplier: 50    },
+  { name: 'Soybean Meal',          ticker: 'ZM',  price: 385.00,  chg: 1.20,   chgPct: 0.31,  exchange: 'CBOT',  margin: '$2,200',  contract: '100 tons',     marginPerContract: 2200,  multiplier: 100   },
+  { name: 'Soybean Oil',           ticker: 'ZL',  price: 44.50,   chg: 0.20,   chgPct: 0.45,  exchange: 'CBOT',  margin: '$2,000',  contract: '60,000 lbs',   marginPerContract: 2000,  multiplier: 600   },
+  // Softs
+  { name: 'Coffee',                 ticker: 'KC',  price: 334.85,  chg: -1.50,  chgPct: -0.45, exchange: 'ICE',   margin: '$9,500',  contract: '37,500 lbs',   marginPerContract: 9500,  multiplier: 375   },
+  { name: 'Sugar #11',              ticker: 'SB',  price: 19.50,   chg: 0.10,   chgPct: 0.52,  exchange: 'ICE',   margin: '$1,400',  contract: '112,000 lbs',  marginPerContract: 1400,  multiplier: 1120  },
+  { name: 'Cotton',                 ticker: 'CT',  price: 71.20,   chg: -0.30,  chgPct: -0.42, exchange: 'ICE',   margin: '$2,700',  contract: '50,000 lbs',   marginPerContract: 2700,  multiplier: 500   },
+  { name: 'Cocoa',                  ticker: 'CC',  price: 9800.00, chg: 50.00,  chgPct: 0.51,  exchange: 'ICE',   margin: '$8,500',  contract: '10 tons',      marginPerContract: 8500,  multiplier: 10    },
+  // Livestock
+  { name: 'Live Cattle',            ticker: 'LE',  price: 195.00,  chg: 0.50,   chgPct: 0.26,  exchange: 'CME',   margin: '$3,300',  contract: '40,000 lbs',   marginPerContract: 3300,  multiplier: 400   },
+  { name: 'Lean Hogs',              ticker: 'HE',  price: 89.00,   chg: -0.40,  chgPct: -0.45, exchange: 'CME',   margin: '$2,000',  contract: '40,000 lbs',   marginPerContract: 2000,  multiplier: 400   },
+  { name: 'Feeder Cattle',          ticker: 'GF',  price: 265.00,  chg: 1.00,   chgPct: 0.38,  exchange: 'CME',   margin: '$6,000',  contract: '50,000 lbs',   marginPerContract: 6000,  multiplier: 500   },
+  // Equity index
+  { name: 'S&P 500',                ticker: 'ES',  price: 5218.75, chg: 12.25,  chgPct: 0.24,  exchange: 'CME',   margin: '$13,200', contract: '$50 × Index',  marginPerContract: 13200, multiplier: 50    },
+  { name: 'Nasdaq 100',             ticker: 'NQ',  price: 18200,   chg: 40.00,  chgPct: 0.22,  exchange: 'CME',   margin: '$19,800', contract: '$20 × Index',  marginPerContract: 19800, multiplier: 20    },
+  { name: 'Dow Jones',              ticker: 'YM',  price: 39500,   chg: -30.00, chgPct: -0.08, exchange: 'CME',   margin: '$8,800',  contract: '$5 × Index',   marginPerContract: 8800,  multiplier: 5     },
+  { name: 'Russell 2000',           ticker: 'RTY', price: 2050,    chg: 5.00,   chgPct: 0.24,  exchange: 'CME',   margin: '$6,500',  contract: '$50 × Index',  marginPerContract: 6500,  multiplier: 50    },
+  // Rates
+  { name: '30-Year T-Bond',         ticker: 'ZB',  price: 118.50,  chg: 0.15,   chgPct: 0.13,  exchange: 'CBOT',  margin: '$3,800',  contract: '$1,000 face × pts', marginPerContract: 3800, multiplier: 1000 },
+  { name: '10-Year T-Note',         ticker: 'ZN',  price: 110.20,  chg: 0.08,   chgPct: 0.07,  exchange: 'CBOT',  margin: '$1,900',  contract: '$1,000 face × pts', marginPerContract: 1900, multiplier: 1000 },
 ];
 
 const CONCEPTS = [
@@ -187,6 +220,24 @@ export default function Futures() {
   function selectContract(ticker: string) {
     setSelectedTicker(ticker);
     setTradeMsg(null);
+    lookupClear();
+  }
+
+  const [searchInput, setSearchInput] = useState('');
+  const { result: lookupResult, loading: lookupLoading, error: lookupError, lookup, clear: lookupClear } = useFuturesLookup();
+
+  function handleSearch() {
+    const root = searchInput.trim().toUpperCase().replace(/=F$/, '');
+    if (!root) return;
+
+    const known = FUTURES_DATA.find(f => f.ticker === root);
+    if (known) {
+      selectContract(known.ticker);
+      setSearchInput('');
+      return;
+    }
+
+    lookup(root);
   }
 
   async function handleOpenPosition() {
@@ -244,6 +295,60 @@ export default function Futures() {
 
       {/* 1. Tip banner */}
       <FuturesTipBanner />
+
+      {/* 1b. Search any futures contract */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="section-title" style={{ marginBottom: 10 }}>Search a Contract</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            type="text"
+            placeholder="Root ticker — e.g. SI (Silver), HG (Copper), 6E (Euro FX)"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value.toUpperCase())}
+            onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+            style={{ flex: 1, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}
+          />
+          <button
+            onClick={handleSearch}
+            disabled={lookupLoading}
+            style={{ padding: '0 18px', borderRadius: 8, background: 'var(--gr)', color: '#000', fontWeight: 700, fontSize: 12, flexShrink: 0 }}
+          >
+            {lookupLoading ? '...' : 'Search'}
+          </button>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
+          Not every contract we can quote has margin data in our reference table below — those show as a live quote only.
+        </div>
+
+        {lookupError && (
+          <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 10 }}>{lookupError}</div>
+        )}
+
+        {lookupResult && (
+          <div style={{
+            marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px', background: 'var(--bg3)', borderRadius: 'var(--radius)',
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--yellow)' }}>{lookupResult.ticker}=F</span>
+                <span style={{ fontSize: 13, color: 'var(--text)' }}>{lookupResult.name}</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                Live quote only — no margin/contract-size reference data, so trading isn't available for this one.
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontWeight: 700, fontFamily: 'monospace' }}>
+                ${lookupResult.price.toLocaleString('en-US', { minimumFractionDigits: lookupResult.price < 10 ? 3 : 2, maximumFractionDigits: lookupResult.price < 10 ? 3 : 2 })}
+              </div>
+              <div className={lookupResult.chg >= 0 ? 'up' : 'dn'} style={{ fontSize: 12 }}>
+                {lookupResult.chg >= 0 ? '+' : ''}{lookupResult.chgPct.toFixed(2)}%
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* 2. Contracts table */}
       <FuturesContractsTable

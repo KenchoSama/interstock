@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
 
-const FUTURES_SYMBOLS = [
-  { ticker: 'CL', yahoo: 'CL=F' },
-  { ticker: 'GC', yahoo: 'GC=F' },
-  { ticker: 'ES', yahoo: 'ES=F' },
-  { ticker: 'ZC', yahoo: 'ZC=F' },
-  { ticker: 'NG', yahoo: 'NG=F' },
+// Every ticker we carry margin/contract-size reference data for (see
+// FUTURES_DATA in Futures.tsx) — kept in sync so the contracts table and any
+// open position always has a live price, even for contracts not shown by
+// default. Root symbols map straight to Yahoo's "<root>=F" convention.
+const FUTURES_ROOTS = [
+  'CL', 'NG', 'RB', 'HO', 'BZ',
+  'GC', 'SI', 'HG', 'PL', 'PA',
+  'ZC', 'ZW', 'ZS', 'ZM', 'ZL',
+  'KC', 'SB', 'CT', 'CC',
+  'LE', 'HE', 'GF',
+  'ES', 'NQ', 'YM', 'RTY',
+  'ZB', 'ZN',
 ];
+
+const FUTURES_SYMBOLS = FUTURES_ROOTS.map(ticker => ({ ticker, yahoo: `${ticker}=F` }));
 
 export interface FuturesQuote {
   ticker: string;

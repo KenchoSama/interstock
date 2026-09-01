@@ -1,5 +1,6 @@
 import { useApp, getLevelName, getNextLevelXP } from '../../state/AppContext';
-import { useStockQuotes } from '../../hooks/useStockQuotes';
+import { useTickerQuotes } from '../../hooks/useTickerQuotes';
+import { SP500_TICKERS } from '../../data/sp500';
 import interstockLogo from '../../assets/interstock-logo.png';
 
 export default function Topbar() {
@@ -10,7 +11,7 @@ export default function Topbar() {
   const prevLvl = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500].filter(t => t <= xp).at(-1) ?? 0;
   const pct = Math.min(100, Math.round(((xp - prevLvl) / (nextLvl - prevLvl)) * 100));
 
-  const { quotes, lastUpdated, error } = useStockQuotes();
+  const { quotes, loading } = useTickerQuotes();
 
   // Duplicate the list so the marquee loops seamlessly
   const tickerItems = [...quotes, ...quotes];
@@ -24,7 +25,7 @@ export default function Topbar() {
       <div className="topbar-ticker-wrap">
         <div
           className="topbar-ticker-track"
-          style={{ animationDuration: `${quotes.length * 4}s` }}
+          style={{ animationDuration: `${SP500_TICKERS.length * 4}s` }}
         >
           {tickerItems.map((q, i) => (
             <div key={`${q.sym}-${i}`} className="ticker-item">
@@ -37,19 +38,14 @@ export default function Topbar() {
             </div>
           ))}
         </div>
-        {error && (
+        {loading && quotes.length === 0 && (
           <span style={{ position: 'absolute', right: 8, fontSize: 10, color: 'var(--text3)' }}>
-            offline
+            loading market data…
           </span>
         )}
       </div>
 
       <div className="topbar-right">
-        {lastUpdated && (
-          <span style={{ fontSize: 10, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
-            {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        )}
         {state.role === 'student' && (
           <div className="status-bar">
             <div className="xp-bar-wrap">
