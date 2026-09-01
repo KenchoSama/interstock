@@ -5,6 +5,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard';
 import MentorBookingModal from '../components/MentorBookingModal';
 import FeedbackModal from '../components/FeedbackModal';
 import MonthCalendar from '../components/MonthCalendar';
+import PortfolioSwitcher from '../components/PortfolioSwitcher';
 import { useAvailableMentors } from '../hooks/useAvailableMentors';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { DIPLOMA_COURSES } from '../data/courses';
@@ -249,6 +250,7 @@ export default function Dashboard() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div className="card-title" style={{ margin: 0 }}>PORTFOLIO PERFORMANCE</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <PortfolioSwitcher />
                   <div style={{ display: 'flex', gap: 4 }}>
                     {TF_OPTIONS.map(tf => (
                       <button key={tf} onClick={() => setChartTf(tf)}

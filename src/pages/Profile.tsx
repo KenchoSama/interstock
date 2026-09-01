@@ -4,8 +4,42 @@ import { useProfileData } from '../hooks/useProfileData';
 import { usePublicStudentProfile } from '../hooks/usePublicStudentProfile';
 import { uploadAvatar, updateProfileDetails, updateProfilePrivacy } from '../lib/studentProfile';
 import { FAQS } from '../data';
+import { useTournamentLeaderboard } from '../hooks/useTournamentLeaderboard';
+import type { TournamentPortfolio } from '../types';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
+
+function TournamentHistoryRow({ tp, userId }: { tp: TournamentPortfolio; userId: string | null }) {
+  const { students, loading } = useTournamentLeaderboard(tp.competitionId);
+  const mine = students.find(s => s.userId === userId);
+
+  return (
+    <div style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{tp.competitionName}</span>
+        <span style={{
+          fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+          background: tp.status === 'active' ? 'rgba(0,230,118,0.12)' : 'var(--surface2)',
+          color: tp.status === 'active' ? '#00e676' : 'var(--text3)',
+        }}>
+          {tp.status.toUpperCase()}
+        </span>
+      </div>
+      {loading ? (
+        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Loading result...</div>
+      ) : mine ? (
+        <div style={{ display: 'flex', gap: 14, fontSize: 12 }}>
+          <span style={{ color: 'var(--text3)' }}>Rank <strong style={{ color: 'var(--text)' }}>#{mine.rank}</strong> of {students.length}</span>
+          <span style={{ color: mine.returnPct >= 0 ? '#00e676' : 'var(--red)', fontWeight: 600 }}>
+            {mine.returnPct >= 0 ? '+' : ''}{mine.returnPct.toFixed(2)}%
+          </span>
+        </div>
+      ) : (
+        <div style={{ fontSize: 11, color: 'var(--text3)' }}>No result yet.</div>
+      )}
+    </div>
+  );
+}
 
 function initialsOf(name: string) {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
@@ -399,6 +433,18 @@ function OwnProfile() {
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>No trades yet.</div>
                 )}
               </div>
+
+              {/* Tournament History */}
+              {user.tournamentPortfolios.length > 0 && (
+                <div className="card">
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 14 }}>
+                    Tournament History
+                  </div>
+                  {user.tournamentPortfolios.map(tp => (
+                    <TournamentHistoryRow key={tp.competitionId} tp={tp} userId={user.supabaseId} />
+                  ))}
+                </div>
+              )}
 
               {/* FAQ */}
               <div className="card">

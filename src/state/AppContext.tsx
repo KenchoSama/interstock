@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode } from 'react';
-import type { AppState, Role, AiMessage, TradeAction } from '../types';
+import type { AppState, Role, AiMessage, TradeAction, TournamentPortfolio, UserProfile } from '../types';
 import { PORT } from '../data';
 import { DIPLOMA_COURSES } from '../data/courses';
 import { CERT_Q } from '../data/training';
@@ -23,6 +23,9 @@ function makeUser(name: string, xp = 0): AppState['u'][Role] {
     xp,
     cash: 10000,
     portfolio: PORT,
+    activeCompetitionId: null as string | null,
+    generalPortfolio: { id: null as string | null, cash: 10000, holdings: PORT },
+    tournamentPortfolios: [] as TournamentPortfolio[],
     diplomas: INITIAL_DIPLOMAS,
     certPassed: false,
     achievements: ['first-trade', 'first-lesson'],
@@ -113,6 +116,7 @@ type Action =
   | { type: 'BUY_STOCK'; sym: string; shares: number; price: number }
   | { type: 'SELL_STOCK'; sym: string; shares: number; price: number }
   | { type: 'ADJUST_CASH'; amount: number }
+  | { type: 'SWITCH_PORTFOLIO'; competitionId: string | null }
   | { type: 'START_GAME' }
   | { type: 'ANSWER_GAME'; answerIdx: number; correct: boolean }
   | { type: 'TICK_GAME'; elapsed: number }
@@ -131,12 +135,36 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string }; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; hasAgreedToCoC?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null; isPrivate?: boolean; loginStreak?: number; portfolio: AppState['u']['student']['portfolio'] } }
+  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string; school_id?: string | null }; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; hasAgreedToCoC?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null; isPrivate?: boolean; loginStreak?: number; portfolio: AppState['u']['student']['portfolio']; tournamentPortfolios?: TournamentPortfolio[] } }
   | { type: 'AGREE_TO_CODE_OF_CONDUCT' }
   | { type: 'UPDATE_STUDENT_INFO'; grade: number | null; age: number | null; school_id: string | null }
   | { type: 'UPDATE_STUDENT_PROFILE_DETAILS'; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null; isPrivate?: boolean }
   | { type: 'LOGOUT' }
   | { type: 'SET_HAS_ASSESSMENT' };
+
+// Writes a new cash/holdings pair back onto whichever portfolio is
+// currently active (general or a tournament), keeping the flat
+// cash/portfolio fields (read by every trading screen) in sync with the
+// underlying source of truth so switching portfolios and back is lossless.
+function withActivePortfolioUpdate(user: UserProfile, cash: number, portfolio: UserProfile['portfolio']): UserProfile {
+  if (!user.activeCompetitionId) {
+    return {
+      ...user,
+      cash,
+      portfolio,
+      generalPortfolio: { ...user.generalPortfolio, cash, holdings: portfolio },
+    };
+  }
+  const activeId = user.activeCompetitionId;
+  return {
+    ...user,
+    cash,
+    portfolio,
+    tournamentPortfolios: user.tournamentPortfolios.map(tp =>
+      tp.competitionId === activeId ? { ...tp, cash, holdings: portfolio } : tp
+    ),
+  };
+}
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -152,6 +180,7 @@ function reducer(state: AppState, action: Action): AppState {
 
       if (action.role === 'student' && action.studentData) {
         const d = action.studentData;
+        const tournamentPortfolios = d.tournamentPortfolios ?? [];
         return {
           ...base,
           view: alreadyLoggedIn ? state.view : (d.hasAssessment === false ? 'assessment' : 'dashboard'),
@@ -165,6 +194,9 @@ function reducer(state: AppState, action: Action): AppState {
               cash: d.cash,
               achievements: d.achievements,
               portfolio: d.portfolio,
+              activeCompetitionId: null,
+              generalPortfolio: { id: d.portfolioId ?? null, cash: d.cash, holdings: d.portfolio },
+              tournamentPortfolios,
               createdAt: d.createdAt ?? new Date().toISOString(),
               supabaseId: d.supabaseId ?? null,
               portfolioId: d.portfolioId ?? null,
@@ -193,6 +225,7 @@ function reducer(state: AppState, action: Action): AppState {
               name: b.name,
               avatar: b.name[0]?.toUpperCase() ?? '?',
               supabaseId: b.supabaseId,
+              school_id: b.school_id ?? null,
             },
           },
         };
@@ -304,44 +337,67 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'ADJUST_CASH': {
       const u = { ...state.u };
-      u[state.role] = { ...u[state.role], cash: u[state.role].cash + action.amount };
+      const user = u[state.role];
+      u[state.role] = withActivePortfolioUpdate(user, user.cash + action.amount, user.portfolio);
       return { ...state, u };
     }
 
     case 'BUY_STOCK': {
       const u = { ...state.u };
-      const user = { ...u[state.role] };
+      const user = u[state.role];
       const cost = action.shares * action.price;
       if (user.cash < cost) return state;
-      user.cash -= cost;
+      const newCash = user.cash - cost;
       const existing = user.portfolio.find(h => h.sym === action.sym);
+      let newPortfolio;
       if (existing) {
         const totalShares = existing.shares + action.shares;
         const avgCost = (existing.avg * existing.shares + action.price * action.shares) / totalShares;
-        user.portfolio = user.portfolio.map(h =>
+        newPortfolio = user.portfolio.map(h =>
           h.sym === action.sym ? { ...h, shares: totalShares, avg: avgCost } : h
         );
       } else {
-        user.portfolio = [...user.portfolio, { sym: action.sym, shares: action.shares, avg: action.price, price: action.price }];
+        newPortfolio = [...user.portfolio, { sym: action.sym, shares: action.shares, avg: action.price, price: action.price }];
       }
-      u[state.role] = user;
+      u[state.role] = withActivePortfolioUpdate(user, newCash, newPortfolio);
       return { ...state, u };
     }
 
     case 'SELL_STOCK': {
       const u = { ...state.u };
-      const user = { ...u[state.role] };
+      const user = u[state.role];
       const holding = user.portfolio.find(h => h.sym === action.sym);
       if (!holding || holding.shares < action.shares) return state;
-      user.cash += action.shares * action.price;
-      if (holding.shares === action.shares) {
-        user.portfolio = user.portfolio.filter(h => h.sym !== action.sym);
+      const newCash = user.cash + action.shares * action.price;
+      const newPortfolio = holding.shares === action.shares
+        ? user.portfolio.filter(h => h.sym !== action.sym)
+        : user.portfolio.map(h => h.sym === action.sym ? { ...h, shares: h.shares - action.shares } : h);
+      u[state.role] = withActivePortfolioUpdate(user, newCash, newPortfolio);
+      return { ...state, u };
+    }
+
+    case 'SWITCH_PORTFOLIO': {
+      const u = { ...state.u };
+      const user = u[state.role];
+      if (action.competitionId === null) {
+        u[state.role] = {
+          ...user,
+          activeCompetitionId: null,
+          cash: user.generalPortfolio.cash,
+          portfolio: user.generalPortfolio.holdings,
+          portfolioId: user.generalPortfolio.id,
+        };
       } else {
-        user.portfolio = user.portfolio.map(h =>
-          h.sym === action.sym ? { ...h, shares: h.shares - action.shares } : h
-        );
+        const tp = user.tournamentPortfolios.find(t => t.competitionId === action.competitionId);
+        if (!tp) return state;
+        u[state.role] = {
+          ...user,
+          activeCompetitionId: action.competitionId,
+          cash: tp.cash,
+          portfolio: tp.holdings,
+          portfolioId: tp.id,
+        };
       }
-      u[state.role] = user;
       return { ...state, u };
     }
 

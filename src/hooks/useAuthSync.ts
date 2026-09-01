@@ -61,16 +61,18 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
       basicData: {
         name: profile.full_name ?? profile.role,
         supabaseId: userId,
+        school_id: profile.school_id ?? null,
       },
     });
     return;
   }
 
-  // 2. Fetch portfolio (cash balance)
+  // 2. Fetch the general portfolio (cash balance) — competition_id is null.
   const { data: portfolio } = await supabase
     .from('portfolios')
     .select('id, cash_balance')
     .eq('user_id', userId)
+    .is('competition_id', null)
     .single();
 
   // 3. Fetch holdings (joined with portfolio)
@@ -79,6 +81,37 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
     .select('ticker, shares, avg_cost')
     .eq('portfolio_id', portfolio.id)
     .then(({ data }) => data ?? []) : [];
+
+  // 3b. Fetch any tournament portfolios (one per competition this student's
+  // school has entered), each with their own holdings.
+  const { data: tournamentPortfolioRows } = await supabase
+    .from('portfolios')
+    .select('id, cash_balance, competition_id, competitions ( name, status )')
+    .eq('user_id', userId)
+    .not('competition_id', 'is', null);
+
+  const tournamentPortfolios = await Promise.all(
+    (tournamentPortfolioRows ?? []).map(async (row: any) => {
+      const { data: tHoldings } = await supabase
+        .from('holdings')
+        .select('ticker, shares, avg_cost')
+        .eq('portfolio_id', row.id);
+
+      return {
+        competitionId: row.competition_id as string,
+        competitionName: row.competitions?.name ?? 'Tournament',
+        status: row.competitions?.status ?? 'active',
+        id: row.id as string,
+        cash: row.cash_balance ?? 0,
+        holdings: (tHoldings ?? []).map(h => ({
+          sym: h.ticker,
+          shares: h.shares,
+          avg: h.avg_cost,
+          price: h.avg_cost,
+        })),
+      };
+    })
+  );
 
   // 4. Check if student has completed assessment
   const { data: assessment } = await supabase
@@ -127,6 +160,7 @@ export async function hydrateUser(userId: string, dispatch: React.Dispatch<any>)
         avg: h.avg_cost,
         price: h.avg_cost,
       })),
+      tournamentPortfolios,
     },
   });
 }

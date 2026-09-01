@@ -7,7 +7,8 @@ export async function persistTrade(
   price: number,
   portfolioId: string,
   newCash: number,
-  newPortfolioValue: number
+  newPortfolioValue: number,
+  userId: string
 ) {
   if (type === 'buy') {
     const { data: existing } = await supabase
@@ -67,6 +68,7 @@ export async function persistTrade(
       portfolio_value: newPortfolioValue,
     });
 
-  // Increment XP
-  await supabase.rpc('increment_xp', { user_id: portfolioId, amount: 10 });
+  // Increment XP — was previously (incorrectly) keyed off portfolioId instead
+  // of the student's own profile id, so it silently matched zero rows.
+  await supabase.rpc('increment_xp', { user_id: userId, amount: 10 });
 }

@@ -63,7 +63,7 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'admin-assignments', label: 'Assignments' },
     { id: 'school-leaderboard', label: 'School Rankings' },
     { id: 'mentor-schedule', label: 'Mentor Schedule' },
-    { id: 'competitions', label: 'Competitions' },
+    { id: 'competitions', label: 'Tournaments' },
     { id: 'cra', label: 'CRA Report' },
     { id: 'support', label: 'Support', section: 'Help' },
   ],

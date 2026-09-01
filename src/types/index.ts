@@ -216,6 +216,15 @@ export interface Mentor {
   available: boolean;
 }
 
+export interface TournamentPortfolio {
+  competitionId: string;
+  competitionName: string;
+  status: string;
+  id: string;
+  cash: number;
+  holdings: Holding[];
+}
+
 export interface UserProfile {
   name: string;
   email: string;
@@ -226,14 +235,21 @@ export interface UserProfile {
   isPrivate: boolean;
   loginStreak: number;
   xp: number;
+  // `cash`/`portfolio`/`portfolioId` always reflect whichever portfolio is
+  // currently active (general or a tournament) — see `activeCompetitionId`.
+  // Every existing consumer keeps reading these three fields unchanged;
+  // `SWITCH_PORTFOLIO` just re-derives them from generalPortfolio/tournamentPortfolios.
   cash: number;
   portfolio: Holding[];
+  portfolioId: string | null;
+  activeCompetitionId: string | null;
+  generalPortfolio: { id: string | null; cash: number; holdings: Holding[] };
+  tournamentPortfolios: TournamentPortfolio[];
   diplomas: DiplomaRecord[];
   certPassed: boolean;
   achievements: string[];
   createdAt: string;
   supabaseId: string | null;
-  portfolioId: string | null;
   hasAssessment: boolean;
   hasAgreedToCoC: boolean;
   school_id: string | null;

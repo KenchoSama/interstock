@@ -3,6 +3,7 @@ import { useAdminOverview } from '../hooks/useAdminOverview';
 import { useAllStudents } from '../hooks/useAllStudents';
 import { useAdminFeedback } from '../hooks/useAdminFeedback';
 import { useSchoolLeaderboard } from '../hooks/useSchoolLeaderboard';
+import { supabase } from '../lib/supabase';
 
 function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
   const header = ['Name', 'School', 'Grade', 'Level', 'XP', 'Rank'];
@@ -45,6 +46,11 @@ export default function AdminDash() {
   const [deletingSchool, setDeletingSchool] = useState(false);
   const [deleteSchoolError, setDeleteSchoolError] = useState<string | null>(null);
 
+  const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetDone, setResetDone] = useState(false);
+
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -57,6 +63,19 @@ export default function AdminDash() {
     }
     setDeleteTarget(null);
     setConfirmText('');
+  }
+
+  async function handleConfirmReset() {
+    if (!resetTarget) return;
+    setResetting(true);
+    setResetError(null);
+    const { error } = await supabase.rpc('reset_student_portfolio', { p_user_id: resetTarget.id });
+    setResetting(false);
+    if (error) {
+      setResetError(error.message);
+      return;
+    }
+    setResetDone(true);
   }
 
   async function handleAddSchool() {
@@ -247,13 +266,22 @@ export default function AdminDash() {
                     <td style={{ fontFamily: 'monospace', color: '#00e676', fontWeight: 600 }}>{s.xp.toLocaleString()}</td>
                     <td style={{ fontFamily: 'monospace' }}>{s.rank ? `#${s.rank}` : '—'}</td>
                     <td>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        style={{ fontSize: 11, color: 'var(--red)' }}
-                        onClick={() => { setDeleteTarget({ id: s.id, name: s.name }); setConfirmText(''); setDeleteError(null); }}
-                      >
-                        Delete
-                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: 11 }}
+                          onClick={() => { setResetTarget({ id: s.id, name: s.name }); setResetError(null); setResetDone(false); }}
+                        >
+                          Reset Portfolio
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: 11, color: 'var(--red)' }}
+                          onClick={() => { setDeleteTarget({ id: s.id, name: s.name }); setConfirmText(''); setDeleteError(null); }}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -451,6 +479,67 @@ export default function AdminDash() {
                 {deletingSchool ? 'Deleting...' : 'Permanently Delete'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {resetTarget && (
+        <div
+          onClick={() => !resetting && setResetTarget(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="card"
+            style={{ maxWidth: 440, width: '100%', padding: 24 }}
+          >
+            {resetDone ? (
+              <>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--gr)', marginBottom: 8 }}>
+                  Portfolio reset
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 16 }}>
+                  {resetTarget.name}'s general portfolio is back to $10,000 with no holdings or trade history.
+                  Any tournament portfolio they have was not touched.
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button className="btn btn-primary" onClick={() => setResetTarget(null)}>Done</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--red)', marginBottom: 8 }}>
+                  Reset {resetTarget.name}'s general portfolio?
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 16 }}>
+                  This wipes their general portfolio's holdings and trade history and restores it to $10,000
+                  cash. Their tournament portfolio (if any) is not affected. This cannot be undone.
+                </div>
+                {resetError && (
+                  <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>{resetError}</div>
+                )}
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setResetTarget(null)}
+                    disabled={resetting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn"
+                    style={{ background: 'var(--red)', color: '#fff', opacity: resetting ? 0.4 : 1 }}
+                    disabled={resetting}
+                    onClick={handleConfirmReset}
+                  >
+                    {resetting ? 'Resetting...' : 'Reset Portfolio'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

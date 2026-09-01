@@ -52,7 +52,7 @@ export default function OrderHistory() {
           dispatch({ type: 'ADD_XP', amount: 10 });
           const newCash = user.cash - cost;
           const newPortfolioValue = holdingsValue + cost + newCash;
-          await persistTrade('buy', order.ticker, order.shares, price, user.portfolioId!, newCash, newPortfolioValue);
+          await persistTrade('buy', order.ticker, order.shares, price, user.portfolioId!, newCash, newPortfolioValue, user.supabaseId!);
           await markFilled(order.id, price);
           setOrderMsg({ text: `Filled: bought ${order.shares} ${order.ticker} @ $${price.toFixed(2)}`, ok: true });
         } else {
@@ -67,7 +67,7 @@ export default function OrderHistory() {
           const proceeds = price * order.shares;
           const newCash = user.cash + proceeds;
           const newPortfolioValue = holdingsValue - proceeds + newCash;
-          await persistTrade('sell', order.ticker, order.shares, price, user.portfolioId!, newCash, newPortfolioValue);
+          await persistTrade('sell', order.ticker, order.shares, price, user.portfolioId!, newCash, newPortfolioValue, user.supabaseId!);
           await markFilled(order.id, price);
           setOrderMsg({ text: `Filled: sold ${order.shares} ${order.ticker} @ $${price.toFixed(2)}`, ok: true });
         }

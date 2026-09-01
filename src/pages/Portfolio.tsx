@@ -7,6 +7,7 @@ import { useStockQuotes } from '../hooks/useStockQuotes';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 import ChartWithTooltip from '../components/ChartWithTooltip';
 import { useStockLookup } from '../hooks/useStockLookup';
+import PortfolioSwitcher from '../components/PortfolioSwitcher';
 
 const TF_OPTIONS = ['1D', '1W', '1M', '6M', 'YTD', '1Y'] as const;
 type TfOption = typeof TF_OPTIONS[number];
@@ -181,7 +182,7 @@ export default function Portfolio() {
       const newCash = user.cash - cost;
       const newPortfolioValue = portfolioValue + cost + newCash;
 
-      await persistTrade('buy', sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue);
+      await persistTrade('buy', sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue, user.supabaseId!);
 
       setTradeMsg({ text: `Bought ${localQty} share${localQty !== 1 ? 's' : ''} of ${sym}!`, ok: true });
 
@@ -198,7 +199,7 @@ export default function Portfolio() {
       const newCash = user.cash + proceeds;
       const newPortfolioValue = portfolioValue - proceeds + newCash;
 
-      await persistTrade('sell', sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue);
+      await persistTrade('sell', sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue, user.supabaseId!);
 
       setTradeMsg({ text: `Sold ${localQty} share${localQty !== 1 ? 's' : ''} of ${sym}!`, ok: true });
     }
@@ -299,6 +300,7 @@ export default function Portfolio() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <div className="section-title" style={{ margin: 0 }}>PORTFOLIO CHART</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <PortfolioSwitcher />
                 <div style={{ display: 'flex', gap: 4 }}>
                   {TF_OPTIONS.map(tf => (
                     <button key={tf} onClick={() => setChartTf(tf)}

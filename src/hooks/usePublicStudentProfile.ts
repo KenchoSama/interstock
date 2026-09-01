@@ -122,7 +122,7 @@ export function usePublicStudentProfile(studentId: string | undefined, viewerId?
       supabase.from('game_sessions').select('id').eq('user_id', studentId).gt('score', 0).limit(1),
       supabase.from('etf_submissions').select('id').eq('user_id', studentId).limit(1),
       supabase.from('diplomas').select('id, cert_type, awarded_at').eq('user_id', studentId).order('awarded_at', { ascending: false }),
-      supabase.from('portfolios').select('id').eq('user_id', studentId).maybeSingle(),
+      supabase.from('portfolios').select('id').eq('user_id', studentId).is('competition_id', null).maybeSingle(),
     ]);
 
     setXp(profileRes.data.xp ?? 0);
