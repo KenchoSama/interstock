@@ -6,32 +6,347 @@ import { useApp } from '../state/AppContext';
 import { useOptionPositions, type OptionPosition } from '../hooks/useOptionPositions';
 import { supabase } from '../lib/supabase';
 
-// ── Data ─────────────────────────────────────────────────────────────────────
+// ── Pricing model (Black-Scholes, no dividend) ─────────────────────────────
+
+function erf(x: number): number {
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return sign * y;
+}
+
+function normCdf(x: number): number {
+  return 0.5 * (1 + erf(x / Math.SQRT2));
+}
+
+function blackScholes(spot: number, strike: number, tYears: number, iv: number, r = 0.045): { call: number; put: number } {
+  if (tYears <= 0 || iv <= 0) {
+    return { call: Math.max(0, spot - strike), put: Math.max(0, strike - spot) };
+  }
+  const d1 = (Math.log(spot / strike) + (r + (iv * iv) / 2) * tYears) / (iv * Math.sqrt(tYears));
+  const d2 = d1 - iv * Math.sqrt(tYears);
+  const call = spot * normCdf(d1) - strike * Math.exp(-r * tYears) * normCdf(d2);
+  const put = strike * Math.exp(-r * tYears) * normCdf(-d2) - spot * normCdf(-d1);
+  return { call: Math.max(0.01, call), put: Math.max(0.01, put) };
+}
+
+// Simple volatility smile: further from the money (and especially downside
+// puts, matching real skew) carries more implied vol than at-the-money.
+function impliedVolFor(strike: number, spot: number, baseIv: number): number {
+  const moneyness = (strike - spot) / spot;
+  return baseIv + Math.abs(moneyness) * 0.6 + (moneyness < 0 ? Math.abs(moneyness) * 0.3 : 0);
+}
+
+function strikeIncrement(spot: number): number {
+  if (spot < 25) return 1;
+  if (spot < 100) return 2.5;
+  if (spot < 250) return 5;
+  return 10;
+}
+
+// Deterministic per-(ticker,date,strike) pseudo-random source, so volume/OI
+// stay stable across re-renders instead of jumping every time a live quote
+// ticks in.
+function seededRandom(seed: string): () => number {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function () {
+    h = Math.imul(h ^ (h >>> 16), 2246822519);
+    h = Math.imul(h ^ (h >>> 13), 3266489917);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+}
+
+function fairValue(spot: number, strike: number, expiryDate: string, optionType: 'call' | 'put', baseIv = 0.3): number {
+  const days = Math.max(0, (new Date(expiryDate + 'T00:00:00').getTime() - Date.now()) / 86400000);
+  const iv = impliedVolFor(strike, spot, baseIv);
+  const { call, put } = blackScholes(spot, strike, days / 365, iv);
+  return optionType === 'call' ? call : put;
+}
+
+// ── Expiration dates ────────────────────────────────────────────────────────
+// Next several weekly Fridays, then monthly (third-Friday) dates further out —
+// mirrors how a real chain front-loads near-term expirations.
+
+interface Expiration {
+  date: string;
+  label: string;
+  daysOut: number;
+}
+
+function fmtDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function thirdFriday(year: number, month: number): Date {
+  const first = new Date(year, month, 1);
+  const firstFriday = 1 + ((5 - first.getDay() + 7) % 7);
+  return new Date(year, month, firstFriday + 14);
+}
+
+function generateExpirations(): Expiration[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dates = new Map<string, Date>();
+
+  // Next 6 weekly Fridays
+  const friday = new Date(today);
+  const untilFriday = (5 - friday.getDay() + 7) % 7;
+  friday.setDate(friday.getDate() + (untilFriday === 0 ? 7 : untilFriday));
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(friday);
+    d.setDate(d.getDate() + i * 7);
+    dates.set(fmtDate(d), d);
+  }
+
+  // Next 4 monthly (third-Friday) expirations after that
+  let y = today.getFullYear();
+  let m = today.getMonth();
+  let added = 0;
+  while (added < 4) {
+    m += 1;
+    if (m > 11) { m = 0; y += 1; }
+    const d = thirdFriday(y, m);
+    if (d > today) {
+      dates.set(fmtDate(d), d);
+      added++;
+    }
+  }
+
+  return Array.from(dates.values())
+    .sort((a, b) => a.getTime() - b.getTime())
+    .map(d => ({
+      date: fmtDate(d),
+      label: d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      daysOut: Math.round((d.getTime() - today.getTime()) / 86400000),
+    }));
+}
+
+// ── Chain rows ───────────────────────────────────────────────────────────────
 
 interface OptionRow {
   k: number;
-  cb: string; ca: string; civ: string; coi: number;
-  pb: string; pa: string; piv: string; poi: number;
+  cLast: number; cChg: number; cBid: number; cAsk: number; cVol: number; cOi: number;
+  pLast: number; pChg: number; pBid: number; pAsk: number; pVol: number; pOi: number;
 }
 
-function buildChain(spot: number): OptionRow[] {
-  const atm = Math.round(spot / 5) * 5;
-  const strikes = [-25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25].map(o => atm + o);
+function buildChainForDate(ticker: string, exp: Expiration, spot: number, todaysChg: number): OptionRow[] {
+  const inc = strikeIncrement(spot);
+  const atm = Math.round(spot / inc) * inc;
+  const strikes = Array.from({ length: 21 }, (_, i) => atm + (i - 10) * inc).filter(k => k > 0);
+  const yesterdaySpot = Math.max(0.01, spot - todaysChg);
+  const yesterdayT = Math.max(0, exp.daysOut + 1) / 365;
+  const T = exp.daysOut / 365;
+
   return strikes.map(k => {
-    const d = k - spot;
-    const callIntrinsic = Math.max(0, spot - k);
-    const putIntrinsic  = Math.max(0, k - spot);
-    const tv = Math.max(0.3, 4.5 - Math.abs(d) * 0.08);
-    const cBid = Math.max(0.01, callIntrinsic + tv - 0.15).toFixed(2);
-    const cAsk = (parseFloat(cBid) + 0.2 + Math.random() * 0.1).toFixed(2);
-    const pBid = Math.max(0.01, putIntrinsic  + tv - 0.15).toFixed(2);
-    const pAsk = (parseFloat(pBid) + 0.2 + Math.random() * 0.1).toFixed(2);
-    const civ  = (0.28 + Math.abs(d) * 0.003 + Math.random() * 0.01).toFixed(0) + '%';
-    const piv  = (0.30 + Math.abs(d) * 0.003 + Math.random() * 0.01).toFixed(0) + '%';
-    const coi  = Math.round((12000 - Math.abs(d) * 200 + Math.random() * 2000));
-    const poi  = Math.round((10000 - Math.abs(d) * 180 + Math.random() * 2000));
-    return { k, cb: cBid, ca: cAsk, civ, coi, pb: pBid, pa: pAsk, piv, poi };
+    const iv = impliedVolFor(k, spot, 0.3);
+    const { call, put } = blackScholes(spot, k, T, iv);
+    const y = blackScholes(yesterdaySpot, k, yesterdayT, iv);
+
+    const rand = seededRandom(`${ticker}-${exp.date}-${k}`);
+    const distFactor = Math.max(0.15, 1 - Math.abs(k - spot) / (spot * 0.15));
+    const cVol = Math.round(3000 * distFactor + rand() * 1500);
+    const cOi = Math.round(12000 * distFactor + rand() * 3000);
+    const pVol = Math.round(2800 * distFactor + rand() * 1500);
+    const pOi = Math.round(10500 * distFactor + rand() * 3000);
+
+    const cSpread = Math.max(0.02, call * 0.03);
+    const pSpread = Math.max(0.02, put * 0.03);
+
+    return {
+      k,
+      cLast: call, cChg: call - y.call, cBid: Math.max(0.01, call - cSpread), cAsk: call + cSpread, cVol, cOi,
+      pLast: put, pChg: put - y.put, pBid: Math.max(0.01, put - pSpread), pAsk: put + pSpread, pVol, pOi,
+    };
   });
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function OptionsTipBanner() {
+  return (
+    <div style={{
+      display: 'flex', gap: 10, alignItems: 'flex-start',
+      background: 'var(--blue-dim)', border: '1px solid var(--blue)',
+      borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 16, fontSize: 13,
+    }}>
+      <span style={{ fontSize: 18 }}>⚡</span>
+      <div style={{ color: 'var(--text2)' }}>
+        <strong style={{ color: 'var(--text)' }}>Options:</strong>{' '}
+        Calls = right to <strong>BUY</strong> at strike. Puts = right to <strong>SELL</strong>.
+        Premium = intrinsic + time value. All data below is simulated for educational use only.
+      </div>
+    </div>
+  );
+}
+
+function money(n: number): string {
+  return n.toFixed(2);
+}
+
+function ChangeCell({ chg }: { chg: number }) {
+  return (
+    <span style={{ color: chg >= 0 ? '#00e676' : 'var(--red)' }}>
+      {chg >= 0 ? '+' : ''}{chg.toFixed(2)}
+    </span>
+  );
+}
+
+function ExpirationGroup({
+  exp, expanded, onToggle, rows, spotPrice, ticker, selected, onSelect,
+}: {
+  exp: Expiration;
+  expanded: boolean;
+  onToggle: () => void;
+  rows: OptionRow[];
+  spotPrice: number;
+  ticker: string;
+  selected: { type: 'call' | 'put'; strike: number; expiryDate: string } | null;
+  onSelect: (type: 'call' | 'put', strike: number, askPremium: number, exp: Expiration) => void;
+}) {
+  return (
+    <div style={{ borderBottom: '1px solid var(--border)' }}>
+      <button
+        onClick={onToggle}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 14px', background: expanded ? 'var(--surface)' : 'transparent',
+          border: 'none', cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <span style={{ fontSize: 10, color: 'var(--text3)', transform: expanded ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'var(--transition)' }}>▶</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{exp.label}</span>
+        <span style={{ fontSize: 11, color: 'var(--text3)' }}>({exp.daysOut}d)</span>
+      </button>
+
+      {expanded && (
+        <div style={{ padding: '0 0 10px' }}>
+          <div style={{ fontSize: 11, color: 'var(--text3)', padding: '0 14px 8px' }}>
+            Share Price: <strong style={{ color: 'var(--text)' }}>${spotPrice.toFixed(2)}</strong>
+            &nbsp;·&nbsp; Click a bid/ask price to buy that contract to open a position.
+          </div>
+          <div className="table-wrap" style={{ margin: '0 14px', border: 'none' }}>
+            <table style={{ fontSize: 11 }}>
+              <thead>
+                <tr>
+                  <th colSpan={6} style={{ textAlign: 'center', color: '#00e676' }}>CALLS</th>
+                  <th style={{ textAlign: 'center' }}>STRIKE</th>
+                  <th colSpan={6} style={{ textAlign: 'center', color: 'var(--red)' }}>PUTS</th>
+                </tr>
+                <tr>
+                  <th>Last</th><th>Chg</th><th>Bid</th><th>Ask</th><th>Vol</th><th>OI</th>
+                  <th style={{ textAlign: 'center' }}></th>
+                  <th>Last</th><th>Chg</th><th>Bid</th><th>Ask</th><th>Vol</th><th>OI</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(row => {
+                  const atm = Math.abs(row.k - spotPrice) < strikeIncrement(spotPrice) / 2 + 0.01;
+                  const callSelected = selected?.type === 'call' && selected.strike === row.k && selected.expiryDate === exp.date;
+                  const putSelected = selected?.type === 'put' && selected.strike === row.k && selected.expiryDate === exp.date;
+                  return (
+                    <tr key={row.k} style={{ background: atm ? 'rgba(249,199,79,0.07)' : undefined }}>
+                      <td>{money(row.cLast)}</td>
+                      <td><ChangeCell chg={row.cChg} /></td>
+                      <td
+                        onClick={() => onSelect('call', row.k, row.cAsk, exp)}
+                        title={`Buy 1 ${ticker} $${row.k} Call @ $${money(row.cAsk)} — exp ${exp.label}`}
+                        style={{ color: '#00e676', cursor: 'pointer', fontWeight: callSelected ? 700 : 400, textDecoration: callSelected ? 'underline' : 'none' }}
+                      >
+                        {money(row.cBid)}
+                      </td>
+                      <td
+                        onClick={() => onSelect('call', row.k, row.cAsk, exp)}
+                        title={`Buy 1 ${ticker} $${row.k} Call @ $${money(row.cAsk)} — exp ${exp.label}`}
+                        style={{ color: '#00e676', cursor: 'pointer', fontWeight: callSelected ? 700 : 400, textDecoration: callSelected ? 'underline' : 'none' }}
+                      >
+                        {money(row.cAsk)}
+                      </td>
+                      <td>{row.cVol.toLocaleString()}</td>
+                      <td>{row.cOi.toLocaleString()}</td>
+                      <td style={{ textAlign: 'center', color: '#ffc107', fontWeight: 700 }}>${row.k}</td>
+                      <td>{money(row.pLast)}</td>
+                      <td><ChangeCell chg={row.pChg} /></td>
+                      <td
+                        onClick={() => onSelect('put', row.k, row.pAsk, exp)}
+                        title={`Buy 1 ${ticker} $${row.k} Put @ $${money(row.pAsk)} — exp ${exp.label}`}
+                        style={{ color: 'var(--red)', cursor: 'pointer', fontWeight: putSelected ? 700 : 400, textDecoration: putSelected ? 'underline' : 'none' }}
+                      >
+                        {money(row.pBid)}
+                      </td>
+                      <td
+                        onClick={() => onSelect('put', row.k, row.pAsk, exp)}
+                        title={`Buy 1 ${ticker} $${row.k} Put @ $${money(row.pAsk)} — exp ${exp.label}`}
+                        style={{ color: 'var(--red)', cursor: 'pointer', fontWeight: putSelected ? 700 : 400, textDecoration: putSelected ? 'underline' : 'none' }}
+                      >
+                        {money(row.pAsk)}
+                      </td>
+                      <td>{row.pVol.toLocaleString()}</td>
+                      <td>{row.pOi.toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OptionsChain({
+  expirations, ticker, spotPrice, todaysChg, selected, onSelect,
+}: {
+  expirations: Expiration[];
+  ticker: string;
+  spotPrice: number;
+  todaysChg: number;
+  selected: { type: 'call' | 'put'; strike: number; expiryDate: string } | null;
+  onSelect: (type: 'call' | 'put', strike: number, askPremium: number, exp: Expiration) => void;
+}) {
+  const [expandedDate, setExpandedDate] = useState<string | null>(expirations[0]?.date ?? null);
+
+  useEffect(() => {
+    setExpandedDate(expirations[0]?.date ?? null);
+  }, [ticker]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="card" style={{ marginBottom: 16, padding: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 14px 4px' }}>
+        <div className="section-title" style={{ margin: 0 }}>{ticker} Options Chain — Simulated</div>
+        <span style={{ fontSize: 11, padding: '2px 8px', background: 'var(--yellow)', color: '#000', borderRadius: 4, fontWeight: 700 }}>
+          EDUCATIONAL ONLY
+        </span>
+      </div>
+
+      <div style={{ marginTop: 6 }}>
+        {expirations.map(exp => {
+          const expanded = expandedDate === exp.date;
+          return (
+            <ExpirationGroup
+              key={exp.date}
+              exp={exp}
+              expanded={expanded}
+              onToggle={() => setExpandedDate(expanded ? null : exp.date)}
+              rows={expanded ? buildChainForDate(ticker, exp, spotPrice, todaysChg) : []}
+              spotPrice={spotPrice}
+              ticker={ticker}
+              selected={selected}
+              onSelect={onSelect}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 const GREEKS = [
@@ -60,110 +375,6 @@ const GREEKS = [
     description: 'Sensitivity to implied volatility (IV). Higher vega means the option\'s price swings more when market volatility changes.',
   },
 ];
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function OptionsTipBanner() {
-  return (
-    <div style={{
-      display: 'flex', gap: 10, alignItems: 'flex-start',
-      background: 'var(--blue-dim)', border: '1px solid var(--blue)',
-      borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 16, fontSize: 13,
-    }}>
-      <span style={{ fontSize: 18 }}>⚡</span>
-      <div style={{ color: 'var(--text2)' }}>
-        <strong style={{ color: 'var(--text)' }}>Options:</strong>{' '}
-        Calls = right to <strong>BUY</strong> at strike. Puts = right to <strong>SELL</strong>.
-        Premium = intrinsic + time value. All data below is simulated for educational use only.
-      </div>
-    </div>
-  );
-}
-
-function OptionsChainTable({
-  chain, spotPrice, ticker, selected, onSelect,
-}: {
-  chain: OptionRow[];
-  spotPrice: number;
-  ticker: string;
-  selected: { type: 'call' | 'put'; strike: number } | null;
-  onSelect: (type: 'call' | 'put', strike: number, askPremium: number) => void;
-}) {
-  return (
-    <div className="card" style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div className="section-title" style={{ margin: 0 }}>{ticker} Options Chain — Simulated</div>
-        <span style={{ fontSize: 11, padding: '2px 8px', background: 'var(--yellow)', color: '#000', borderRadius: 4, fontWeight: 700 }}>
-          EDUCATIONAL ONLY
-        </span>
-      </div>
-
-      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
-        Click a bid/ask price to buy that contract to open a position.
-      </div>
-
-      {/* Column headers */}
-      <div style={{
-        display: 'flex', fontSize: 10, fontWeight: 600,
-        borderBottom: '1px solid var(--border2)', paddingBottom: 6, marginBottom: 4,
-        color: 'var(--text3)', letterSpacing: '0.4px',
-      }}>
-        <span style={{ flex: 1 }}>CALLS — BID/ASK · IV · OI</span>
-        <span style={{ width: 80, textAlign: 'center' }}>STRIKE</span>
-        <span style={{ flex: 1, textAlign: 'right' }}>PUTS — BID/ASK · IV · OI</span>
-      </div>
-
-      {/* Rows */}
-      {chain.map(row => {
-        const atm = Math.abs(row.k - spotPrice) < 5;
-        const callSelected = selected?.type === 'call' && selected.strike === row.k;
-        const putSelected = selected?.type === 'put' && selected.strike === row.k;
-        return (
-          <div key={row.k} style={{
-            display: 'flex', fontSize: 12,
-            borderBottom: '1px solid rgba(30,58,80,0.5)',
-            padding: '5px 0',
-            background: atm ? 'rgba(249,199,79,0.07)' : 'transparent',
-            borderRadius: atm ? 4 : 0,
-          }}>
-            <span
-              onClick={() => onSelect('call', row.k, parseFloat(row.ca))}
-              title={`Buy 1 ${ticker} $${row.k} Call @ $${row.ca}`}
-              style={{
-                color: '#00e676', flex: 1, fontFamily: 'monospace', cursor: 'pointer',
-                textDecoration: callSelected ? 'underline' : 'none',
-                fontWeight: callSelected ? 700 : 400,
-              }}
-            >
-              {row.cb}/{row.ca}{' '}
-              <span style={{ color: 'var(--text3)', fontSize: 10 }}>{row.civ} {row.coi.toLocaleString()}</span>
-            </span>
-            <span style={{ color: '#ffc107', fontWeight: 700, width: 80, textAlign: 'center' }}>
-              ${row.k}
-            </span>
-            <span
-              onClick={() => onSelect('put', row.k, parseFloat(row.pa))}
-              title={`Buy 1 ${ticker} $${row.k} Put @ $${row.pa}`}
-              style={{
-                color: 'var(--red)', flex: 1, textAlign: 'right', fontFamily: 'monospace', cursor: 'pointer',
-                textDecoration: putSelected ? 'underline' : 'none',
-                fontWeight: putSelected ? 700 : 400,
-              }}
-            >
-              {row.pb}/{row.pa}{' '}
-              <span style={{ color: 'var(--text3)', fontSize: 10 }}>{row.piv} {row.poi.toLocaleString()}</span>
-            </span>
-          </div>
-        );
-      })}
-
-      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text3)' }}>
-        Spot: <strong style={{ color: 'var(--text)' }}>${spotPrice.toFixed(2)}</strong>
-        &nbsp;·&nbsp; <span style={{ color: 'var(--yellow)' }}>Highlighted</span> rows = at-the-money
-      </div>
-    </div>
-  );
-}
 
 function GreeksGrid() {
   return (
@@ -218,7 +429,7 @@ export default function Options() {
     }
   }, [result]);
 
-  const chain = useMemo(() => buildChain(spotPrice), [spotPrice]);
+  const expirations = useMemo(() => generateExpirations(), []);
 
   function getSpotFor(ticker: string): number {
     return quotes.find(q => q.sym === ticker)?.price
@@ -227,14 +438,13 @@ export default function Options() {
   }
 
   // ── Trading ──
-  const [selectedContract, setSelectedContract] = useState<{ type: 'call' | 'put'; strike: number; premium: number } | null>(null);
+  const [selectedContract, setSelectedContract] = useState<{ type: 'call' | 'put'; strike: number; premium: number; expiryDate: string; expiryLabel: string } | null>(null);
   const [tradeContracts, setTradeContracts] = useState(1);
-  const [tradeExpiryDays, setTradeExpiryDays] = useState(30);
   const [trading, setTrading] = useState(false);
   const [tradeMsg, setTradeMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
-  function selectContract(type: 'call' | 'put', strike: number, askPremium: number) {
-    setSelectedContract({ type, strike, premium: askPremium });
+  function selectContract(type: 'call' | 'put', strike: number, askPremium: number, exp: Expiration) {
+    setSelectedContract({ type, strike, premium: askPremium, expiryDate: exp.date, expiryLabel: exp.label });
     setTradeMsg(null);
   }
 
@@ -247,6 +457,8 @@ export default function Options() {
       return;
     }
 
+    const expiryDays = Math.max(0, Math.round((new Date(selectedContract.expiryDate + 'T00:00:00').getTime() - Date.now()) / 86400000));
+
     setTrading(true);
     const { error } = await openPosition({
       ticker: selectedTicker,
@@ -254,7 +466,7 @@ export default function Options() {
       strike: selectedContract.strike,
       contracts: tradeContracts,
       premium: selectedContract.premium,
-      expiryDays: tradeExpiryDays,
+      expiryDays,
     });
     setTrading(false);
 
@@ -282,16 +494,7 @@ export default function Options() {
       return;
     }
 
-    const expired = new Date(pos.expiryDate + 'T00:00:00') < new Date();
-
-    let exitPremium: number;
-    if (expired) {
-      exitPremium = pos.optionType === 'call' ? Math.max(0, spot - pos.strike) : Math.max(0, pos.strike - spot);
-    } else {
-      const row = buildChain(spot).find(r => r.k === pos.strike);
-      exitPremium = row ? parseFloat(pos.optionType === 'call' ? row.cb : row.pb) : 0;
-    }
-
+    const exitPremium = fairValue(spot, pos.strike, pos.expiryDate, pos.optionType);
     const proceeds = exitPremium * 100 * pos.contracts;
     const { error } = await closePosition(pos.id, exitPremium);
     if (error) {
@@ -376,11 +579,12 @@ export default function Options() {
       <OptionsTipBanner />
 
       {/* 2. Options chain */}
-      <OptionsChainTable
-        chain={chain}
-        spotPrice={spotPrice}
+      <OptionsChain
+        expirations={expirations}
         ticker={selectedTicker}
-        selected={selectedContract ? { type: selectedContract.type, strike: selectedContract.strike } : null}
+        spotPrice={spotPrice}
+        todaysChg={liveChg}
+        selected={selectedContract ? { type: selectedContract.type, strike: selectedContract.strike, expiryDate: selectedContract.expiryDate } : null}
         onSelect={selectContract}
       />
 
@@ -406,10 +610,10 @@ export default function Options() {
               />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Expiration (days)</label>
-              <select style={{ width: '100%' }} value={tradeExpiryDays} onChange={e => setTradeExpiryDays(parseInt(e.target.value))}>
-                {[7, 14, 30, 60, 90].map(d => <option key={d} value={d}>{d} days</option>)}
-              </select>
+              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Expiration</label>
+              <div style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 }}>
+                {selectedContract.expiryLabel}
+              </div>
             </div>
             <div>
               <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Premium (ask)</label>
@@ -484,12 +688,7 @@ export default function Options() {
                   const spot = getSpotFor(pos.ticker);
                   const hasPrice = spot > 0;
                   const expired = new Date(pos.expiryDate + 'T00:00:00') < new Date();
-                  const chainRow = hasPrice ? buildChain(spot).find(r => r.k === pos.strike) : undefined;
-                  const currentPremium = !hasPrice
-                    ? null
-                    : expired || !chainRow
-                    ? (pos.optionType === 'call' ? Math.max(0, spot - pos.strike) : Math.max(0, pos.strike - spot))
-                    : parseFloat(pos.optionType === 'call' ? chainRow.cb : chainRow.pb);
+                  const currentPremium = hasPrice ? fairValue(spot, pos.strike, pos.expiryDate, pos.optionType) : null;
                   const pnl = currentPremium !== null ? (currentPremium - pos.premiumPaid) * 100 * pos.contracts : null;
                   return (
                     <tr key={pos.id}>

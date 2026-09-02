@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SP500_TICKERS, toYahooSymbol } from '../data/sp500';
+import { TOP_TICKERS, toYahooSymbol } from '../data/sp500';
 
 export interface TickerQuote {
   sym: string;
@@ -12,10 +12,10 @@ const CONCURRENCY = 20;
 const BATCH_GAP_MS = 150;
 const CYCLE_REFRESH_MS = 90_000;
 
-// Fetches quotes for every S&P 500 ticker for the topbar's rotating carousel,
-// in small concurrent batches (rather than ~500 requests at once) so it
-// doesn't hammer the Yahoo Finance proxy or trip rate limiting. Quotes fill
-// in progressively and are kept across refresh cycles.
+// Fetches quotes for the top-market-cap tickers for the topbar's rotating
+// carousel, in small concurrent batches so it doesn't hammer the Yahoo
+// Finance proxy or trip rate limiting. Quotes fill in progressively and are
+// kept across refresh cycles.
 export function useTickerQuotes() {
   const [quotesMap, setQuotesMap] = useState<Record<string, TickerQuote>>({});
   const [loading, setLoading] = useState(true);
@@ -47,11 +47,11 @@ export function useTickerQuotes() {
       if (fetching.current) return;
       fetching.current = true;
 
-      for (let i = 0; i < SP500_TICKERS.length; i += CONCURRENCY) {
+      for (let i = 0; i < TOP_TICKERS.length; i += CONCURRENCY) {
         if (cancelled) break;
-        const batch = SP500_TICKERS.slice(i, i + CONCURRENCY);
+        const batch = TOP_TICKERS.slice(i, i + CONCURRENCY);
         await Promise.all(batch.map(fetchOne));
-        if (!cancelled && i + CONCURRENCY < SP500_TICKERS.length) {
+        if (!cancelled && i + CONCURRENCY < TOP_TICKERS.length) {
           await new Promise(r => setTimeout(r, BATCH_GAP_MS));
         }
       }
@@ -69,7 +69,7 @@ export function useTickerQuotes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const quotes = SP500_TICKERS.map(sym => quotesMap[sym]).filter((q): q is TickerQuote => q !== undefined);
+  const quotes = TOP_TICKERS.map(sym => quotesMap[sym]).filter((q): q is TickerQuote => q !== undefined);
 
   return { quotes, loading };
 }

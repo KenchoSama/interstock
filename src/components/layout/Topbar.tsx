@@ -1,6 +1,6 @@
 import { useApp, getLevelName, getNextLevelXP } from '../../state/AppContext';
 import { useTickerQuotes } from '../../hooks/useTickerQuotes';
-import { SP500_TICKERS } from '../../data/sp500';
+import { TOP_TICKERS } from '../../data/sp500';
 import interstockLogo from '../../assets/interstock-logo.png';
 
 export default function Topbar() {
@@ -25,7 +25,7 @@ export default function Topbar() {
       <div className="topbar-ticker-wrap">
         <div
           className="topbar-ticker-track"
-          style={{ animationDuration: `${SP500_TICKERS.length * 4}s` }}
+          style={{ animationDuration: `${TOP_TICKERS.length * 4}s` }}
         >
           {tickerItems.map((q, i) => (
             <div key={`${q.sym}-${i}`} className="ticker-item">
