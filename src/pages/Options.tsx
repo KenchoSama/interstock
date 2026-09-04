@@ -1,10 +1,14 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { STOCKS } from '../data/stocks';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import { useStockLookup } from '../hooks/useStockLookup';
 import { useApp } from '../state/AppContext';
 import { useOptionPositions, type OptionPosition } from '../hooks/useOptionPositions';
+import { useOptionOrders } from '../hooks/useOptionOrders';
 import { supabase } from '../lib/supabase';
+
+type StrikeCount = 15 | 25 | 50 | 'all';
+const STRIKE_COUNT_OPTIONS: StrikeCount[] = [15, 25, 50, 'all'];
 
 // ── Pricing model (Black-Scholes, no dividend) ─────────────────────────────
 
@@ -137,10 +141,12 @@ interface OptionRow {
   pLast: number; pChg: number; pBid: number; pAsk: number; pVol: number; pOi: number;
 }
 
-function buildChainForDate(ticker: string, exp: Expiration, spot: number, todaysChg: number): OptionRow[] {
+function buildChainForDate(ticker: string, exp: Expiration, spot: number, todaysChg: number, strikeCount: StrikeCount): OptionRow[] {
   const inc = strikeIncrement(spot);
   const atm = Math.round(spot / inc) * inc;
-  const strikes = Array.from({ length: 21 }, (_, i) => atm + (i - 10) * inc).filter(k => k > 0);
+  const n = strikeCount === 'all' ? 101 : strikeCount;
+  const half = Math.floor(n / 2);
+  const strikes = Array.from({ length: n }, (_, i) => atm + (i - half) * inc).filter(k => k > 0);
   const yesterdaySpot = Math.max(0.01, spot - todaysChg);
   const yesterdayT = Math.max(0, exp.daysOut + 1) / 365;
   const T = exp.daysOut / 365;
@@ -303,7 +309,7 @@ function ExpirationGroup({
 }
 
 function OptionsChain({
-  expirations, ticker, spotPrice, todaysChg, selected, onSelect,
+  expirations, ticker, spotPrice, todaysChg, selected, onSelect, strikeCount, onStrikeCountChange,
 }: {
   expirations: Expiration[];
   ticker: string;
@@ -311,6 +317,8 @@ function OptionsChain({
   todaysChg: number;
   selected: { type: 'call' | 'put'; strike: number; expiryDate: string } | null;
   onSelect: (type: 'call' | 'put', strike: number, askPremium: number, exp: Expiration) => void;
+  strikeCount: StrikeCount;
+  onStrikeCountChange: (n: StrikeCount) => void;
 }) {
   const [expandedDate, setExpandedDate] = useState<string | null>(expirations[0]?.date ?? null);
 
@@ -320,11 +328,29 @@ function OptionsChain({
 
   return (
     <div className="card" style={{ marginBottom: 16, padding: 0, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 14px 4px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 14px 4px', flexWrap: 'wrap', gap: 8 }}>
         <div className="section-title" style={{ margin: 0 }}>{ticker} Options Chain — Simulated</div>
         <span style={{ fontSize: 11, padding: '2px 8px', background: 'var(--yellow)', color: '#000', borderRadius: 4, fontWeight: 700 }}>
           EDUCATIONAL ONLY
         </span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px 10px' }}>
+        <span style={{ fontSize: 11, color: 'var(--text3)' }}>Strikes:</span>
+        {STRIKE_COUNT_OPTIONS.map(n => (
+          <button
+            key={n}
+            onClick={() => onStrikeCountChange(n)}
+            style={{
+              padding: '3px 10px', fontSize: 11, borderRadius: 6,
+              background: strikeCount === n ? 'var(--gr)' : 'var(--surface)',
+              color: strikeCount === n ? '#000' : 'var(--text2)',
+              fontWeight: strikeCount === n ? 700 : 400,
+            }}
+          >
+            {n === 'all' ? 'All' : n}
+          </button>
+        ))}
       </div>
 
       <div style={{ marginTop: 6 }}>
@@ -336,7 +362,7 @@ function OptionsChain({
               exp={exp}
               expanded={expanded}
               onToggle={() => setExpandedDate(expanded ? null : exp.date)}
-              rows={expanded ? buildChainForDate(ticker, exp, spotPrice, todaysChg) : []}
+              rows={expanded ? buildChainForDate(ticker, exp, spotPrice, todaysChg, strikeCount) : []}
               spotPrice={spotPrice}
               ticker={ticker}
               selected={selected}
@@ -397,6 +423,7 @@ export default function Options() {
   const { state, dispatch } = useApp();
   const user = state.u[state.role];
   const { positions, loading: positionsLoading, openPosition, closePosition } = useOptionPositions(user.portfolioId);
+  const { workingOrders, placeOrder, cancelOrder, markFilled } = useOptionOrders(user.portfolioId);
 
   const { quotes } = useStockQuotes();
   const { result, loading: lookupLoading, error: lookupError, lookup, clear } = useStockLookup();
@@ -430,6 +457,7 @@ export default function Options() {
   }, [result]);
 
   const expirations = useMemo(() => generateExpirations(), []);
+  const [strikeCount, setStrikeCount] = useState<StrikeCount>(25);
 
   function getSpotFor(ticker: string): number {
     return quotes.find(q => q.sym === ticker)?.price
@@ -440,18 +468,60 @@ export default function Options() {
   // ── Trading ──
   const [selectedContract, setSelectedContract] = useState<{ type: 'call' | 'put'; strike: number; premium: number; expiryDate: string; expiryLabel: string } | null>(null);
   const [tradeContracts, setTradeContracts] = useState(1);
+  const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
+  const [limitPrice, setLimitPrice] = useState(0);
   const [trading, setTrading] = useState(false);
   const [tradeMsg, setTradeMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const ticketRef = useRef<HTMLDivElement>(null);
 
   function selectContract(type: 'call' | 'put', strike: number, askPremium: number, exp: Expiration) {
     setSelectedContract({ type, strike, premium: askPremium, expiryDate: exp.date, expiryLabel: exp.label });
+    setOrderType('market');
+    setLimitPrice(askPremium);
     setTradeMsg(null);
   }
 
-  const tradeCost = selectedContract ? selectedContract.premium * 100 * tradeContracts : 0;
+  useEffect(() => {
+    if (selectedContract) {
+      ticketRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [selectedContract]);
+
+  const orderPrice = orderType === 'limit' ? limitPrice : (selectedContract?.premium ?? 0);
+  const tradeCost = orderPrice * 100 * tradeContracts;
 
   async function handleOpenPosition() {
     if (!selectedContract) return;
+
+    if (orderType === 'limit') {
+      if (limitPrice <= 0) {
+        setTradeMsg({ text: 'Enter a limit price greater than $0.', ok: false });
+        return;
+      }
+      setTrading(true);
+      const { error } = await placeOrder({
+        ticker: selectedTicker,
+        optionType: selectedContract.type,
+        strike: selectedContract.strike,
+        expiryDate: selectedContract.expiryDate,
+        contracts: tradeContracts,
+        limitPrice,
+      });
+      setTrading(false);
+
+      if (error) {
+        setTradeMsg({ text: error, ok: false });
+        return;
+      }
+      setTradeMsg({
+        text: `Working order placed: buy ${tradeContracts} ${selectedTicker} $${selectedContract.strike} ${selectedContract.type} @ $${limitPrice.toFixed(2)}`,
+        ok: true,
+      });
+      setSelectedContract(null);
+      setTradeContracts(1);
+      return;
+    }
+
     if (tradeCost > user.cash) {
       setTradeMsg({ text: 'Insufficient cash balance.', ok: false });
       return;
@@ -486,6 +556,57 @@ export default function Options() {
     setSelectedContract(null);
     setTradeContracts(1);
   }
+
+  async function handleCancelOrder(orderId: string) {
+    const { error } = await cancelOrder(orderId);
+    if (error) setTradeMsg({ text: error, ok: false });
+  }
+
+  // ── Working option order fill-checking ──
+  const filling = useRef(false);
+  useEffect(() => {
+    if (filling.current || workingOrders.length === 0 || !user.portfolioId) return;
+
+    async function checkFills() {
+      filling.current = true;
+      for (const order of workingOrders) {
+        const spot = getSpotFor(order.ticker);
+        if (spot === 0) continue;
+
+        const fair = fairValue(spot, order.strike, order.expiryDate, order.optionType);
+        const ask = fair + Math.max(0.02, fair * 0.03);
+        if (ask > order.limitPrice) continue;
+
+        const cost = ask * 100 * order.contracts;
+        if (cost > user.cash) {
+          await cancelOrder(order.id);
+          setTradeMsg({ text: `Canceled ${order.ticker} $${order.strike} ${order.optionType} limit order — insufficient cash at fill time.`, ok: false });
+          continue;
+        }
+
+        const expiryDays = Math.max(0, Math.round((new Date(order.expiryDate + 'T00:00:00').getTime() - Date.now()) / 86400000));
+        const { error } = await openPosition({
+          ticker: order.ticker,
+          optionType: order.optionType,
+          strike: order.strike,
+          contracts: order.contracts,
+          premium: ask,
+          expiryDays,
+        });
+        if (error) continue;
+
+        dispatch({ type: 'ADJUST_CASH', amount: -cost });
+        dispatch({ type: 'ADD_XP', amount: 10 });
+        if (user.supabaseId) await supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: 10 });
+        await markFilled(order.id, ask);
+        setTradeMsg({ text: `Filled: bought ${order.contracts} ${order.ticker} $${order.strike} ${order.optionType} @ $${ask.toFixed(2)}`, ok: true });
+      }
+      filling.current = false;
+    }
+
+    checkFills();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workingOrders, quotes]);
 
   async function handleClosePosition(pos: OptionPosition) {
     const spot = getSpotFor(pos.ticker);
@@ -586,16 +707,33 @@ export default function Options() {
         todaysChg={liveChg}
         selected={selectedContract ? { type: selectedContract.type, strike: selectedContract.strike, expiryDate: selectedContract.expiryDate } : null}
         onSelect={selectContract}
+        strikeCount={strikeCount}
+        onStrikeCountChange={setStrikeCount}
       />
 
       {/* 2b. Trade ticket */}
       {selectedContract && (
-        <div className="card" style={{ marginBottom: 16, border: '1px solid var(--gr)' }}>
+        <div ref={ticketRef} className="card" style={{ marginBottom: 16, border: '1px solid var(--gr)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div className="section-title" style={{ margin: 0 }}>
               Buy to Open — {selectedTicker} ${selectedContract.strike} {selectedContract.type === 'call' ? 'Call' : 'Put'}
             </div>
             <button className="btn btn-secondary btn-sm" onClick={() => setSelectedContract(null)}>Cancel</button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 16 }}>
+            <button
+              onClick={() => setOrderType('market')}
+              style={{ padding: 10, borderRadius: 8, background: orderType === 'market' ? '#00e676' : 'var(--surface)', color: orderType === 'market' ? '#000' : 'var(--text2)', fontWeight: 700, fontSize: 13 }}
+            >
+              Market
+            </button>
+            <button
+              onClick={() => setOrderType('limit')}
+              style={{ padding: 10, borderRadius: 8, background: orderType === 'limit' ? '#00e676' : 'var(--surface)', color: orderType === 'limit' ? '#000' : 'var(--text2)', fontWeight: 700, fontSize: 13 }}
+            >
+              Limit
+            </button>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
@@ -615,16 +753,36 @@ export default function Options() {
                 {selectedContract.expiryLabel}
               </div>
             </div>
-            <div>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Premium (ask)</label>
-              <div style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
-                ${selectedContract.premium.toFixed(2)}
+            {orderType === 'market' ? (
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Premium (ask)</label>
+                <div style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                  ${selectedContract.premium.toFixed(2)}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>Limit Price ($)</label>
+                <input
+                  type="number"
+                  min={0.01}
+                  step="0.01"
+                  style={{ width: '100%' }}
+                  value={limitPrice || ''}
+                  onChange={e => setLimitPrice(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            )}
           </div>
 
+          {orderType === 'limit' && (
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 14, lineHeight: 1.6 }}>
+              Fills automatically once the ask drops to or below your limit. Cash is checked at fill time, not when placed.
+            </div>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, padding: '10px 14px', background: 'var(--bg3)', borderRadius: 'var(--radius)' }}>
-            <span style={{ color: 'var(--text2)', fontWeight: 600 }}>Total Cost</span>
+            <span style={{ color: 'var(--text2)', fontWeight: 600 }}>{orderType === 'limit' ? 'Max Cost' : 'Total Cost'}</span>
             <span style={{ color: 'var(--gr)', fontSize: 18, fontWeight: 700 }}>
               ${tradeCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
@@ -648,8 +806,53 @@ export default function Options() {
               background: '#00e676', color: '#000', cursor: trading ? 'default' : 'pointer', opacity: trading ? 0.6 : 1,
             }}
           >
-            {trading ? 'Placing Order...' : `Buy ${tradeContracts} Contract${tradeContracts > 1 ? 's' : ''}`}
+            {trading
+              ? 'Placing Order...'
+              : orderType === 'limit'
+              ? `Place Limit Order — ${tradeContracts} Contract${tradeContracts > 1 ? 's' : ''}`
+              : `Buy ${tradeContracts} Contract${tradeContracts > 1 ? 's' : ''}`}
           </button>
+        </div>
+      )}
+
+      {/* 2c. Working option orders */}
+      {workingOrders.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="section-title">Working Option Orders</div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Type</th>
+                  <th>Strike</th>
+                  <th>Contracts</th>
+                  <th>Limit Price</th>
+                  <th>Expiry</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {workingOrders.map(o => (
+                  <tr key={o.id}>
+                    <td style={{ fontWeight: 700, color: '#ffc107' }}>{o.ticker}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{o.optionType}</td>
+                    <td>${o.strike}</td>
+                    <td>{o.contracts}</td>
+                    <td>${o.limitPrice.toFixed(2)}</td>
+                    <td style={{ color: 'var(--text3)', fontSize: 11 }}>
+                      {new Date(o.expiryDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </td>
+                    <td>
+                      <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} onClick={() => handleCancelOrder(o.id)}>
+                        Cancel
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
