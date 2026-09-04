@@ -9,6 +9,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [accessCode, setAccessCode] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -41,6 +42,24 @@ export default function Login() {
     setLoading(true);
 
     if (isSignUp) {
+      if (!accessCode.trim()) {
+        setError('Enter the access code your school gave you.');
+        setLoading(false);
+        return;
+      }
+
+      const { data: setting, error: settingError } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'student_signup_code')
+        .maybeSingle();
+
+      if (settingError || !setting || accessCode.trim().toLowerCase() !== setting.value.toLowerCase()) {
+        setError('Invalid access code. Check with your school admin.');
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -110,6 +129,14 @@ export default function Login() {
                   placeholder="Your full name"
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
+                />
+                <label className="login-label">Access Code</label>
+                <input
+                  className="login-input"
+                  type="text"
+                  placeholder="Code from your school"
+                  value={accessCode}
+                  onChange={e => { setAccessCode(e.target.value); setError(''); }}
                 />
               </>
             )}

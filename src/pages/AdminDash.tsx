@@ -3,6 +3,7 @@ import { useAdminOverview } from '../hooks/useAdminOverview';
 import { useAllStudents } from '../hooks/useAllStudents';
 import { useAdminFeedback } from '../hooks/useAdminFeedback';
 import { useSchoolLeaderboard } from '../hooks/useSchoolLeaderboard';
+import { useSignupAccessCode } from '../hooks/useSignupAccessCode';
 import { supabase } from '../lib/supabase';
 
 function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
@@ -31,6 +32,12 @@ export default function AdminDash() {
   const { students, loading: studentsLoading, error: studentsError, deleteStudent } = useAllStudents();
   const { feedback, loading: feedbackLoading, error: feedbackError } = useAdminFeedback();
   const { entries: schoolRanks } = useSchoolLeaderboard();
+  const { code: signupCode, loading: codeLoading, updateCode } = useSignupAccessCode();
+
+  const [editingCode, setEditingCode] = useState(false);
+  const [codeInput, setCodeInput] = useState('');
+  const [savingCode, setSavingCode] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [confirmText, setConfirmText] = useState('');
@@ -91,6 +98,18 @@ export default function AdminDash() {
     setNewSchoolName('');
   }
 
+  async function handleSaveCode() {
+    setSavingCode(true);
+    setCodeError(null);
+    const { error } = await updateCode(codeInput);
+    setSavingCode(false);
+    if (error) {
+      setCodeError(error);
+      return;
+    }
+    setEditingCode(false);
+  }
+
   async function handleConfirmDeleteSchool() {
     if (!deleteSchoolTarget) return;
     setDeletingSchool(true);
@@ -132,6 +151,57 @@ export default function AdminDash() {
             Couldn't load school stats. {overviewError}
           </div>
         )}
+
+        {/* Student sign-up access code */}
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <div className="section-title" style={{ margin: 0 }}>Student Sign-Up Code</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                Students must enter this code when creating an account. Share it with the schools you work with.
+              </div>
+            </div>
+
+            {!editingCode ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--gr)' }}>
+                  {codeLoading ? '—' : signupCode}
+                </span>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => { setCodeInput(signupCode ?? ''); setEditingCode(true); setCodeError(null); }}
+                >
+                  Edit
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="text"
+                  value={codeInput}
+                  onChange={e => setCodeInput(e.target.value)}
+                  autoFocus
+                  style={{
+                    fontFamily: 'monospace', padding: '6px 10px', borderRadius: 8,
+                    background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)',
+                  }}
+                />
+                <button className="btn btn-secondary btn-sm" onClick={() => setEditingCode(false)} disabled={savingCode}>
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ opacity: codeInput.trim() && !savingCode ? 1 : 0.4 }}
+                  disabled={!codeInput.trim() || savingCode}
+                  onClick={handleSaveCode}
+                >
+                  {savingCode ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            )}
+          </div>
+          {codeError && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 8 }}>{codeError}</div>}
+        </div>
 
         {/* Schools Overview table */}
         <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
