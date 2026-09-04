@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { useApp } from '../state/AppContext';
+import { useApp, getLevelName } from '../state/AppContext';
 import { useProfileData } from '../hooks/useProfileData';
 import { usePublicStudentProfile } from '../hooks/usePublicStudentProfile';
 import { uploadAvatar, updateProfileDetails, updateProfilePrivacy } from '../lib/studentProfile';
 import { FAQS } from '../data';
 import { useTournamentLeaderboard } from '../hooks/useTournamentLeaderboard';
+import { useFriends } from '../hooks/useFriends';
 import type { TournamentPortfolio } from '../types';
 
 const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
@@ -107,6 +108,7 @@ function OwnProfile() {
 
   const { loading, error, schoolName, globalRank, recentTrades, tradeCount } =
     useProfileData();
+  const { friends } = useFriends(user.supabaseId);
 
   const initials = initialsOf(user.name);
   const levelNum = LEVEL_THRESHOLDS.filter(t => t <= xp).length;
@@ -443,6 +445,75 @@ function OwnProfile() {
                   {user.tournamentPortfolios.map(tp => (
                     <TournamentHistoryRow key={tp.competitionId} tp={tp} userId={user.supabaseId} />
                   ))}
+                </div>
+              )}
+
+              {/* Connections */}
+              {friends.length > 0 && (
+                <div className="card">
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 14 }}>
+                    Connections ({friends.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {friends.map(f => (
+                      <div
+                        key={f.id}
+                        onClick={() => dispatch({ type: 'VIEW_STUDENT_PROFILE', studentId: f.id })}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{
+                            width: 28, height: 28, borderRadius: '50%', background: 'var(--gr-dim)', color: 'var(--gr)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
+                          }}>
+                            {initialsOf(f.name)}
+                          </div>
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>{f.name}</span>
+                        </div>
+                        <span style={{ fontSize: 11, color: 'var(--text3)' }}>{f.xp.toLocaleString()} XP</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Trading Resume — unlocks once a student has enough trades to actually show a track record */}
+              {tradeCount >= 10 && (
+                <div className="card">
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 14 }}>
+                    Trading Resume
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Total Trades</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{tradeCount.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Level</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{getLevelName(user.xp)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Trading Since</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>
+                        {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Global Rank</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{globalRank ? `#${globalRank}` : '—'}</div>
+                    </div>
+                    {user.tournamentPortfolios.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Tournaments Entered</div>
+                        <div style={{ fontSize: 16, fontWeight: 700 }}>{user.tournamentPortfolios.length}</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

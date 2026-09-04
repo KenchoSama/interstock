@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useFuturesQuotes } from '../hooks/useFuturesQuotes';
 import { useFuturesLookup } from '../hooks/useFuturesLookup';
-import { useApp } from '../state/AppContext';
+import { useApp, isLocked, FUTURES_UNLOCK_XP } from '../state/AppContext';
 import { useFuturesPositions, type FuturesPosition } from '../hooks/useFuturesPositions';
+import PortfolioSwitcher from '../components/PortfolioSwitcher';
 import { supabase } from '../lib/supabase';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -290,8 +291,26 @@ export default function Futures() {
     setTradeMsg({ text: `Closed ${pos.ticker} ${pos.side} for $${closeValue.toFixed(2)}.`, ok: true });
   }
 
+  if (isLocked('futures', user.xp)) {
+    return (
+      <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <div className="empty-state">
+          <div className="empty-state-icon">🔒</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Futures License Required</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+            Reach {FUTURES_UNLOCK_XP.toLocaleString()} XP to unlock futures trading.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-body">
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <PortfolioSwitcher />
+      </div>
 
       {/* 1. Tip banner */}
       <FuturesTipBanner />

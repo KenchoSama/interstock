@@ -22,6 +22,7 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'options', label: 'Options' },
     { id: 'futures', label: 'Futures' },
     { id: 'order-history', label: 'Order History' },
+    { id: 'class-fund', label: 'Class Fund' },
     { id: 'compete', label: 'Tournaments' },
     { id: 'lessons', label: 'Lessons', section: 'Learn' },
     { id: 'assignments', label: 'Assignments' },

@@ -4,6 +4,7 @@ import { useAllStudents } from '../hooks/useAllStudents';
 import { useAdminFeedback } from '../hooks/useAdminFeedback';
 import { useSchoolLeaderboard } from '../hooks/useSchoolLeaderboard';
 import { useSignupAccessCode } from '../hooks/useSignupAccessCode';
+import { useAdminClassFunds } from '../hooks/useAdminClassFunds';
 import { supabase } from '../lib/supabase';
 
 function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
@@ -33,6 +34,18 @@ export default function AdminDash() {
   const { feedback, loading: feedbackLoading, error: feedbackError } = useAdminFeedback();
   const { entries: schoolRanks } = useSchoolLeaderboard();
   const { code: signupCode, loading: codeLoading, updateCode } = useSignupAccessCode();
+  const { funds: classFunds, loading: classFundsLoading, createFund, deleteFund } = useAdminClassFunds();
+
+  const [showCreateFund, setShowCreateFund] = useState(false);
+  const [fundName, setFundName] = useState('');
+  const [fundCode, setFundCode] = useState('');
+  const [fundStartingCash, setFundStartingCash] = useState(10000);
+  const [creatingFund, setCreatingFund] = useState(false);
+  const [createFundError, setCreateFundError] = useState<string | null>(null);
+
+  const [deleteFundTarget, setDeleteFundTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingFund, setDeletingFund] = useState(false);
+  const [deleteFundError, setDeleteFundError] = useState<string | null>(null);
 
   const [editingCode, setEditingCode] = useState(false);
   const [codeInput, setCodeInput] = useState('');
@@ -114,6 +127,34 @@ export default function AdminDash() {
       return;
     }
     setPromoteDone(true);
+  }
+
+  async function handleCreateFund() {
+    setCreatingFund(true);
+    setCreateFundError(null);
+    const { error } = await createFund({ name: fundName, code: fundCode, startingCash: fundStartingCash });
+    setCreatingFund(false);
+    if (error) {
+      setCreateFundError(error);
+      return;
+    }
+    setShowCreateFund(false);
+    setFundName('');
+    setFundCode('');
+    setFundStartingCash(10000);
+  }
+
+  async function handleConfirmDeleteFund() {
+    if (!deleteFundTarget) return;
+    setDeletingFund(true);
+    setDeleteFundError(null);
+    const { error } = await deleteFund(deleteFundTarget.id);
+    setDeletingFund(false);
+    if (error) {
+      setDeleteFundError(error);
+      return;
+    }
+    setDeleteFundTarget(null);
   }
 
   async function handleSaveCode() {
@@ -219,6 +260,65 @@ export default function AdminDash() {
             )}
           </div>
           {codeError && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 8 }}>{codeError}</div>}
+        </div>
+
+        {/* Class Funds */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+              Class Funds
+            </span>
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: 11, padding: '4px 14px', background: 'linear-gradient(90deg, rgba(0,230,118,0.8), #00e676)', color: 'var(--bg)', fontWeight: 700 }}
+              onClick={() => { setShowCreateFund(true); setCreateFundError(null); }}
+            >
+              + New Class Fund
+            </button>
+          </div>
+
+          {classFundsLoading && (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>Loading class funds...</div>
+          )}
+
+          {!classFundsLoading && classFunds.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+              No class funds yet — create one and share its code with a class.
+            </div>
+          )}
+
+          {!classFundsLoading && classFunds.length > 0 && (
+            <table style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Code</th>
+                  <th>Cash Balance</th>
+                  <th>Members</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {classFunds.map(f => (
+                  <tr key={f.id}>
+                    <td style={{ fontWeight: 600 }}>{f.name}</td>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--gr)' }}>{f.code}</td>
+                    <td style={{ fontFamily: 'monospace' }}>${f.cashBalance.toLocaleString()}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{f.memberCount}</td>
+                    <td>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 11, color: 'var(--red)' }}
+                        onClick={() => { setDeleteFundTarget({ id: f.id, name: f.name }); setDeleteFundError(null); }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Schools Overview table */}
@@ -635,6 +735,95 @@ export default function AdminDash() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {showCreateFund && (
+        <div
+          onClick={() => !creatingFund && setShowCreateFund(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+        >
+          <div onClick={e => e.stopPropagation()} className="card" style={{ maxWidth: 420, width: '100%', padding: 24 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>New Class Fund</div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>Name</div>
+                <input value={fundName} onChange={e => setFundName(e.target.value)} placeholder="e.g. Period 3 Fund" style={{ width: '100%', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>Code</div>
+                <input
+                  value={fundCode}
+                  onChange={e => setFundCode(e.target.value.toUpperCase())}
+                  placeholder="e.g. PERIOD3"
+                  style={{ width: '100%', boxSizing: 'border-box', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>Starting Cash ($)</div>
+                <input
+                  type="number"
+                  min={0}
+                  value={fundStartingCash}
+                  onChange={e => setFundStartingCash(Math.max(0, parseInt(e.target.value) || 0))}
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+
+            {createFundError && (
+              <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 12 }}>{createFundError}</div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+              <button className="btn btn-secondary" onClick={() => setShowCreateFund(false)} disabled={creatingFund}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                style={{ opacity: fundName.trim() && fundCode.trim() && !creatingFund ? 1 : 0.4 }}
+                disabled={!fundName.trim() || !fundCode.trim() || creatingFund}
+                onClick={handleCreateFund}
+              >
+                {creatingFund ? 'Creating...' : 'Create Class Fund'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteFundTarget && (
+        <div
+          onClick={() => !deletingFund && setDeleteFundTarget(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+        >
+          <div onClick={e => e.stopPropagation()} className="card" style={{ maxWidth: 420, width: '100%', padding: 24 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--red)', marginBottom: 8 }}>
+              Delete "{deleteFundTarget.name}"?
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 16 }}>
+              This removes the fund and its holdings/trade history for every member. This cannot be undone.
+            </div>
+            {deleteFundError && (
+              <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>{deleteFundError}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setDeleteFundTarget(null)} disabled={deletingFund}>Cancel</button>
+              <button
+                className="btn"
+                style={{ background: 'var(--red)', color: '#fff', opacity: deletingFund ? 0.4 : 1 }}
+                disabled={deletingFund}
+                onClick={handleConfirmDeleteFund}
+              >
+                {deletingFund ? 'Deleting...' : 'Permanently Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}

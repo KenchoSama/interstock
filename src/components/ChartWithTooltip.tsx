@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { Candle } from '../utils/charts';
+import { KEY_INDEXES, type IndexSeries } from '../hooks/useIndexPerformance';
 
 interface Props {
   chartSvg: string;
@@ -9,9 +10,11 @@ interface Props {
   dates?: string[];
   mode?: 'line' | 'candle';
   candles?: Candle[];
+  compareKeys?: string[];
+  indexSeries?: Record<string, IndexSeries>;
 }
 
-export default function ChartWithTooltip({ chartSvg, chartPoints, dates, mode = 'line', candles = [] }: Props) {
+export default function ChartWithTooltip({ chartSvg, chartPoints, dates, mode = 'line', candles = [], compareKeys = [], indexSeries = {} }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; index: number } | null>(null);
 
@@ -39,6 +42,22 @@ export default function ChartWithTooltip({ chartSvg, chartPoints, dates, mode = 
   const tooltipReturn =
     tooltipValue !== undefined && tooltipValue !== null ? ((tooltipValue - startValue) / startValue) * 100 : 0;
   const tooltipPositive = tooltipReturn >= 0;
+
+  // Compared indexes are fetched as their own raw close-price series (different
+  // length/cadence than the portfolio's snapshot series), so we map the
+  // tooltip's position proportionally rather than by array index.
+  const tooltipIndexReturns = tooltip && mode === 'line'
+    ? compareKeys.map(key => {
+        const s = indexSeries[key];
+        const def = KEY_INDEXES.find(i => i.key === key);
+        if (!s || !def || s.values.length < 2) return null;
+        const fraction = tooltip.index / Math.max(1, itemCount - 1);
+        const pos = Math.round(fraction * (s.values.length - 1));
+        const value = s.values[pos];
+        const pct = ((value - s.values[0]) / s.values[0]) * 100;
+        return { label: def.label, color: def.color, pct };
+      }).filter((v): v is { label: string; color: string; pct: number } => v !== null)
+    : [];
 
   const tooltipCandle = tooltip && mode === 'candle' ? candles[tooltip.index] : undefined;
   const candleUp = tooltipCandle ? tooltipCandle.close >= tooltipCandle.open : false;
@@ -117,6 +136,18 @@ export default function ChartWithTooltip({ chartSvg, chartPoints, dates, mode = 
               <div style={{ fontSize: 12, color: tooltipPositive ? 'var(--gr)' : 'var(--red)', marginTop: 2 }}>
                 {tooltipPositive ? '+' : ''}{tooltipReturn.toFixed(2)}%
               </div>
+              {tooltipIndexReturns.length > 0 && (
+                <div style={{ marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {tooltipIndexReturns.map(r => (
+                    <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 11 }}>
+                      <span style={{ color: r.color }}>{r.label}</span>
+                      <span style={{ color: r.pct >= 0 ? 'var(--gr)' : 'var(--red)' }}>
+                        {r.pct >= 0 ? '+' : ''}{r.pct.toFixed(2)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
           {(tooltipDate || tooltipTime) && (

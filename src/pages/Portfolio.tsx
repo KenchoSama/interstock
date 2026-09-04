@@ -72,6 +72,8 @@ export default function Portfolio() {
   }
 
   const [localQty, setLocalQty] = useState(qty);
+  const [amountMode, setAmountMode] = useState<'shares' | 'dollars'>('shares');
+  const [dollarAmount, setDollarAmount] = useState(0);
   const [tradeMsg, setTradeMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   const startDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -159,7 +161,11 @@ export default function Portfolio() {
     );
   }, [filteredChartPoints, isDailyTf, alignedDailySeries]);
 
-  const cost = localQty * livePrice;
+  const qtyToTrade = amountMode === 'dollars'
+    ? (livePrice > 0 ? Math.floor(dollarAmount / livePrice) : 0)
+    : localQty;
+  const cost = qtyToTrade * livePrice;
+  const cashAfterTrade = tradeAction === 'buy' ? user.cash - cost : user.cash + cost;
   const holding = user.portfolio.find(h => h.sym === sym);
 
   async function executeTrade() {
@@ -170,38 +176,43 @@ export default function Portfolio() {
       return;
     }
 
+    if (qtyToTrade <= 0) {
+      setTradeMsg({ text: amountMode === 'dollars' ? 'Enter a dollar amount that buys at least 1 share.' : 'Enter a quantity greater than 0.', ok: false });
+      return;
+    }
+
     if (tradeAction === 'buy') {
       if (cost > user.cash) {
         setTradeMsg({ text: 'Insufficient cash balance.', ok: false });
         return;
       }
 
-      dispatch({ type: 'BUY_STOCK', sym: sym, shares: localQty, price: livePrice });
+      dispatch({ type: 'BUY_STOCK', sym: sym, shares: qtyToTrade, price: livePrice });
       dispatch({ type: 'ADD_XP', amount: 10 });
 
       const newCash = user.cash - cost;
       const newPortfolioValue = portfolioValue + cost + newCash;
 
-      await persistTrade('buy', sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue, user.supabaseId!);
+      await persistTrade('buy', sym, qtyToTrade, livePrice, portfolioId, newCash, newPortfolioValue, user.supabaseId!);
 
-      setTradeMsg({ text: `Bought ${localQty} share${localQty !== 1 ? 's' : ''} of ${sym}!`, ok: true });
+      setTradeMsg({ text: `Bought ${qtyToTrade} share${qtyToTrade !== 1 ? 's' : ''} of ${sym}!`, ok: true });
 
     } else {
-      if (!holding || holding.shares < localQty) {
+      if (!holding || holding.shares < qtyToTrade) {
         setTradeMsg({ text: `You only have ${holding?.shares ?? 0} shares of ${sym}.`, ok: false });
         return;
       }
 
-      dispatch({ type: 'SELL_STOCK', sym: sym, shares: localQty, price: livePrice });
+      dispatch({ type: 'SELL_STOCK', sym: sym, shares: qtyToTrade, price: livePrice });
       dispatch({ type: 'ADD_XP', amount: 10 });
 
-      const proceeds = localQty * livePrice;
+      const proceeds = qtyToTrade * livePrice;
       const newCash = user.cash + proceeds;
       const newPortfolioValue = portfolioValue - proceeds + newCash;
 
-      await persistTrade('sell', sym, localQty, livePrice, portfolioId, newCash, newPortfolioValue, user.supabaseId!);
+      await persistTrade('sell', sym, qtyToTrade, livePrice, portfolioId, newCash, newPortfolioValue, user.supabaseId!);
 
-      setTradeMsg({ text: `Sold ${localQty} share${localQty !== 1 ? 's' : ''} of ${sym}!`, ok: true });
+      setTradeMsg({ text: `Sold ${qtyToTrade} share${qtyToTrade !== 1 ? 's' : ''} of ${sym}!`, ok: true });
     }
 
     setTimeout(() => setTradeMsg(null), 3000);
@@ -436,20 +447,63 @@ export default function Portfolio() {
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Quantity
-              </label>
-              <input
-                type="number"
-                min={1}
-                style={{ width: '100%' }}
-                value={localQty}
-                onChange={e => {
-                  const v = Math.max(1, parseInt(e.target.value) || 1);
-                  setLocalQty(v);
-                  dispatch({ type: 'SET_QTY', qty: v });
-                }}
-              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <label style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {amountMode === 'shares' ? 'Quantity' : 'Amount ($)'}
+                </label>
+                <div style={{ display: 'flex', gap: 2 }}>
+                  <button
+                    onClick={() => setAmountMode('shares')}
+                    style={{
+                      padding: '2px 8px', fontSize: 10, borderRadius: 5,
+                      background: amountMode === 'shares' ? 'var(--gr-dim)' : 'var(--surface)',
+                      color: amountMode === 'shares' ? 'var(--gr)' : 'var(--text3)',
+                      fontWeight: amountMode === 'shares' ? 700 : 400,
+                    }}
+                  >
+                    Shares
+                  </button>
+                  <button
+                    onClick={() => setAmountMode('dollars')}
+                    style={{
+                      padding: '2px 8px', fontSize: 10, borderRadius: 5,
+                      background: amountMode === 'dollars' ? 'var(--gr-dim)' : 'var(--surface)',
+                      color: amountMode === 'dollars' ? 'var(--gr)' : 'var(--text3)',
+                      fontWeight: amountMode === 'dollars' ? 700 : 400,
+                    }}
+                  >
+                    $ Amount
+                  </button>
+                </div>
+              </div>
+              {amountMode === 'shares' ? (
+                <input
+                  type="number"
+                  min={1}
+                  style={{ width: '100%' }}
+                  value={localQty}
+                  onChange={e => {
+                    const v = Math.max(1, parseInt(e.target.value) || 1);
+                    setLocalQty(v);
+                    dispatch({ type: 'SET_QTY', qty: v });
+                  }}
+                />
+              ) : (
+                <>
+                  <input
+                    type="number"
+                    min={0}
+                    step="1"
+                    placeholder="e.g. 5000"
+                    style={{ width: '100%' }}
+                    value={dollarAmount || ''}
+                    onChange={e => setDollarAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                  />
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
+                    ≈ {qtyToTrade} share{qtyToTrade !== 1 ? 's' : ''} @ ${livePrice.toFixed(2)}
+                  </div>
+                </>
+              )}
             </div>
 
             <div style={{
@@ -476,10 +530,16 @@ export default function Portfolio() {
                 </span>
               </div>
               <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginBottom: 6 }}>
                 <span style={{ color: 'var(--text2)' }}>Order Total</span>
                 <span style={{ color: 'var(--gr)', fontSize: 15 }}>
                   ${cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text3)', fontSize: 11 }}>Cash After Trade</span>
+                <span style={{ color: cashAfterTrade < 0 ? 'var(--red)' : 'var(--text2)', fontSize: 12 }}>
+                  ${cashAfterTrade.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>

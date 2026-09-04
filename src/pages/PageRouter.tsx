@@ -42,6 +42,7 @@ import AdminAssignments from './AdminAssignments';
 import SchoolLeaderboard from './SchoolLeaderboard';
 import Notes from './Notes';
 import OrderHistory from './OrderHistory';
+import ClassFund from './ClassFund';
 
 export default function PageRouter() {
   const { state } = useApp();
@@ -92,6 +93,7 @@ export default function PageRouter() {
     'school-leaderboard': <SchoolLeaderboard />,
     'notes': <Notes />,
     'order-history': <OrderHistory />,
+    'class-fund': <ClassFund />,
   };
 
   const page = pages[view];

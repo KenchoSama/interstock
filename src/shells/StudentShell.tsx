@@ -3,6 +3,7 @@ import Shell from '../components/layout/Shell';
 import PageRouter from '../pages/PageRouter';
 import Assessment from '../pages/Assessment';
 import CodeOfConduct from '../pages/CodeOfConduct';
+import OnboardingTour from '../components/OnboardingTour';
 
 export default function StudentShell() {
   const { state } = useApp();
@@ -16,5 +17,10 @@ export default function StudentShell() {
     return <Assessment />;
   }
 
-  return <Shell><PageRouter /></Shell>;
+  return (
+    <>
+      <Shell><PageRouter /></Shell>
+      <OnboardingTour />
+    </>
+  );
 }

@@ -2,9 +2,10 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { STOCKS } from '../data/stocks';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import { useStockLookup } from '../hooks/useStockLookup';
-import { useApp } from '../state/AppContext';
+import { useApp, isLocked, OPTIONS_UNLOCK_XP } from '../state/AppContext';
 import { useOptionPositions, type OptionPosition } from '../hooks/useOptionPositions';
 import { useOptionOrders } from '../hooks/useOptionOrders';
+import PortfolioSwitcher from '../components/PortfolioSwitcher';
 import { supabase } from '../lib/supabase';
 
 type StrikeCount = 15 | 25 | 50 | 'all';
@@ -630,8 +631,26 @@ export default function Options() {
     setTradeMsg({ text: `Closed ${pos.ticker} $${pos.strike} ${pos.optionType} for $${proceeds.toFixed(2)}.`, ok: true });
   }
 
+  if (isLocked('options', user.xp)) {
+    return (
+      <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <div className="empty-state">
+          <div className="empty-state-icon">🔒</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Options License Required</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+            Reach {OPTIONS_UNLOCK_XP.toLocaleString()} XP to unlock options trading.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-body">
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <PortfolioSwitcher />
+      </div>
 
       {/* Stock selector */}
       <div className="card" style={{ marginBottom: 16 }}>
@@ -672,25 +691,21 @@ export default function Options() {
               <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 5 }}>{lookupError}</div>
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
-              {STOCKS.map(s => {
-                const q = quotes.find(q => q.sym === s.sym);
-                const price = q?.price ?? s.price;
-                return (
-                  <button key={s.sym}
-                    onClick={() => { setSearchInput(s.sym); setSelectedTicker(s.sym); clear(); }}
-                    style={{
-                      padding: '2px 8px', fontSize: 10, borderRadius: 4,
-                      background: selectedTicker === s.sym ? 'var(--gr-dim)' : 'var(--surface)',
-                      border: `1px solid ${selectedTicker === s.sym ? 'var(--gr)' : 'var(--border)'}`,
-                      color: selectedTicker === s.sym ? 'var(--gr)' : 'var(--text3)',
-                      fontWeight: selectedTicker === s.sym ? 700 : 400,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {s.sym} ${price.toFixed(0)}
-                  </button>
-                );
-              })}
+              {STOCKS.map(s => (
+                <button key={s.sym}
+                  onClick={() => { setSearchInput(s.sym); setSelectedTicker(s.sym); clear(); }}
+                  style={{
+                    padding: '2px 8px', fontSize: 10, borderRadius: 4,
+                    background: selectedTicker === s.sym ? 'var(--gr-dim)' : 'var(--surface)',
+                    border: `1px solid ${selectedTicker === s.sym ? 'var(--gr)' : 'var(--border)'}`,
+                    color: selectedTicker === s.sym ? 'var(--gr)' : 'var(--text3)',
+                    fontWeight: selectedTicker === s.sym ? 700 : 400,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {s.sym}
+                </button>
+              ))}
             </div>
           </div>
         </div>

@@ -68,6 +68,12 @@ export default function Dashboard() {
   const [bookingMentor, setBookingMentor] = useState<typeof mentors[number] | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
 
+  const [calendarHidden, setCalendarHidden] = useState(() => localStorage.getItem('dashboard_calendar_hidden') === 'true');
+
+  useEffect(() => {
+    localStorage.setItem('dashboard_calendar_hidden', String(calendarHidden));
+  }, [calendarHidden]);
+
   const [compareKeys, setCompareKeys] = useState<string[]>([]);
   const [showAddCompare, setShowAddCompare] = useState(false);
   const { series: indexSeries } = useIndexPerformance(compareKeys, chartTf);
@@ -235,7 +241,18 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <MonthCalendar events={calendarEvents} loading={calendarLoading} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: calendarHidden ? 0 : 8 }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: 11 }}
+            onClick={() => setCalendarHidden(v => !v)}
+          >
+            {calendarHidden ? '📅 Show Calendar' : 'Hide Calendar'}
+          </button>
+        </div>
+        {!calendarHidden && (
+          <MonthCalendar events={calendarEvents} loading={calendarLoading} />
+        )}
 
       </div>
 
@@ -362,6 +379,8 @@ export default function Dashboard() {
                 flatLine={flatLine}
                 totalValue={totalValue}
                 dates={displayDates}
+                compareKeys={compareKeys}
+                indexSeries={indexSeries}
               />
 
               {/* Date range */}

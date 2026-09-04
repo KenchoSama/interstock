@@ -611,7 +611,12 @@ function defaultView(role: Role): string {
   return defaults[role];
 }
 
-export function isLocked(_view: string, _xp: number): boolean {
+export const OPTIONS_UNLOCK_XP = 500;
+export const FUTURES_UNLOCK_XP = 1200;
+
+export function isLocked(view: string, xp: number): boolean {
+  if (view === 'options') return xp < OPTIONS_UNLOCK_XP;
+  if (view === 'futures') return xp < FUTURES_UNLOCK_XP;
   return false;
 }
 

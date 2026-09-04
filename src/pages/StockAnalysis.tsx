@@ -90,26 +90,22 @@ function StockSelector({ selected, onChange }: {
           )}
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
-            {STOCKS.map(s => {
-              const q = quotes.find(q => q.sym === s.sym);
-              const price = q?.price ?? s.price;
-              return (
-                <button
-                  key={s.sym}
-                  onClick={() => { setSearchInput(s.sym); lookup(s.sym); clear(); onChange(s.sym); }}
-                  style={{
-                    padding: '2px 8px', fontSize: 10, borderRadius: 4,
-                    background: selected.sym === s.sym ? 'var(--gr-dim)' : 'var(--surface)',
-                    border: `1px solid ${selected.sym === s.sym ? 'var(--gr)' : 'var(--border)'}`,
-                    color: selected.sym === s.sym ? 'var(--gr)' : 'var(--text3)',
-                    fontWeight: selected.sym === s.sym ? 700 : 400,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {s.sym} ${price.toFixed(0)}
-                </button>
-              );
-            })}
+            {STOCKS.map(s => (
+              <button
+                key={s.sym}
+                onClick={() => { setSearchInput(s.sym); lookup(s.sym); clear(); onChange(s.sym); }}
+                style={{
+                  padding: '2px 8px', fontSize: 10, borderRadius: 4,
+                  background: selected.sym === s.sym ? 'var(--gr-dim)' : 'var(--surface)',
+                  border: `1px solid ${selected.sym === s.sym ? 'var(--gr)' : 'var(--border)'}`,
+                  color: selected.sym === s.sym ? 'var(--gr)' : 'var(--text3)',
+                  fontWeight: selected.sym === s.sym ? 700 : 400,
+                  cursor: 'pointer',
+                }}
+              >
+                {s.sym}
+              </button>
+            ))}
           </div>
         </div>
       </div>
