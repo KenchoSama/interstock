@@ -154,47 +154,18 @@ export default function Assessment() {
   // ─── Profile info: grade, age, school ────────────────────────────────────
   const [grade, setGrade] = useState<number | null>(null);
   const [age, setAge] = useState<number | null>(null);
-  const [schoolQuery, setSchoolQuery] = useState('');
-  const [schoolResults, setSchoolResults] = useState<SchoolResult[]>([]);
-  const [selectedSchool, setSelectedSchool] = useState<SchoolResult | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [addingSchool, setAddingSchool] = useState(false);
+  const [schools, setSchools] = useState<SchoolResult[]>([]);
+  const [schoolsLoading, setSchoolsLoading] = useState(true);
+  const [selectedSchoolId, setSelectedSchoolId] = useState('');
 
   useEffect(() => {
-    if (selectedSchool || schoolQuery.trim().length < 2) {
-      setSchoolResults([]);
-      return;
-    }
-    setSearching(true);
-    const handle = setTimeout(async () => {
-      const { data } = await supabase
-        .from('schools')
-        .select('id, name')
-        .ilike('name', `%${schoolQuery.trim()}%`)
-        .limit(8);
-      setSchoolResults(data ?? []);
-      setSearching(false);
-    }, 300);
-    return () => clearTimeout(handle);
-  }, [schoolQuery, selectedSchool]);
+    supabase.from('schools').select('id, name').order('name').then(({ data }) => {
+      setSchools(data ?? []);
+      setSchoolsLoading(false);
+    });
+  }, []);
 
-  const canProceedProfile = grade !== null && age !== null && age >= 10 && age <= 35 && selectedSchool !== null;
-
-  async function handleAddSchool() {
-    const name = schoolQuery.trim();
-    if (!name) return;
-    setAddingSchool(true);
-    const { data, error } = await supabase
-      .from('schools')
-      .insert({ name })
-      .select('id, name')
-      .single();
-    setAddingSchool(false);
-    if (!error && data) {
-      setSelectedSchool(data);
-      setSchoolResults([]);
-    }
-  }
+  const canProceedProfile = grade !== null && age !== null && age >= 10 && age <= 35 && selectedSchoolId !== '';
 
   // Scoring
   const quizScore = quizAnswers.reduce<number>(
@@ -224,13 +195,13 @@ export default function Assessment() {
     try {
       await supabase
         .from('profiles')
-        .update({ grade, age, school_id: selectedSchool?.id ?? null })
+        .update({ grade, age, school_id: selectedSchoolId || null })
         .eq('id', user.supabaseId);
     } catch (_) {
       // Non-fatal — student can still proceed even if this update fails
     }
 
-    dispatch({ type: 'UPDATE_STUDENT_INFO', grade, age, school_id: selectedSchool?.id ?? null });
+    dispatch({ type: 'UPDATE_STUDENT_INFO', grade, age, school_id: selectedSchoolId || null });
     dispatch({ type: 'ADD_XP', amount: 50 });
     dispatch({ type: 'SET_HAS_ASSESSMENT' });
     setPart('done');
@@ -393,87 +364,39 @@ export default function Assessment() {
             />
           </div>
 
-          {/* School search */}
-          <div className="card" style={{ marginBottom: 12, position: 'relative' }}>
+          {/* School dropdown */}
+          <div className="card" style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14, color: 'var(--text)' }}>
               What school do you go to?
             </div>
 
-            {selectedSchool ? (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 14px', borderRadius: 8,
-                background: 'var(--gr-dim)', border: '1px solid var(--gr)',
-              }}>
-                <span style={{ color: 'var(--gr)', fontWeight: 600, fontSize: 14 }}>{selectedSchool.name}</span>
-                <button
-                  onClick={() => { setSelectedSchool(null); setSchoolQuery(''); }}
-                  style={{ background: 'none', color: 'var(--text3)', fontSize: 12, padding: '2px 6px' }}
-                >
-                  Change
-                </button>
+            <select
+              value={selectedSchoolId}
+              onChange={e => setSelectedSchoolId(e.target.value)}
+              disabled={schoolsLoading}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                fontSize: 14,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                color: 'var(--text)',
+                boxSizing: 'border-box',
+              }}
+            >
+              <option value="" disabled>
+                {schoolsLoading ? 'Loading schools...' : 'Select your school...'}
+              </option>
+              {schools.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+
+            {!schoolsLoading && schools.length === 0 && (
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
+                No schools set up yet — ask your admin to add your school.
               </div>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  placeholder="Start typing your school's name..."
-                  value={schoolQuery}
-                  onChange={e => setSchoolQuery(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    fontSize: 14,
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    color: 'var(--text)',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                {searching && (
-                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>Searching...</div>
-                )}
-                {!searching && schoolQuery.trim().length >= 2 && schoolResults.length === 0 && (
-                  <div style={{
-                    marginTop: 8, padding: '10px 14px', borderRadius: 8,
-                    border: '1px solid var(--border)', background: 'var(--surface)',
-                  }}>
-                    <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>
-                      No matching schools found.
-                    </div>
-                    <button
-                      onClick={handleAddSchool}
-                      disabled={addingSchool}
-                      className="btn btn-secondary btn-sm"
-                      style={{ opacity: addingSchool ? 0.6 : 1 }}
-                    >
-                      {addingSchool ? 'Adding...' : `+ Add "${schoolQuery.trim()}" as my school`}
-                    </button>
-                  </div>
-                )}
-                {schoolResults.length > 0 && (
-                  <div style={{
-                    marginTop: 8, border: '1px solid var(--border)', borderRadius: 8,
-                    overflow: 'hidden',
-                  }}>
-                    {schoolResults.map(s => (
-                      <button
-                        key={s.id}
-                        onClick={() => { setSelectedSchool(s); setSchoolResults([]); }}
-                        style={{
-                          display: 'block', width: '100%', textAlign: 'left',
-                          padding: '10px 14px', fontSize: 13,
-                          background: 'var(--surface)', color: 'var(--text)',
-                          borderBottom: '1px solid var(--border)',
-                        }}
-                      >
-                        {s.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
             )}
           </div>
 

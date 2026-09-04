@@ -29,7 +29,7 @@ function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
 
 export default function AdminDash() {
   const { schools, totalStudents, totalCompetitions, activeCompetitions, loading: overviewLoading, error: overviewError, addSchool, deleteSchool } = useAdminOverview();
-  const { students, loading: studentsLoading, error: studentsError, deleteStudent } = useAllStudents();
+  const { students, loading: studentsLoading, error: studentsError, deleteStudent, promoteToAdmin } = useAllStudents();
   const { feedback, loading: feedbackLoading, error: feedbackError } = useAdminFeedback();
   const { entries: schoolRanks } = useSchoolLeaderboard();
   const { code: signupCode, loading: codeLoading, updateCode } = useSignupAccessCode();
@@ -57,6 +57,11 @@ export default function AdminDash() {
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetDone, setResetDone] = useState(false);
+
+  const [promoteTarget, setPromoteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [promoting, setPromoting] = useState(false);
+  const [promoteError, setPromoteError] = useState<string | null>(null);
+  const [promoteDone, setPromoteDone] = useState(false);
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
@@ -96,6 +101,19 @@ export default function AdminDash() {
     }
     setShowAddSchool(false);
     setNewSchoolName('');
+  }
+
+  async function handleConfirmPromote() {
+    if (!promoteTarget) return;
+    setPromoting(true);
+    setPromoteError(null);
+    const { error } = await promoteToAdmin(promoteTarget.id);
+    setPromoting(false);
+    if (error) {
+      setPromoteError(error);
+      return;
+    }
+    setPromoteDone(true);
   }
 
   async function handleSaveCode() {
@@ -343,6 +361,13 @@ export default function AdminDash() {
                           onClick={() => { setResetTarget({ id: s.id, name: s.name }); setResetError(null); setResetDone(false); }}
                         >
                           Reset Portfolio
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: 11 }}
+                          onClick={() => { setPromoteTarget({ id: s.id, name: s.name }); setPromoteError(null); setPromoteDone(false); }}
+                        >
+                          Make Admin
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
@@ -606,6 +631,67 @@ export default function AdminDash() {
                     onClick={handleConfirmReset}
                   >
                     {resetting ? 'Resetting...' : 'Reset Portfolio'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {promoteTarget && (
+        <div
+          onClick={() => !promoting && setPromoteTarget(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="card"
+            style={{ maxWidth: 440, width: '100%', padding: 24 }}
+          >
+            {promoteDone ? (
+              <>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--gr)', marginBottom: 8 }}>
+                  {promoteTarget.name} is now an admin
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 16 }}>
+                  They'll get full admin dashboard access next time they sign in.
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button className="btn btn-primary" onClick={() => setPromoteTarget(null)}>Done</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--red)', marginBottom: 8 }}>
+                  Make {promoteTarget.name} an admin?
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 16 }}>
+                  This grants full admin dashboard access — managing every student and school, resetting
+                  portfolios, creating tournaments, and changing the sign-up code. Only do this for someone
+                  you trust with that level of access.
+                </div>
+                {promoteError && (
+                  <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>{promoteError}</div>
+                )}
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setPromoteTarget(null)}
+                    disabled={promoting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn"
+                    style={{ background: 'var(--red)', color: '#fff', opacity: promoting ? 0.4 : 1 }}
+                    disabled={promoting}
+                    onClick={handleConfirmPromote}
+                  >
+                    {promoting ? 'Promoting...' : 'Make Admin'}
                   </button>
                 </div>
               </>

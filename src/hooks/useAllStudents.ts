@@ -64,5 +64,12 @@ export function useAllStudents() {
     return { error: null };
   }
 
-  return { students, loading, error, deleteStudent, refetch: fetchStudents };
+  async function promoteToAdmin(id: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.rpc('set_user_role', { p_user_id: id, p_new_role: 'admin' });
+    if (error) return { error: error.message };
+    await fetchStudents();
+    return { error: null };
+  }
+
+  return { students, loading, error, deleteStudent, promoteToAdmin, refetch: fetchStudents };
 }
