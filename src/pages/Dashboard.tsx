@@ -226,8 +226,10 @@ export default function Dashboard() {
             <div className="stat-sub">Available to invest</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Total XP</div>
-            <div className="stat-value" style={{ color: 'var(--gr)' }}>{user.xp.toLocaleString()}</div>
+            <div className="stat-label">Login Streak</div>
+            <div className="stat-value" style={{ color: 'var(--gr)' }}>
+              {user.loginStreak} day{user.loginStreak === 1 ? '' : 's'} 🔥
+            </div>
             <div className="stat-sub">{levelName}</div>
           </div>
           <div className="stat-card">
