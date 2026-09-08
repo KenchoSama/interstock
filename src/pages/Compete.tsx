@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { useCompetitions } from '../hooks/useCompetitions';
-import { usePartners } from '../hooks/usePartners';
 import { useTournamentLeaderboard } from '../hooks/useTournamentLeaderboard';
 
 function TournamentLeaderboardCard({ competitionId, competitionName, mySchoolId }: {
@@ -94,7 +93,6 @@ export default function Compete() {
   const { state } = useApp();
   const user = state.u[state.role];
   const { competitions, loading } = useCompetitions(user.supabaseId);
-  const { partners, loading: partnersLoading } = usePartners();
   const [openLeaderboardId, setOpenLeaderboardId] = useState<string | null>(null);
 
   const active = competitions.filter(c => c.status === 'active');
@@ -200,27 +198,6 @@ export default function Compete() {
               </>
             )}
 
-            {/* Partner Companies */}
-            <div className="section-title">Partner Companies Sponsoring</div>
-            {partnersLoading && (
-              <div style={{ fontSize: 13, color: 'var(--text3)' }}>Loading partners...</div>
-            )}
-            <div className="grid-3">
-              {partners.map(p => (
-                <div key={p.id} className="card">
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>{p.type}</div>
-                  {p.contact && (
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
-                      Contact: {p.contact}
-                    </div>
-                  )}
-                  <span className={`badge ${p.status === 'Active' ? 'badge-green' : 'badge-yellow'}`}>
-                    {p.status}
-                  </span>
-                </div>
-              ))}
-            </div>
           </>
         )}
       </div>
