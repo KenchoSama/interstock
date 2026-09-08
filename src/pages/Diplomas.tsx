@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../state/AppContext';
+import { useApp, isLocked } from '../state/AppContext';
 import { DIPLOMA_COURSES } from '../data/courses';
 
 const COURSE_META: Record<string, { icon: string; level: string; topics: string[]; color: string }> = {
@@ -69,6 +69,20 @@ export default function Diplomas() {
   }
 
   const answeredCount = Object.keys(examAnswers).length;
+
+  if (isLocked('diplomas', userXp)) {
+    return (
+      <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <div className="empty-state">
+          <div className="empty-state-icon">🔒</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Diplomas Locked</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+            Diplomas aren't available right now. Check back soon.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   function badgeStyle(isEarned: boolean, canTake: boolean) {
     if (isEarned)  return { background: 'rgba(249,199,79,0.15)', color: 'var(--yellow)',  border: '1px solid rgba(249,199,79,0.4)' };

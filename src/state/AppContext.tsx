@@ -617,6 +617,8 @@ export const FUTURES_UNLOCK_XP = 1200;
 export function isLocked(view: string, xp: number): boolean {
   if (view === 'options') return xp < OPTIONS_UNLOCK_XP;
   if (view === 'futures') return xp < FUTURES_UNLOCK_XP;
+  if (view === 'lessons') return true;
+  if (view === 'diplomas') return true;
   return false;
 }
 

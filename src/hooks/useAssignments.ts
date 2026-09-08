@@ -8,6 +8,7 @@ export interface AssignmentRow {
   due_date: string | null;
   created_by: string | null;
   created_at: string;
+  file_url: string | null;
   xp_reward: number;
   // joined from submissions
   submission_id: string | null;
@@ -27,7 +28,7 @@ export function useAssignments(userId?: string | null, schoolId?: string | null)
       // Fetch all assignments for the school
       const { data: assigns } = await supabase
         .from('assignments')
-        .select('id, title, description, due_date, created_by, created_at, xp_reward')
+        .select('id, title, description, due_date, created_by, created_at, xp_reward, file_url')
         .order('due_date', { ascending: true });
 
       if (!assigns) { setLoading(false); return; }
@@ -49,6 +50,7 @@ export function useAssignments(userId?: string | null, schoolId?: string | null)
           due_date: a.due_date,
           created_by: a.created_by,
           created_at: a.created_at,
+          file_url: a.file_url,
           xp_reward: a.xp_reward,
           submission_id: sub?.id ?? null,
           status: (sub?.status as 'pending' | 'submitted' | 'graded') ?? 'pending',

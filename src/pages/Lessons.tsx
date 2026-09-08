@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../state/AppContext';
+import { useApp, isLocked } from '../state/AppContext';
 import { useLessonProgress } from '../hooks/useLessonProgress';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -268,6 +268,20 @@ export default function Lessons() {
       (amount) => dispatch({ type: 'ADD_XP', amount })
     );
     setActiveId(null);
+  }
+
+  if (isLocked('lessons', studentXp)) {
+    return (
+      <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <div className="empty-state">
+          <div className="empty-state-icon">🔒</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Lessons Locked</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+            Lessons aren't available right now. Check back soon.
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loading) return (

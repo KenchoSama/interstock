@@ -12,6 +12,7 @@ interface Assignment {
   grade?: string;
   instr?: string;
   file?: string;
+  attachmentUrl?: string;
   src: 'student' | 'staff';
   sub?: string;
   by?: string;
@@ -118,6 +119,23 @@ function AssignmentCard({
         {a.sub && ` · Submitted: ${a.sub}`}
         {a.by && ` · From: ${a.by}`}
       </div>
+
+      {/* Attachment from the assignment itself, provided by admin/staff */}
+      {a.attachmentUrl && (
+        <a
+          href={a.attachmentUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600,
+            color: 'var(--blue)', textDecoration: 'none',
+            background: 'var(--blue-dim)', border: '1px solid var(--blue)', borderRadius: 6,
+            padding: 8, marginBottom: 10,
+          }}
+        >
+          📄 View Assignment Attachment
+        </a>
+      )}
 
       {/* Instructions box */}
       {a.instr && (
@@ -232,6 +250,7 @@ export default function Assignments() {
     grade: a.grade != null ? `${a.grade}%` : undefined,
     instr: a.description ?? undefined,
     file: undefined,
+    attachmentUrl: a.file_url ?? undefined,
     src: 'staff',
     sub: a.submitted_at
       ? new Date(a.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
