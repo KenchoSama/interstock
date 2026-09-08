@@ -212,9 +212,10 @@ export default function Assignments() {
 
   async function submitFile(assignmentId: string, _filename: string) {
     if (!user.supabaseId) return;
+    const xpReward = assignments.find(a => a.id === assignmentId)?.xp_reward ?? 0;
     await submitAssignment(assignmentId, user.supabaseId);
-    dispatch({ type: 'ADD_XP', amount: 15 });
-    await supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: 15 });
+    dispatch({ type: 'ADD_XP', amount: xpReward });
+    await supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: xpReward });
   }
 
   const pendingCount = assignments.filter(a => a.status === 'pending').length;
@@ -235,7 +236,7 @@ export default function Assignments() {
     sub: a.submitted_at
       ? new Date(a.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       : undefined,
-    xpReward: 15,
+    xpReward: a.xp_reward,
   }));
 
   return (

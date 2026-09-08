@@ -8,6 +8,7 @@ export interface AdminAssignmentRow {
   due_date: string | null;
   file_url: string | null;
   created_at: string;
+  xp_reward: number;
   submissionCount: number;
 }
 
@@ -26,7 +27,7 @@ export function useAdminAssignments() {
     const [assignsRes, subsRes, studentsRes] = await Promise.all([
       supabase
         .from('assignments')
-        .select('id, title, description, due_date, file_url, created_at')
+        .select('id, title, description, due_date, file_url, created_at, xp_reward')
         .order('created_at', { ascending: false }),
       supabase.from('submissions').select('assignment_id'),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student'),
@@ -64,6 +65,7 @@ export function useAdminAssignments() {
     dueDate: string;
     file: File | null;
     createdBy: string | null;
+    xpReward: number;
   }): Promise<{ error: string | null }> {
     const title = input.title.trim();
     if (!title) return { error: 'Assignment title is required.' };
@@ -85,6 +87,7 @@ export function useAdminAssignments() {
         due_date: input.dueDate || null,
         created_by: input.createdBy,
         school_id: null,
+        xp_reward: Math.max(0, input.xpReward),
       })
       .select('id')
       .single();
@@ -118,5 +121,12 @@ export function useAdminAssignments() {
     return { error: null };
   }
 
-  return { assignments, totalStudents, loading, error, createAssignment, deleteAssignment, refetch: fetchAssignments };
+  async function updateXpReward(id: string, xpReward: number): Promise<{ error: string | null }> {
+    const { error } = await supabase.from('assignments').update({ xp_reward: Math.max(0, xpReward) }).eq('id', id);
+    if (error) return { error: error.message };
+    await fetchAssignments();
+    return { error: null };
+  }
+
+  return { assignments, totalStudents, loading, error, createAssignment, deleteAssignment, updateXpReward, refetch: fetchAssignments };
 }

@@ -10,12 +10,13 @@ function formatDate(iso: string | null): string {
 export default function AdminAssignments() {
   const { state } = useApp();
   const user = state.u[state.role];
-  const { assignments, totalStudents, loading, error, createAssignment, deleteAssignment } = useAdminAssignments();
+  const { assignments, totalStudents, loading, error, createAssignment, deleteAssignment, updateXpReward } = useAdminAssignments();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [xpReward, setXpReward] = useState(15);
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -46,6 +47,7 @@ export default function AdminAssignments() {
       dueDate,
       file,
       createdBy: user.supabaseId,
+      xpReward,
     });
     setSubmitting(false);
     if (error) {
@@ -56,6 +58,7 @@ export default function AdminAssignments() {
     setTitle('');
     setDescription('');
     setDueDate('');
+    setXpReward(15);
     setFile(null);
   }
 
@@ -123,16 +126,30 @@ export default function AdminAssignments() {
                 />
               </div>
 
-              <div>
-                <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
-                  Due Date
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+                    Due Date
+                  </div>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={e => setDueDate(e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box', color: '#fff', colorScheme: 'dark' }}
+                  />
                 </div>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={e => setDueDate(e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box', color: '#fff', colorScheme: 'dark' }}
-                />
+                <div>
+                  <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+                    XP Reward
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    value={xpReward}
+                    onChange={e => setXpReward(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{ width: '100%', boxSizing: 'border-box', color: '#fff' }}
+                  />
+                </div>
               </div>
 
               <div>
@@ -251,11 +268,24 @@ export default function AdminAssignments() {
                     📄 View attachment
                   </a>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, marginTop: 4 }}>
                   <span style={{ color: '#fff' }}>Due: {formatDate(a.due_date)}</span>
                   <span style={{ fontFamily: 'monospace', color: '#00e676' }}>
                     {a.submissionCount}/{totalStudents}
                   </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 4, fontSize: 11, marginTop: 4 }}>
+                  <span style={{ color: '#fff' }}>XP Reward</span>
+                  <input
+                    type="number"
+                    min={0}
+                    defaultValue={a.xp_reward}
+                    onBlur={e => {
+                      const v = Math.max(0, parseInt(e.target.value) || 0);
+                      if (v !== a.xp_reward) updateXpReward(a.id, v);
+                    }}
+                    style={{ width: 60, fontSize: 11, padding: '2px 6px', color: '#fff' }}
+                  />
                 </div>
               </div>
             ))}

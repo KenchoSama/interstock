@@ -5,6 +5,7 @@ export interface StudentRow {
   id: string;
   name: string;
   school: string | null;
+  schoolId: string | null;
   grade: number | null;
   xp: number;
   level: number;
@@ -43,6 +44,7 @@ export function useAllStudents() {
       id: p.id,
       name: p.full_name ?? 'Unknown',
       school: p.schools?.name ?? null,
+      schoolId: p.school_id ?? null,
       grade: p.grade,
       xp: p.xp ?? 0,
       level: LEVEL_THRESHOLDS.filter(t => t <= (p.xp ?? 0)).length,
@@ -71,5 +73,12 @@ export function useAllStudents() {
     return { error: null };
   }
 
-  return { students, loading, error, deleteStudent, promoteToAdmin, refetch: fetchStudents };
+  async function updateStudentSchool(id: string, schoolId: string | null): Promise<{ error: string | null }> {
+    const { error } = await supabase.rpc('admin_update_student_school', { p_student_id: id, p_school_id: schoolId });
+    if (error) return { error: error.message };
+    await fetchStudents();
+    return { error: null };
+  }
+
+  return { students, loading, error, deleteStudent, promoteToAdmin, updateStudentSchool, refetch: fetchStudents };
 }

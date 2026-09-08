@@ -30,7 +30,7 @@ function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
 
 export default function AdminDash() {
   const { schools, totalStudents, totalCompetitions, activeCompetitions, loading: overviewLoading, error: overviewError, addSchool, deleteSchool } = useAdminOverview();
-  const { students, loading: studentsLoading, error: studentsError, deleteStudent, promoteToAdmin } = useAllStudents();
+  const { students, loading: studentsLoading, error: studentsError, deleteStudent, promoteToAdmin, updateStudentSchool } = useAllStudents();
   const { feedback, loading: feedbackLoading, error: feedbackError } = useAdminFeedback();
   const { entries: schoolRanks } = useSchoolLeaderboard();
   const { code: signupCode, loading: codeLoading, updateCode } = useSignupAccessCode();
@@ -444,7 +444,18 @@ export default function AdminDash() {
                 {students.map(s => (
                   <tr key={s.id}>
                     <td style={{ fontWeight: 600 }}>{s.name}</td>
-                    <td style={{ color: 'var(--text3)', fontSize: 11 }}>{s.school ?? '—'}</td>
+                    <td>
+                      <select
+                        value={s.schoolId ?? ''}
+                        onChange={e => updateStudentSchool(s.id, e.target.value || null)}
+                        style={{ fontSize: 11, padding: '3px 6px', color: s.schoolId ? 'var(--text)' : 'var(--text3)' }}
+                      >
+                        <option value="">— No school —</option>
+                        {schools.map(sc => (
+                          <option key={sc.school_id} value={sc.school_id}>{sc.school_name}</option>
+                        ))}
+                      </select>
+                    </td>
                     <td style={{ fontFamily: 'monospace' }}>{s.grade ? `${s.grade}th` : '—'}</td>
                     <td>
                       <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'var(--blue-dim)', color: 'var(--blue)' }}>

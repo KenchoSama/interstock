@@ -103,7 +103,7 @@ export function useAdminCompetitions() {
   }
 
   async function deleteCompetition(id: string): Promise<{ error: string | null }> {
-    const { error } = await supabase.from('competitions').delete().eq('id', id);
+    const { error } = await supabase.rpc('delete_competition', { p_competition_id: id });
     if (error) return { error: error.message };
     await fetchCompetitions();
     return { error: null };
