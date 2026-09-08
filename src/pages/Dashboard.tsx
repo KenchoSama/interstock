@@ -8,7 +8,6 @@ import MonthCalendar from '../components/MonthCalendar';
 import PortfolioSwitcher from '../components/PortfolioSwitcher';
 import { useAvailableMentors } from '../hooks/useAvailableMentors';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
-import { DIPLOMA_COURSES } from '../data/courses';
 import { lineChart, alignDailySnapshots, lineChartWithPlaceholder, comparisonChart } from '../utils/charts';
 import { usePortfolioHistory } from '../hooks/usePortfolioHistory';
 import { useStockQuotes } from '../hooks/useStockQuotes';
@@ -95,9 +94,6 @@ export default function Dashboard() {
     ? ((user.xp - prevThreshold) / (nextXP - prevThreshold)) * 100
     : 100;
 
-  const diplomasEarned = user.diplomas.filter(d => d.earned).length;
-  const diplomasTotal = DIPLOMA_COURSES.length;
-  const diplomaPct = Math.round((diplomasEarned / diplomasTotal) * 100);
 
   const isDailyTf = chartTf === '1M' || chartTf === '6M' || chartTf === 'YTD' || chartTf === '1Y';
 
@@ -187,7 +183,7 @@ export default function Dashboard() {
   }, [displayPoints, totalValue, returnAmt, returnPct]);
 
   const levelNum = LEVEL_THRESHOLDS.filter(t => t <= user.xp).length;
-  const { top5, myEntry } = useLeaderboard();
+  const { top5, myEntry } = useLeaderboard(user.supabaseId ?? undefined);
 
   const etfReturn = state.etf
     ? parseFloat((state.etf.holdings.reduce((sum, h) => {
@@ -235,9 +231,13 @@ export default function Dashboard() {
             <div className="stat-sub">{levelName}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Diploma Progress</div>
-            <div className="stat-value">{diplomasEarned}/{diplomasTotal}</div>
-            <div className="stat-sub up">{diplomaPct}% complete</div>
+            <div className="stat-label">Global Rank</div>
+            <div className="stat-value">{myEntry ? `#${myEntry.global_rank.toLocaleString()}` : '—'}</div>
+            <div className={`stat-sub ${myEntry ? (myEntry.return_pct >= 0 ? 'up' : 'dn') : ''}`}>
+              {myEntry
+                ? `${myEntry.return_pct >= 0 ? '+' : ''}${myEntry.return_pct.toFixed(2)}% return`
+                : 'Unranked yet'}
+            </div>
           </div>
         </div>
 
