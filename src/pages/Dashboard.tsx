@@ -234,11 +234,7 @@ export default function Dashboard() {
           <div className="stat-card">
             <div className="stat-label">Global Rank</div>
             <div className="stat-value">{myEntry ? `#${myEntry.global_rank.toLocaleString()}` : '—'}</div>
-            <div className={`stat-sub ${myEntry ? (myEntry.return_pct >= 0 ? 'up' : 'dn') : ''}`}>
-              {myEntry
-                ? `${myEntry.return_pct >= 0 ? '+' : ''}${myEntry.return_pct.toFixed(2)}% return`
-                : 'Unranked yet'}
-            </div>
+            {!myEntry && <div className="stat-sub">Unranked yet</div>}
           </div>
         </div>
 
