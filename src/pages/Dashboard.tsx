@@ -230,7 +230,6 @@ export default function Dashboard() {
             <div className="stat-value" style={{ color: 'var(--gr)' }}>
               {user.loginStreak} day{user.loginStreak === 1 ? '' : 's'} 🔥
             </div>
-            <div className="stat-sub">{levelName}</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Global Rank</div>
