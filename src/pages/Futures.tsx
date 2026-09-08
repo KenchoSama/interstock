@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useFuturesQuotes } from '../hooks/useFuturesQuotes';
 import { useFuturesLookup } from '../hooks/useFuturesLookup';
-import { useApp, isLocked, FUTURES_UNLOCK_XP } from '../state/AppContext';
+import { useApp, isLocked } from '../state/AppContext';
 import { useFuturesPositions, type FuturesPosition } from '../hooks/useFuturesPositions';
 import PortfolioSwitcher from '../components/PortfolioSwitcher';
 import { supabase } from '../lib/supabase';
@@ -296,9 +296,9 @@ export default function Futures() {
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="empty-state">
           <div className="empty-state-icon">🔒</div>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Futures License Required</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Futures Trading Locked</div>
           <div style={{ fontSize: 13, color: 'var(--text3)' }}>
-            Reach {FUTURES_UNLOCK_XP.toLocaleString()} XP to unlock futures trading.
+            Futures trading isn't available right now. Check back soon.
           </div>
         </div>
       </div>

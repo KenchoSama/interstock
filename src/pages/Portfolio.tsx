@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { useApp } from '../state/AppContext';
+import { useApp, isLocked } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
 import { lineChart, alignDailySnapshots, lineChartWithPlaceholder } from '../utils/charts';
 import { persistTrade } from '../lib/persistTrade';
@@ -219,6 +219,20 @@ export default function Portfolio() {
   }
 
   const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  if (isLocked('portfolio', user.xp)) {
+    return (
+      <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <div className="empty-state">
+          <div className="empty-state-icon">🔒</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Trading Locked</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+            Trading isn't available right now. Check back soon.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-body">

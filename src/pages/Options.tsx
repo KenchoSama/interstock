@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { STOCKS } from '../data/stocks';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import { useStockLookup } from '../hooks/useStockLookup';
-import { useApp, isLocked, OPTIONS_UNLOCK_XP } from '../state/AppContext';
+import { useApp, isLocked } from '../state/AppContext';
 import { useOptionPositions, type OptionPosition } from '../hooks/useOptionPositions';
 import { useOptionOrders } from '../hooks/useOptionOrders';
 import PortfolioSwitcher from '../components/PortfolioSwitcher';
@@ -636,9 +636,9 @@ export default function Options() {
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="empty-state">
           <div className="empty-state-icon">🔒</div>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Options License Required</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Options Trading Locked</div>
           <div style={{ fontSize: 13, color: 'var(--text3)' }}>
-            Reach {OPTIONS_UNLOCK_XP.toLocaleString()} XP to unlock options trading.
+            Options trading isn't available right now. Check back soon.
           </div>
         </div>
       </div>

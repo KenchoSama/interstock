@@ -611,15 +611,12 @@ function defaultView(role: Role): string {
   return defaults[role];
 }
 
-export const OPTIONS_UNLOCK_XP = 500;
-export const FUTURES_UNLOCK_XP = 1200;
+// Views fully locked for students right now — no XP threshold unlocks these,
+// they're just off.
+const LOCKED_VIEWS = ['lessons', 'diplomas', 'portfolio', 'options', 'futures', 'order-history', 'class-fund'];
 
-export function isLocked(view: string, xp: number): boolean {
-  if (view === 'options') return xp < OPTIONS_UNLOCK_XP;
-  if (view === 'futures') return xp < FUTURES_UNLOCK_XP;
-  if (view === 'lessons') return true;
-  if (view === 'diplomas') return true;
-  return false;
+export function isLocked(view: string, _xp: number): boolean {
+  return LOCKED_VIEWS.includes(view);
 }
 
 export function getLevelName(xp: number): string {

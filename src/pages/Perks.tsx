@@ -44,7 +44,7 @@ export default function Perks() {
           {/* Body */}
           <div style={{ padding: 16 }}>
             <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-              20% Off for InterStock Students
+              10% Off for InterStock Students
             </div>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16, lineHeight: 1.6 }}>
               OAKBERRY Açaí is a global juice bar franchise known for its açaí bowls, smoothies, and juices
@@ -72,7 +72,7 @@ export default function Perks() {
                   Your Discount
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: '#00e676', fontFamily: 'monospace' }}>
-                  20% OFF
+                  10% OFF
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -80,7 +80,7 @@ export default function Perks() {
                   Code
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', fontFamily: 'monospace' }}>
-                  INTERSTOCK20
+                  Coming Soon
                 </div>
               </div>
             </div>
@@ -99,7 +99,7 @@ export default function Perks() {
               <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
                 1. Visit any participating OAKBERRY location.<br />
                 2. Show your InterStock student profile or ID card at checkout.<br />
-                3. Mention code <strong style={{ color: 'var(--text)' }}>INTERSTOCK20</strong> for 20% off your order.
+                3. Mention code <strong style={{ color: 'var(--text)' }}>Coming Soon</strong> for 10% off your order.
               </div>
             </div>
           </div>

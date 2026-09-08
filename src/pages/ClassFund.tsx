@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../state/AppContext';
+import { useApp, isLocked } from '../state/AppContext';
 import { useClassFund } from '../hooks/useClassFund';
 import { useStockQuotes } from '../hooks/useStockQuotes';
 import { useStockLookup } from '../hooks/useStockLookup';
@@ -56,6 +56,20 @@ export default function ClassFund() {
     }
     setTradeMsg({ text: `${side === 'buy' ? 'Bought' : 'Sold'} ${shares} ${sym} @ $${livePrice.toFixed(2)}`, ok: true });
     setShares(1);
+  }
+
+  if (isLocked('class-fund', user.xp)) {
+    return (
+      <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <div className="empty-state">
+          <div className="empty-state-icon">🔒</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Trading Locked</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+            Trading isn't available right now. Check back soon.
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
