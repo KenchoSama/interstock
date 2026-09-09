@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp, isLocked } from '../../state/AppContext';
 import { useUnreadCount } from '../../hooks/useUnreadCount';
+import { useUnreadAnnouncementCount } from '../../hooks/useUnreadAnnouncementCount';
 import type { Role } from '../../types';
 
 interface NavItem {
@@ -31,7 +32,8 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'diplomas', label: 'Diplomas' },
     { id: 'notes', label: 'Notepad' },
     // { id: 'etf', label: 'Build an ETF' },
-    { id: 'messages', label: 'Messages', section: 'Social' },
+    { id: 'announcements', label: 'Announcements', section: 'Social' },
+    { id: 'messages', label: 'Messages' },
     { id: 'leaderboard', label: 'Leaderboard' },
     { id: 'school-leaderboard', label: 'School Rankings' },
     { id: 'student-directory', label: 'Student Directory' },
@@ -61,6 +63,7 @@ const NAV: Record<Role, NavItem[]> = {
   ],
   admin: [
     { id: 'admin-dash', label: 'Dashboard', section: 'Admin' },
+    { id: 'admin-announcements', label: 'Announcements' },
     { id: 'admin-assignments', label: 'Assignments' },
     { id: 'school-leaderboard', label: 'School Rankings' },
     { id: 'mentor-schedule', label: 'Mentor Schedule' },
@@ -106,6 +109,7 @@ export default function Sidebar() {
   const user = state.u[state.role];
   const userXp = user.xp;
   const { count: unreadCount } = useUnreadCount(user.supabaseId);
+  const { count: unreadAnnouncementCount } = useUnreadAnnouncementCount(user.supabaseId);
 
   const groups = useMemo(() => groupItems(items), [items]);
   const activeSection = groups.find(g => g.items.some(i => i.id === state.view))?.section;
@@ -147,6 +151,10 @@ export default function Sidebar() {
               <div className="sidebar-group-items">
                 {group.items.map(item => {
                   const locked = state.role === 'student' && isLocked(item.id, userXp);
+                  const badgeCount =
+                    item.id === 'messages' ? unreadCount :
+                    item.id === 'announcements' ? unreadAnnouncementCount :
+                    0;
 
                   return (
                     <button
@@ -159,7 +167,7 @@ export default function Sidebar() {
                     >
                       <span>{item.label}</span>
                       {locked && <span className="nav-lock">🔒</span>}
-                      {item.id === 'messages' && unreadCount > 0 && (
+                      {badgeCount > 0 && (
                         <span style={{
                           marginLeft: 'auto', minWidth: 18, height: 18,
                           borderRadius: 9, background: 'var(--red)',
@@ -167,7 +175,7 @@ export default function Sidebar() {
                           display: 'inline-flex', alignItems: 'center',
                           justifyContent: 'center', padding: '0 4px',
                         }}>
-                          {unreadCount > 9 ? '9+' : unreadCount}
+                          {badgeCount > 9 ? '9+' : badgeCount}
                         </span>
                       )}
                     </button>

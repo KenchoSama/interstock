@@ -43,6 +43,8 @@ import SchoolLeaderboard from './SchoolLeaderboard';
 import Notes from './Notes';
 import OrderHistory from './OrderHistory';
 import ClassFund from './ClassFund';
+import Announcements from './Announcements';
+import AdminAnnouncements from './AdminAnnouncements';
 
 export default function PageRouter() {
   const { state } = useApp();
@@ -94,6 +96,8 @@ export default function PageRouter() {
     'notes': <Notes />,
     'order-history': <OrderHistory />,
     'class-fund': <ClassFund />,
+    'announcements': <Announcements />,
+    'admin-announcements': <AdminAnnouncements />,
   };
 
   const page = pages[view];
