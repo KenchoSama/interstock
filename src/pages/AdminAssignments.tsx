@@ -16,9 +16,24 @@ function RosterModal({ assignmentId, assignmentTitle, onClose }: {
   assignmentTitle: string;
   onClose: () => void;
 }) {
-  const { roster, loading, error } = useAdminAssignmentRoster(assignmentId);
+  const { roster, loading, error, resetSubmission } = useAdminAssignmentRoster(assignmentId);
   const [filter, setFilter] = useState<RosterFilter>('all');
   const [search, setSearch] = useState('');
+  const [confirmResetId, setConfirmResetId] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  async function handleConfirmReset(userId: string) {
+    setResetting(true);
+    setResetError(null);
+    const { error } = await resetSubmission(userId);
+    setResetting(false);
+    if (error) {
+      setResetError(error);
+      return;
+    }
+    setConfirmResetId(null);
+  }
 
   const submittedCount = roster.filter(r => r.submitted).length;
 
@@ -103,33 +118,74 @@ function RosterModal({ assignmentId, assignmentTitle, onClose }: {
         {!loading && !error && visible.length > 0 && (
           <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {visible.map(r => (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--surface)', borderRadius: 8 }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{r.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                    {r.schoolName ?? 'No school'}
-                    {r.submitted && r.submittedAt && ` · Submitted ${formatDate(r.submittedAt)}`}
+              <div key={r.id} style={{ padding: '8px 10px', background: 'var(--surface)', borderRadius: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                      {r.schoolName ?? 'No school'}
+                      {r.submitted && r.submittedAt && ` · Submitted ${formatDate(r.submittedAt)}`}
+                      {r.submitted && !r.fileUrl && ' · No file attached'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    {r.fileUrl && (
+                      <a
+                        href={r.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 11, color: 'var(--blue)', textDecoration: 'none' }}
+                      >
+                        View
+                      </a>
+                    )}
+                    {r.submitted ? (
+                      <span className={`badge ${r.status === 'graded' ? 'badge-blue' : r.fileUrl ? 'badge-green' : 'badge-red'}`}>
+                        {r.status === 'graded' ? `Graded${r.grade != null ? ` ${r.grade}%` : ''}` : r.fileUrl ? 'Submitted' : 'No File'}
+                      </span>
+                    ) : (
+                      <span className="badge badge-red">Not Submitted</span>
+                    )}
+                    {r.submitted && confirmResetId !== r.id && (
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 10, padding: '2px 8px' }}
+                        onClick={() => { setConfirmResetId(r.id); setResetError(null); }}
+                      >
+                        Resubmit
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                  {r.fileUrl && (
-                    <a
-                      href={r.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontSize: 11, color: 'var(--blue)', textDecoration: 'none' }}
-                    >
-                      View
-                    </a>
-                  )}
-                  {r.submitted ? (
-                    <span className={`badge ${r.status === 'graded' ? 'badge-blue' : 'badge-green'}`}>
-                      {r.status === 'graded' ? `Graded${r.grade != null ? ` ${r.grade}%` : ''}` : 'Submitted'}
-                    </span>
-                  ) : (
-                    <span className="badge badge-red">Not Submitted</span>
-                  )}
-                </div>
+
+                {confirmResetId === r.id && (
+                  <div style={{ marginTop: 8, padding: '8px 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6 }}>
+                    <div style={{ fontSize: 11, color: '#fff', marginBottom: 8 }}>
+                      Clear this submission so {r.name} can turn it in again?
+                    </div>
+                    {resetError && (
+                      <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: 8 }}>{resetError}</div>
+                    )}
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 10 }}
+                        disabled={resetting}
+                        onClick={() => setConfirmResetId(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="btn btn-sm"
+                        style={{ fontSize: 10, background: 'var(--red)', color: '#fff', opacity: resetting ? 0.5 : 1 }}
+                        disabled={resetting}
+                        onClick={() => handleConfirmReset(r.id)}
+                      >
+                        {resetting ? 'Clearing...' : 'Confirm Reset'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -79,20 +79,10 @@ export function useAssignments(userId?: string | null, schoolId?: string | null)
       return { error: 'File must be smaller than 15MB.' };
     }
 
-    const { data, error } = await supabase
-      .from('submissions')
-      .insert({
-        assignment_id: assignmentId,
-        user_id: userId,
-        status: 'submitted',
-      })
-      .select()
-      .single();
-
-    if (error || !data) {
-      return { error: error?.message ?? 'Failed to submit assignment.' };
-    }
-
+    // Upload before inserting, so the row can be created in one shot with
+    // file_url already set. Submissions have no UPDATE policy (a student
+    // shouldn't be able to edit a row once it's gradeable), so a separate
+    // insert-then-update would silently no-op under RLS instead of erroring.
     let fileUrl: string | null = null;
     if (file) {
       const path = `${assignmentId}/${userId}/${file.name}`;
@@ -101,12 +91,26 @@ export function useAssignments(userId?: string | null, schoolId?: string | null)
         .upload(path, file, { upsert: true });
 
       if (uploadError) {
-        return { error: `Submitted, but the file failed to upload: ${uploadError.message}` };
+        return { error: `Failed to upload file: ${uploadError.message}` };
       }
 
       const { data: publicUrl } = supabase.storage.from('submissions').getPublicUrl(path);
       fileUrl = publicUrl.publicUrl;
-      await supabase.from('submissions').update({ file_url: fileUrl }).eq('id', data.id);
+    }
+
+    const { data, error } = await supabase
+      .from('submissions')
+      .insert({
+        assignment_id: assignmentId,
+        user_id: userId,
+        status: 'submitted',
+        file_url: fileUrl,
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      return { error: error?.message ?? 'Failed to submit assignment.' };
     }
 
     setAssignments(prev => prev.map(a =>

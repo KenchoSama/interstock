@@ -64,5 +64,19 @@ export function useAdminAssignmentRoster(assignmentId: string | null) {
     fetchRoster();
   }, [fetchRoster]);
 
-  return { roster, loading, error, refetch: fetchRoster };
+  async function resetSubmission(userId: string): Promise<{ error: string | null }> {
+    if (!assignmentId) return { error: 'No assignment selected.' };
+
+    const { error } = await supabase
+      .from('submissions')
+      .delete()
+      .eq('assignment_id', assignmentId)
+      .eq('user_id', userId);
+
+    if (error) return { error: error.message };
+    await fetchRoster();
+    return { error: null };
+  }
+
+  return { roster, loading, error, resetSubmission, refetch: fetchRoster };
 }
