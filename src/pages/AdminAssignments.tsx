@@ -1,10 +1,146 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { useAdminAssignments } from '../hooks/useAdminAssignments';
+import { useAdminAssignmentRoster } from '../hooks/useAdminAssignmentRoster';
+import { downloadCsv, toCsv } from '../lib/csv';
 
 function formatDate(iso: string | null): string {
   if (!iso) return 'No due date';
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
+type RosterFilter = 'all' | 'submitted' | 'missing';
+
+function RosterModal({ assignmentId, assignmentTitle, onClose }: {
+  assignmentId: string;
+  assignmentTitle: string;
+  onClose: () => void;
+}) {
+  const { roster, loading, error } = useAdminAssignmentRoster(assignmentId);
+  const [filter, setFilter] = useState<RosterFilter>('all');
+  const [search, setSearch] = useState('');
+
+  const submittedCount = roster.filter(r => r.submitted).length;
+
+  const visible = useMemo(() => {
+    return roster.filter(r => {
+      if (filter === 'submitted' && !r.submitted) return false;
+      if (filter === 'missing' && r.submitted) return false;
+      if (search.trim() && !r.name.toLowerCase().includes(search.trim().toLowerCase())) return false;
+      return true;
+    });
+  }, [roster, filter, search]);
+
+  function handleExport() {
+    const csv = toCsv(
+      ['Student', 'School', 'Status', 'Grade', 'Submitted At', 'Attachment URL'],
+      visible.map(r => [
+        r.name,
+        r.schoolName ?? '',
+        r.submitted ? (r.status === 'graded' ? 'Graded' : 'Submitted') : 'Not Submitted',
+        r.grade ?? '',
+        r.submittedAt ? new Date(r.submittedAt).toISOString() : '',
+        r.fileUrl ?? '',
+      ])
+    );
+    const safeTitle = assignmentTitle.trim().replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'assignment';
+    downloadCsv(`${safeTitle}_roster.csv`, csv);
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}
+    >
+      <div onClick={e => e.stopPropagation()} className="card" style={{ maxWidth: 520, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Roster</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>{assignmentTitle}</div>
+          </div>
+          {!loading && !error && roster.length > 0 && (
+            <button className="btn btn-secondary btn-sm" style={{ fontSize: 11, flexShrink: 0 }} onClick={handleExport}>
+              ⬇ Export CSV
+            </button>
+          )}
+        </div>
+
+        {!loading && !error && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            {(['all', 'submitted', 'missing'] as RosterFilter[]).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                style={{
+                  padding: '6px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: 'pointer',
+                  border: `1px solid ${filter === f ? 'var(--gr)' : 'var(--border)'}`,
+                  background: filter === f ? 'var(--gr-dim)' : 'var(--surface2)',
+                  color: filter === f ? 'var(--gr)' : '#fff',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {f === 'missing' ? 'Not Submitted' : f} {f === 'submitted' ? `(${submittedCount})` : f === 'missing' ? `(${roster.length - submittedCount})` : `(${roster.length})`}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!loading && !error && (
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search students..."
+            style={{ width: '100%', boxSizing: 'border-box', marginBottom: 12, color: '#fff' }}
+          />
+        )}
+
+        {loading && <div style={{ textAlign: 'center', padding: 24, color: 'var(--text3)', fontSize: 13 }}>Loading roster...</div>}
+        {!loading && error && <div style={{ textAlign: 'center', padding: 24, color: 'var(--red)', fontSize: 13 }}>Couldn't load roster. {error}</div>}
+        {!loading && !error && visible.length === 0 && (
+          <div style={{ textAlign: 'center', padding: 24, color: 'var(--text3)', fontSize: 13 }}>No students match.</div>
+        )}
+
+        {!loading && !error && visible.length > 0 && (
+          <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {visible.map(r => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--surface)', borderRadius: 8 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{r.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                    {r.schoolName ?? 'No school'}
+                    {r.submitted && r.submittedAt && ` · Submitted ${formatDate(r.submittedAt)}`}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  {r.fileUrl && (
+                    <a
+                      href={r.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 11, color: 'var(--blue)', textDecoration: 'none' }}
+                    >
+                      View
+                    </a>
+                  )}
+                  {r.submitted ? (
+                    <span className={`badge ${r.status === 'graded' ? 'badge-blue' : 'badge-green'}`}>
+                      {r.status === 'graded' ? `Graded${r.grade != null ? ` ${r.grade}%` : ''}` : 'Submitted'}
+                    </span>
+                  ) : (
+                    <span className="badge badge-red">Not Submitted</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button className="btn btn-secondary" style={{ marginTop: 16 }} onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function AdminAssignments() {
@@ -27,6 +163,8 @@ export default function AdminAssignments() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [rosterTarget, setRosterTarget] = useState<{ id: string; title: string } | null>(null);
 
   function pickFile(f: File | undefined | null) {
     if (!f) return;
@@ -270,9 +408,16 @@ export default function AdminAssignments() {
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, marginTop: 4 }}>
                   <span style={{ color: '#fff' }}>Due: {formatDate(a.due_date)}</span>
-                  <span style={{ fontFamily: 'monospace', color: '#00e676' }}>
+                  <button
+                    onClick={() => setRosterTarget({ id: a.id, title: a.title })}
+                    style={{
+                      fontFamily: 'monospace', color: '#00e676', background: 'none', border: 'none',
+                      cursor: 'pointer', padding: 0, textDecoration: 'underline',
+                    }}
+                    title="View roster"
+                  >
                     {a.submissionCount}/{totalStudents}
-                  </span>
+                  </button>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 4, fontSize: 11, marginTop: 4 }}>
                   <span style={{ color: '#fff' }}>XP Reward</span>
@@ -293,6 +438,15 @@ export default function AdminAssignments() {
 
         </div>
       </div>
+
+      {/* Roster modal */}
+      {rosterTarget && (
+        <RosterModal
+          assignmentId={rosterTarget.id}
+          assignmentTitle={rosterTarget.title}
+          onClose={() => setRosterTarget(null)}
+        />
+      )}
 
       {/* Success modal */}
       {successCount !== null && (

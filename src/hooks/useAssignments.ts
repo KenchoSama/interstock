@@ -15,7 +15,10 @@ export interface AssignmentRow {
   status: 'pending' | 'submitted' | 'graded';
   grade: number | null;
   submitted_at: string | null;
+  submission_file_url: string | null;
 }
+
+const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 export function useAssignments(userId?: string | null, schoolId?: string | null) {
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
@@ -36,7 +39,7 @@ export function useAssignments(userId?: string | null, schoolId?: string | null)
       // Fetch student's submissions
       const { data: subs } = await supabase
         .from('submissions')
-        .select('id, assignment_id, status, grade, submitted_at')
+        .select('id, assignment_id, status, grade, submitted_at, file_url')
         .eq('user_id', userId);
 
       const subMap = new Map((subs ?? []).map(s => [s.assignment_id, s]));
@@ -56,6 +59,7 @@ export function useAssignments(userId?: string | null, schoolId?: string | null)
           status: (sub?.status as 'pending' | 'submitted' | 'graded') ?? 'pending',
           grade: sub?.grade ?? null,
           submitted_at: sub?.submitted_at ?? null,
+          submission_file_url: sub?.file_url ?? null,
         };
       });
 
@@ -66,8 +70,16 @@ export function useAssignments(userId?: string | null, schoolId?: string | null)
     fetch();
   }, [userId, schoolId]);
 
-  const submitAssignment = useCallback(async (assignmentId: string, userId: string) => {
-    const { data } = await supabase
+  const submitAssignment = useCallback(async (
+    assignmentId: string,
+    userId: string,
+    file: File | null
+  ): Promise<{ error: string | null }> => {
+    if (file && file.size > MAX_FILE_BYTES) {
+      return { error: 'File must be smaller than 15MB.' };
+    }
+
+    const { data, error } = await supabase
       .from('submissions')
       .insert({
         assignment_id: assignmentId,
@@ -77,13 +89,33 @@ export function useAssignments(userId?: string | null, schoolId?: string | null)
       .select()
       .single();
 
-    if (data) {
-      setAssignments(prev => prev.map(a =>
-        a.id === assignmentId
-          ? { ...a, submission_id: data.id, status: 'submitted', submitted_at: data.submitted_at }
-          : a
-      ));
+    if (error || !data) {
+      return { error: error?.message ?? 'Failed to submit assignment.' };
     }
+
+    let fileUrl: string | null = null;
+    if (file) {
+      const path = `${assignmentId}/${userId}/${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('submissions')
+        .upload(path, file, { upsert: true });
+
+      if (uploadError) {
+        return { error: `Submitted, but the file failed to upload: ${uploadError.message}` };
+      }
+
+      const { data: publicUrl } = supabase.storage.from('submissions').getPublicUrl(path);
+      fileUrl = publicUrl.publicUrl;
+      await supabase.from('submissions').update({ file_url: fileUrl }).eq('id', data.id);
+    }
+
+    setAssignments(prev => prev.map(a =>
+      a.id === assignmentId
+        ? { ...a, submission_id: data.id, status: 'submitted', submitted_at: data.submitted_at, submission_file_url: fileUrl }
+        : a
+    ));
+
+    return { error: null };
   }, []);
 
   return { assignments, loading, submitAssignment };

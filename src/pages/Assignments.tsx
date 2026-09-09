@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { useAssignments } from '../hooks/useAssignments';
 import { supabase } from '../lib/supabase';
@@ -12,6 +12,7 @@ interface Assignment {
   grade?: string;
   instr?: string;
   file?: string;
+  fileUrl?: string;
   attachmentUrl?: string;
   src: 'student' | 'staff';
   sub?: string;
@@ -29,9 +30,13 @@ const ACCEPTED_FORMATS = [
 function AssignmentCard({
   assignment: a,
   onFileSubmit,
+  submitting,
+  submitError,
 }: {
   assignment: Assignment;
-  onFileSubmit: (id: string, filename: string) => void;
+  onFileSubmit: (id: string, file: File) => void;
+  submitting: boolean;
+  submitError?: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -158,17 +163,19 @@ function AssignmentCard({
       {/* Upload zone or file display */}
       {a.status === 'pending' ? (
         <div
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => !submitting && fileInputRef.current?.click()}
           style={{
             border: '1.5px dashed var(--border2)',
             borderRadius: 8,
             padding: '16px 12px',
             textAlign: 'center',
-            cursor: 'pointer',
+            cursor: submitting ? 'default' : 'pointer',
+            opacity: submitting ? 0.6 : 1,
             transition: 'var(--transition)',
             background: 'var(--surface2)',
           }}
           onMouseEnter={e => {
+            if (submitting) return;
             (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gr)';
             (e.currentTarget as HTMLDivElement).style.background = 'var(--gr-dim)';
           }}
@@ -179,17 +186,21 @@ function AssignmentCard({
         >
           <div style={{ fontSize: 20, marginBottom: 6 }}>📁</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
-            Drop file or click to upload
+            {submitting ? 'Uploading...' : 'Drop file or click to upload'}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>PDF, DOCX, PPTX, XLSX</div>
+          {submitError && (
+            <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 6 }}>{submitError}</div>
+          )}
           <input
             ref={fileInputRef}
             type="file"
             style={{ display: 'none' }}
             accept=".pdf,.docx,.pptx,.xlsx"
+            disabled={submitting}
             onChange={e => {
               const f = e.target.files?.[0];
-              if (f) onFileSubmit(a.id, f.name);
+              if (f) onFileSubmit(a.id, f);
             }}
           />
         </div>
@@ -209,7 +220,18 @@ function AssignmentCard({
             {(a.file ?? '').endsWith('.pdf') ? '📄' : '📝'}
           </span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{a.file}</div>
+            {a.fileUrl ? (
+              <a
+                href={a.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 12, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none' }}
+              >
+                {a.file ?? 'View submission'}
+              </a>
+            ) : (
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{a.file ?? 'Submitted'}</div>
+            )}
             <div style={{ fontSize: 11, color: 'var(--text3)' }}>
               {a.status === 'graded' ? 'Graded ✓' : 'Awaiting review'}
             </div>
@@ -220,6 +242,14 @@ function AssignmentCard({
   );
 }
 
+function filenameFromUrl(url: string): string {
+  try {
+    return decodeURIComponent(url.split('/').pop() ?? url);
+  } catch {
+    return url;
+  }
+}
+
 export default function Assignments() {
   const { state, dispatch } = useApp();
   const user = state.u[state.role];
@@ -227,11 +257,23 @@ export default function Assignments() {
     user.supabaseId,
     user.school_id ?? null
   );
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [submitErrors, setSubmitErrors] = useState<Record<string, string>>({});
 
-  async function submitFile(assignmentId: string, _filename: string) {
+  async function submitFile(assignmentId: string, file: File) {
     if (!user.supabaseId) return;
+    setSubmittingId(assignmentId);
+    setSubmitErrors(prev => ({ ...prev, [assignmentId]: '' }));
+
     const xpReward = assignments.find(a => a.id === assignmentId)?.xp_reward ?? 0;
-    await submitAssignment(assignmentId, user.supabaseId);
+    const { error } = await submitAssignment(assignmentId, user.supabaseId, file);
+    setSubmittingId(null);
+
+    if (error) {
+      setSubmitErrors(prev => ({ ...prev, [assignmentId]: error }));
+      return;
+    }
+
     dispatch({ type: 'ADD_XP', amount: xpReward });
     await supabase.rpc('increment_xp', { user_id: user.supabaseId, amount: xpReward });
   }
@@ -249,7 +291,8 @@ export default function Assignments() {
     status: a.status,
     grade: a.grade != null ? `${a.grade}%` : undefined,
     instr: a.description ?? undefined,
-    file: undefined,
+    file: a.submission_file_url ? filenameFromUrl(a.submission_file_url) : undefined,
+    fileUrl: a.submission_file_url ?? undefined,
     attachmentUrl: a.file_url ?? undefined,
     src: 'staff',
     sub: a.submitted_at
@@ -297,7 +340,13 @@ export default function Assignments() {
             )}
 
             {!loading && assigns.map(a => (
-              <AssignmentCard key={a.id} assignment={a} onFileSubmit={submitFile} />
+              <AssignmentCard
+                key={a.id}
+                assignment={a}
+                onFileSubmit={submitFile}
+                submitting={submittingId === a.id}
+                submitError={submitErrors[a.id] || undefined}
+              />
             ))}
           </div>
 
