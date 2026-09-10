@@ -9,28 +9,50 @@ export interface AdminAssignmentRow {
   file_url: string | null;
   created_at: string;
   xp_reward: number;
+  schoolId: string | null;
+  courseLevel: number | null;
+  targetStudentCount: number;
   submissionCount: number;
+}
+
+export interface SchoolOption {
+  id: string;
+  name: string;
+}
+
+interface StudentForTargeting {
+  school_id: string | null;
+  course_level: number | null;
 }
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 export function useAdminAssignments() {
   const [assignments, setAssignments] = useState<AdminAssignmentRow[]>([]);
-  const [totalStudents, setTotalStudents] = useState(0);
+  const [schools, setSchools] = useState<SchoolOption[]>([]);
+  const [students, setStudents] = useState<StudentForTargeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const countTargeted = useCallback((schoolId: string | null, courseLevel: number | null) => {
+    return students.filter(s =>
+      (schoolId === null || s.school_id === schoolId) &&
+      (courseLevel === null || s.course_level === courseLevel)
+    ).length;
+  }, [students]);
 
   const fetchAssignments = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    const [assignsRes, subsRes, studentsRes] = await Promise.all([
+    const [assignsRes, subsRes, schoolsRes, studentsRes] = await Promise.all([
       supabase
         .from('assignments')
-        .select('id, title, description, due_date, file_url, created_at, xp_reward')
+        .select('id, title, description, due_date, file_url, created_at, xp_reward, school_id, course_level')
         .order('created_at', { ascending: false }),
       supabase.from('submissions').select('assignment_id'),
-      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student'),
+      supabase.from('schools').select('id, name').order('name'),
+      supabase.from('profiles').select('school_id, course_level').eq('role', 'student'),
     ]);
 
     if (assignsRes.error) {
@@ -45,13 +67,28 @@ export function useAdminAssignments() {
       countByAssignment.set(s.assignment_id, (countByAssignment.get(s.assignment_id) ?? 0) + 1);
     }
 
+    const studentRows = studentsRes.data ?? [];
+
     setAssignments(
       (assignsRes.data ?? []).map(a => ({
-        ...a,
+        id: a.id,
+        title: a.title,
+        description: a.description,
+        due_date: a.due_date,
+        file_url: a.file_url,
+        created_at: a.created_at,
+        xp_reward: a.xp_reward,
+        schoolId: a.school_id,
+        courseLevel: a.course_level,
+        targetStudentCount: studentRows.filter(s =>
+          (a.school_id === null || s.school_id === a.school_id) &&
+          (a.course_level === null || s.course_level === a.course_level)
+        ).length,
         submissionCount: countByAssignment.get(a.id) ?? 0,
       }))
     );
-    setTotalStudents(studentsRes.count ?? 0);
+    setSchools(schoolsRes.data ?? []);
+    setStudents(studentRows);
     setLoading(false);
   }, []);
 
@@ -66,6 +103,8 @@ export function useAdminAssignments() {
     file: File | null;
     createdBy: string | null;
     xpReward: number;
+    schoolId: string | null;
+    courseLevel: number | null;
   }): Promise<{ error: string | null }> {
     const title = input.title.trim();
     if (!title) return { error: 'Assignment title is required.' };
@@ -86,7 +125,8 @@ export function useAdminAssignments() {
         description: input.description.trim() || null,
         due_date: input.dueDate || null,
         created_by: input.createdBy,
-        school_id: null,
+        school_id: input.schoolId,
+        course_level: input.courseLevel,
         xp_reward: Math.max(0, input.xpReward),
       })
       .select('id')
@@ -128,5 +168,15 @@ export function useAdminAssignments() {
     return { error: null };
   }
 
-  return { assignments, totalStudents, loading, error, createAssignment, deleteAssignment, updateXpReward, refetch: fetchAssignments };
+  return {
+    assignments,
+    schools,
+    countTargeted,
+    loading,
+    error,
+    createAssignment,
+    deleteAssignment,
+    updateXpReward,
+    refetch: fetchAssignments,
+  };
 }

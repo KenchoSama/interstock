@@ -11,12 +11,14 @@ function formatDate(iso: string | null): string {
 
 type RosterFilter = 'all' | 'submitted' | 'missing';
 
-function RosterModal({ assignmentId, assignmentTitle, onClose }: {
+function RosterModal({ assignmentId, assignmentTitle, targetSchoolId, targetCourseLevel, onClose }: {
   assignmentId: string;
   assignmentTitle: string;
+  targetSchoolId: string | null;
+  targetCourseLevel: number | null;
   onClose: () => void;
 }) {
-  const { roster, loading, error, resetSubmission } = useAdminAssignmentRoster(assignmentId);
+  const { roster, loading, error, resetSubmission } = useAdminAssignmentRoster(assignmentId, targetSchoolId, targetCourseLevel);
   const [filter, setFilter] = useState<RosterFilter>('all');
   const [search, setSearch] = useState('');
   const [confirmResetId, setConfirmResetId] = useState<string | null>(null);
@@ -202,7 +204,7 @@ function RosterModal({ assignmentId, assignmentTitle, onClose }: {
 export default function AdminAssignments() {
   const { state } = useApp();
   const user = state.u[state.role];
-  const { assignments, totalStudents, loading, error, createAssignment, deleteAssignment, updateXpReward } = useAdminAssignments();
+  const { assignments, schools, countTargeted, loading, error, createAssignment, deleteAssignment, updateXpReward } = useAdminAssignments();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState('');
@@ -211,6 +213,8 @@ export default function AdminAssignments() {
   const [xpReward, setXpReward] = useState(15);
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [targetSchoolId, setTargetSchoolId] = useState<string | null>(null);
+  const [targetCourseLevel, setTargetCourseLevel] = useState<number | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -220,7 +224,9 @@ export default function AdminAssignments() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [rosterTarget, setRosterTarget] = useState<{ id: string; title: string } | null>(null);
+  const [rosterTarget, setRosterTarget] = useState<{ id: string; title: string; schoolId: string | null; courseLevel: number | null } | null>(null);
+
+  const recipientCount = countTargeted(targetSchoolId, targetCourseLevel);
 
   function pickFile(f: File | undefined | null) {
     if (!f) return;
@@ -242,18 +248,22 @@ export default function AdminAssignments() {
       file,
       createdBy: user.supabaseId,
       xpReward,
+      schoolId: targetSchoolId,
+      courseLevel: targetCourseLevel,
     });
     setSubmitting(false);
     if (error) {
       setSubmitError(error);
       return;
     }
-    setSuccessCount(totalStudents);
+    setSuccessCount(recipientCount);
     setTitle('');
     setDescription('');
     setDueDate('');
     setXpReward(15);
     setFile(null);
+    setTargetSchoolId(null);
+    setTargetCourseLevel(null);
   }
 
   async function handleConfirmDelete() {
@@ -276,7 +286,7 @@ export default function AdminAssignments() {
       <div className="page-header">
         <div>
           <div className="page-title">Assignments</div>
-          <div className="page-subtitle">Assign work to every student on the platform</div>
+          <div className="page-subtitle">Assign work to every student, or target a school and/or program level</div>
         </div>
       </div>
 
@@ -292,7 +302,40 @@ export default function AdminAssignments() {
             <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.15)', borderRadius: 6, fontSize: 12, color: '#fff' }}>
                 <span style={{ flexShrink: 0 }}>📋</span>
-                <span>This will be assigned to all {totalStudents} student{totalStudents === 1 ? '' : 's'} on InterStock.</span>
+                <span>This will be assigned to {recipientCount} student{recipientCount === 1 ? '' : 's'}{targetSchoolId || targetCourseLevel ? ' matching your filters below.' : ' on InterStock.'}</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+                    Target School
+                  </div>
+                  <select
+                    value={targetSchoolId ?? ''}
+                    onChange={e => setTargetSchoolId(e.target.value || null)}
+                    style={{ width: '100%', boxSizing: 'border-box', color: '#fff' }}
+                  >
+                    <option value="">All Schools</option>
+                    {schools.map(sc => (
+                      <option key={sc.id} value={sc.id}>{sc.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+                    Target Program Level
+                  </div>
+                  <select
+                    value={targetCourseLevel ?? ''}
+                    onChange={e => setTargetCourseLevel(e.target.value ? Number(e.target.value) : null)}
+                    style={{ width: '100%', boxSizing: 'border-box', color: '#fff' }}
+                  >
+                    <option value="">All Levels</option>
+                    <option value={1}>Level 1</option>
+                    <option value={2}>Level 2</option>
+                    <option value={3}>Level 3</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -411,7 +454,7 @@ export default function AdminAssignments() {
                   cursor: canSubmit ? 'pointer' : 'default', opacity: canSubmit ? 1 : 0.5,
                 }}
               >
-                {submitting ? 'Assigning...' : '📤 Assign to All Students →'}
+                {submitting ? 'Assigning...' : targetSchoolId || targetCourseLevel ? '📤 Assign to Selected Students →' : '📤 Assign to All Students →'}
               </button>
             </div>
           </div>
@@ -462,17 +505,29 @@ export default function AdminAssignments() {
                     📄 View attachment
                   </a>
                 )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                  <span
+                    style={{
+                      fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+                      background: a.schoolId || a.courseLevel ? 'var(--blue-dim)' : 'rgba(0,212,168,0.10)',
+                      color: a.schoolId || a.courseLevel ? 'var(--blue)' : 'var(--gr)',
+                    }}
+                  >
+                    {a.schoolId ? schools.find(sc => sc.id === a.schoolId)?.name ?? 'Unknown school' : 'All Schools'}
+                    {a.courseLevel ? ` · Level ${a.courseLevel}` : ' · All Levels'}
+                  </span>
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, marginTop: 4 }}>
                   <span style={{ color: '#fff' }}>Due: {formatDate(a.due_date)}</span>
                   <button
-                    onClick={() => setRosterTarget({ id: a.id, title: a.title })}
+                    onClick={() => setRosterTarget({ id: a.id, title: a.title, schoolId: a.schoolId, courseLevel: a.courseLevel })}
                     style={{
                       fontFamily: 'monospace', color: '#00e676', background: 'none', border: 'none',
                       cursor: 'pointer', padding: 0, textDecoration: 'underline',
                     }}
                     title="View roster"
                   >
-                    {a.submissionCount}/{totalStudents}
+                    {a.submissionCount}/{a.targetStudentCount}
                   </button>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 4, fontSize: 11, marginTop: 4 }}>
@@ -500,6 +555,8 @@ export default function AdminAssignments() {
         <RosterModal
           assignmentId={rosterTarget.id}
           assignmentTitle={rosterTarget.title}
+          targetSchoolId={rosterTarget.schoolId}
+          targetCourseLevel={rosterTarget.courseLevel}
           onClose={() => setRosterTarget(null)}
         />
       )}
@@ -540,7 +597,7 @@ export default function AdminAssignments() {
               Delete "{deleteTarget.title}"?
             </div>
             <div style={{ fontSize: 13, color: '#fff', lineHeight: 1.6, marginBottom: 16 }}>
-              This removes the assignment for every student. This cannot be undone.
+              This removes the assignment for every targeted student. This cannot be undone.
             </div>
             {deleteError && (
               <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>{deleteError}</div>

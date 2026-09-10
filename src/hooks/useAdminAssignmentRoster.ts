@@ -12,7 +12,11 @@ export interface RosterRow {
   fileUrl: string | null;
 }
 
-export function useAdminAssignmentRoster(assignmentId: string | null) {
+export function useAdminAssignmentRoster(
+  assignmentId: string | null,
+  targetSchoolId: string | null,
+  targetCourseLevel: number | null
+) {
   const [roster, setRoster] = useState<RosterRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,8 +26,12 @@ export function useAdminAssignmentRoster(assignmentId: string | null) {
     setLoading(true);
     setError(null);
 
+    let studentsQuery = supabase.from('profiles').select('id, full_name, school_id').eq('role', 'student');
+    if (targetSchoolId) studentsQuery = studentsQuery.eq('school_id', targetSchoolId);
+    if (targetCourseLevel) studentsQuery = studentsQuery.eq('course_level', targetCourseLevel);
+
     const [studentsRes, schoolsRes, subsRes] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, school_id').eq('role', 'student'),
+      studentsQuery,
       supabase.from('schools').select('id, name'),
       supabase
         .from('submissions')
@@ -58,7 +66,7 @@ export function useAdminAssignmentRoster(assignmentId: string | null) {
 
     setRoster(rows);
     setLoading(false);
-  }, [assignmentId]);
+  }, [assignmentId, targetSchoolId, targetCourseLevel]);
 
   useEffect(() => {
     fetchRoster();
