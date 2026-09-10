@@ -10,6 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [accessCode, setAccessCode] = useState('');
+  const [courseLevel, setCourseLevel] = useState<number | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -48,6 +49,12 @@ export default function Login() {
         return;
       }
 
+      if (!courseLevel) {
+        setError('Select your program level.');
+        setLoading(false);
+        return;
+      }
+
       const { data: setting, error: settingError } = await supabase
         .from('app_settings')
         .select('value')
@@ -63,7 +70,7 @@ export default function Login() {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName, role: 'student' } }
+        options: { data: { full_name: fullName, role: 'student', course_level: courseLevel } }
       });
       if (error) {
         setError(error.message);
@@ -138,6 +145,29 @@ export default function Login() {
                   value={accessCode}
                   onChange={e => { setAccessCode(e.target.value); setError(''); }}
                 />
+                <label className="login-label">Program Level</label>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                  {[
+                    { level: 1, label: 'Level 1' },
+                    { level: 2, label: 'Level 2' },
+                    { level: 3, label: 'Level 3' },
+                  ].map(opt => (
+                    <button
+                      key={opt.level}
+                      type="button"
+                      onClick={() => { setCourseLevel(opt.level); setError(''); }}
+                      style={{
+                        flex: 1, padding: '10px 6px', borderRadius: 8, cursor: 'pointer',
+                        border: `1px solid ${courseLevel === opt.level ? 'var(--gr)' : 'var(--border)'}`,
+                        background: courseLevel === opt.level ? 'var(--gr-dim)' : 'var(--surface2)',
+                        color: courseLevel === opt.level ? 'var(--gr)' : 'var(--text2)',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 700 }}>{opt.label}</div>
+                    </button>
+                  ))}
+                </div>
               </>
             )}
             <label className="login-label">Email</label>

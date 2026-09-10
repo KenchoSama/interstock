@@ -270,7 +270,7 @@ export default function Lessons() {
     setActiveId(null);
   }
 
-  if (isLocked('lessons', studentXp)) {
+  if (isLocked('lessons', user.courseLevel)) {
     return (
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="empty-state">

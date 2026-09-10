@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useApp, getLevelName } from '../state/AppContext';
+import { useApp } from '../state/AppContext';
 import { useProfileData } from '../hooks/useProfileData';
 import { usePublicStudentProfile } from '../hooks/usePublicStudentProfile';
 import { uploadAvatar, updateProfileDetails, updateProfilePrivacy } from '../lib/studentProfile';
@@ -7,8 +7,6 @@ import { FAQS } from '../data';
 import { useTournamentLeaderboard } from '../hooks/useTournamentLeaderboard';
 import { useFriends } from '../hooks/useFriends';
 import type { TournamentPortfolio } from '../types';
-
-const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 
 function TournamentHistoryRow({ tp, userId }: { tp: TournamentPortfolio; userId: string | null }) {
   const { students, loading } = useTournamentLeaderboard(tp.competitionId);
@@ -111,7 +109,6 @@ function OwnProfile() {
   const { friends } = useFriends(user.supabaseId);
 
   const initials = initialsOf(user.name);
-  const levelNum = LEVEL_THRESHOLDS.filter(t => t <= xp).length;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -269,7 +266,7 @@ function OwnProfile() {
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'rgba(0,230,118,0.12)', color: '#00e676' }}>
-                        Level {levelNum} Investor
+                        Level {user.courseLevel}
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'rgba(0,230,118,0.12)', color: '#00e676' }}>
                         {xp.toLocaleString()} XP
@@ -494,8 +491,8 @@ function OwnProfile() {
                       <div style={{ fontSize: 16, fontWeight: 700 }}>{tradeCount.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Level</div>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{getLevelName(user.xp)}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Program Level</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{user.courseLevel}</div>
                     </div>
                     <div>
                       <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Trading Since</div>
@@ -564,11 +561,9 @@ function PublicProfile({ studentId }: { studentId: string }) {
   const { state, dispatch } = useApp();
   const viewerId = state.u[state.role].supabaseId;
   const {
-    loading, error, isPrivate, name, xp, schoolName, globalRank,
+    loading, error, isPrivate, name, xp, courseLevel, schoolName, globalRank,
     recentTrades, tradeCount, avatarUrl, linkedinUrl, bio,
   } = usePublicStudentProfile(studentId, viewerId);
-
-  const levelNum = LEVEL_THRESHOLDS.filter(t => t <= xp).length;
 
   const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
 
@@ -633,7 +628,7 @@ function PublicProfile({ studentId }: { studentId: string }) {
                     )}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'rgba(0,230,118,0.12)', color: '#00e676' }}>
-                        Level {levelNum} Investor
+                        Level {courseLevel}
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'rgba(0,230,118,0.12)', color: '#00e676' }}>
                         {xp.toLocaleString()} XP

@@ -8,11 +8,9 @@ export interface StudentRow {
   schoolId: string | null;
   grade: number | null;
   xp: number;
-  level: number;
+  courseLevel: number;
   rank: number | null;
 }
-
-const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 
 export function useAllStudents() {
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -26,7 +24,7 @@ export function useAllStudents() {
     const [profilesRes, rankRes] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, full_name, grade, xp, school_id, schools ( name )')
+        .select('id, full_name, grade, xp, course_level, school_id, schools ( name )')
         .eq('role', 'student')
         .order('full_name', { ascending: true }),
       supabase.from('leaderboard').select('id, global_rank'),
@@ -47,7 +45,7 @@ export function useAllStudents() {
       schoolId: p.school_id ?? null,
       grade: p.grade,
       xp: p.xp ?? 0,
-      level: LEVEL_THRESHOLDS.filter(t => t <= (p.xp ?? 0)).length,
+      courseLevel: p.course_level ?? 1,
       rank: rankMap.get(p.id) ?? null,
     }));
 
@@ -80,5 +78,12 @@ export function useAllStudents() {
     return { error: null };
   }
 
-  return { students, loading, error, deleteStudent, promoteToAdmin, updateStudentSchool, refetch: fetchStudents };
+  async function updateStudentLevel(id: string, level: number): Promise<{ error: string | null }> {
+    const { error } = await supabase.rpc('admin_update_student_level', { p_student_id: id, p_level: level });
+    if (error) return { error: error.message };
+    await fetchStudents();
+    return { error: null };
+  }
+
+  return { students, loading, error, deleteStudent, promoteToAdmin, updateStudentSchool, updateStudentLevel, refetch: fetchStudents };
 }

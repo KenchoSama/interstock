@@ -235,6 +235,10 @@ export interface UserProfile {
   isPrivate: boolean;
   loginStreak: number;
   xp: number;
+  // Course enrollment level (1 = beginner, 2 = intermediate, 3 = advanced),
+  // set at signup and editable only by admin — gates which trading features
+  // are unlocked. Unrelated to xp.
+  courseLevel: number;
   // `cash`/`portfolio`/`portfolioId` always reflect whichever portfolio is
   // currently active (general or a tournament) — see `activeCompetitionId`.
   // Every existing consumer keeps reading these three fields unchanged;

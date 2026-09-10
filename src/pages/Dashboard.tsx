@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { useApp, getLevelName, getNextLevelXP, isLocked } from '../state/AppContext';
+import { useApp, isLocked } from '../state/AppContext';
 import { STOCKS } from '../data/stocks';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import MentorBookingModal from '../components/MentorBookingModal';
@@ -14,7 +14,6 @@ import { useStockQuotes } from '../hooks/useStockQuotes';
 import { useIndexPerformance, KEY_INDEXES } from '../hooks/useIndexPerformance';
 import ChartWithTooltip from '../components/ChartWithTooltip';
 
-const LEVEL_THRESHOLDS = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
 const ETF_COLORS = ['var(--gr)', '#4d9fff', '#f9c74f', '#a855f7', '#f97316'];
 const SP500_YTD = 10.8;
 
@@ -86,13 +85,7 @@ export default function Dashboard() {
   }, [user.portfolio, quotes, customPrices]);
 
   const totalValue = holdingsValue + user.cash;
-  const levelName = getLevelName(user.xp);
-  const nextXP = getNextLevelXP(user.xp);
-  const prevThresholds = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
-  const prevThreshold = [...prevThresholds].reverse().find(t => t <= user.xp) ?? 0;
-  const xpProgress = nextXP > prevThreshold
-    ? ((user.xp - prevThreshold) / (nextXP - prevThreshold)) * 100
-    : 100;
+  const levelName = `Level ${user.courseLevel}`;
 
 
   const isDailyTf = chartTf === '1M' || chartTf === '6M' || chartTf === 'YTD' || chartTf === '1Y';
@@ -182,7 +175,6 @@ export default function Dashboard() {
     return { amt, pct: (amt / baseline) * 100 };
   }, [displayPoints, totalValue, returnAmt, returnPct]);
 
-  const levelNum = LEVEL_THRESHOLDS.filter(t => t <= user.xp).length;
   const { top5, myEntry } = useLeaderboard(user.supabaseId ?? undefined);
 
   const etfReturn = state.etf
@@ -554,9 +546,9 @@ export default function Dashboard() {
         {/* Right panel */}
         <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* XP Progress widget */}
+          {/* Program level widget */}
           <div className="card">
-            <div className="card-title">XP PROGRESS</div>
+            <div className="card-title">PROGRAM LEVEL</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
               <div style={{
                 width: 48, height: 48, borderRadius: '50%',
@@ -564,21 +556,18 @@ export default function Dashboard() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontWeight: 800, fontSize: 15, color: 'var(--bg)', flexShrink: 0,
               }}>
-                L{levelNum}
+                L{user.courseLevel}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>Level {levelNum}</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{levelName}</div>
                 <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                  {user.xp.toLocaleString()} / {nextXP.toLocaleString()} XP
+                  ⚡ {user.xp.toLocaleString()} XP earned
                 </div>
               </div>
             </div>
-            <div className="progress-bar" style={{ marginBottom: 16 }}>
-              <div className="progress-fill" style={{ width: `${Math.min(xpProgress, 100)}%` }} />
-            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {FEATURE_LIST.map(f => {
-                const locked = isLocked(f.view, user.xp);
+                const locked = isLocked(f.view, user.courseLevel);
                 return (
                   <div key={f.view} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 13, color: locked ? 'var(--text3)' : 'var(--text)' }}>{f.label}</span>

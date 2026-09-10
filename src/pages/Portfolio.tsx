@@ -220,7 +220,7 @@ export default function Portfolio() {
 
   const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  if (isLocked('portfolio', user.xp)) {
+  if (isLocked('portfolio', user.courseLevel)) {
     return (
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="empty-state">

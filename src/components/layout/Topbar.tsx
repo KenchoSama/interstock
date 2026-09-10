@@ -1,4 +1,4 @@
-import { useApp, getLevelName, getNextLevelXP } from '../../state/AppContext';
+import { useApp } from '../../state/AppContext';
 import { useTickerQuotes } from '../../hooks/useTickerQuotes';
 import { TOP_TICKERS } from '../../data/sp500';
 import interstockLogo from '../../assets/interstock-logo.png';
@@ -7,9 +7,6 @@ export default function Topbar() {
   const { state, dispatch } = useApp();
   const user = state.u[state.role];
   const xp = user.xp;
-  const nextLvl = getNextLevelXP(xp);
-  const prevLvl = [0, 100, 200, 500, 1000, 1200, 1500, 2000, 2500].filter(t => t <= xp).at(-1) ?? 0;
-  const pct = Math.min(100, Math.round(((xp - prevLvl) / (nextLvl - prevLvl)) * 100));
 
   const { quotes, loading } = useTickerQuotes();
 
@@ -48,14 +45,9 @@ export default function Topbar() {
       <div className="topbar-right">
         {state.role === 'student' && (
           <div className="status-bar">
-            <div className="xp-bar-wrap">
-              <span className="xp-label">⚡ {xp.toLocaleString()} XP</span>
-              <div className="xp-bar">
-                <div className="xp-bar-fill" style={{ width: `${pct}%` }} />
-              </div>
-            </div>
+            <span className="xp-label">⚡ {xp.toLocaleString()} XP</span>
             <span style={{ fontSize: 11, color: 'var(--text2)' }}>
-              {getLevelName(xp)}
+              Level {user.courseLevel}
             </span>
           </div>
         )}

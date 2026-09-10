@@ -631,7 +631,7 @@ export default function Options() {
     setTradeMsg({ text: `Closed ${pos.ticker} $${pos.strike} ${pos.optionType} for $${proceeds.toFixed(2)}.`, ok: true });
   }
 
-  if (isLocked('options', user.xp)) {
+  if (isLocked('options', user.courseLevel)) {
     return (
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="empty-state">

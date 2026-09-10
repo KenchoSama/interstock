@@ -291,7 +291,7 @@ export default function Futures() {
     setTradeMsg({ text: `Closed ${pos.ticker} ${pos.side} for $${closeValue.toFixed(2)}.`, ok: true });
   }
 
-  if (isLocked('futures', user.xp)) {
+  if (isLocked('futures', user.courseLevel)) {
     return (
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="empty-state">

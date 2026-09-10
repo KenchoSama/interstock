@@ -134,7 +134,7 @@ export default function OrderHistory() {
 
   const canPlace = ticker.trim().length > 0 && shares > 0 && limitPrice > 0 && !placing;
 
-  if (isLocked('order-history', user.xp)) {
+  if (isLocked('order-history', user.courseLevel)) {
     return (
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="empty-state">

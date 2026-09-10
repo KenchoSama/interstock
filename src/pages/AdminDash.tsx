@@ -8,12 +8,12 @@ import { useAdminClassFunds } from '../hooks/useAdminClassFunds';
 import { supabase } from '../lib/supabase';
 
 function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
-  const header = ['Name', 'School', 'Grade', 'Level', 'XP', 'Rank'];
+  const header = ['Name', 'School', 'Grade', 'Program Level', 'XP', 'Rank'];
   const lines = rows.map(s => [
     s.name,
     s.school ?? '',
     s.grade ?? '',
-    s.level,
+    s.courseLevel,
     s.xp,
     s.rank ?? '',
   ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
@@ -30,7 +30,7 @@ function downloadCsv(rows: ReturnType<typeof useAllStudents>['students']) {
 
 export default function AdminDash() {
   const { schools, totalStudents, totalCompetitions, activeCompetitions, loading: overviewLoading, error: overviewError, addSchool, deleteSchool } = useAdminOverview();
-  const { students, loading: studentsLoading, error: studentsError, deleteStudent, promoteToAdmin, updateStudentSchool } = useAllStudents();
+  const { students, loading: studentsLoading, error: studentsError, deleteStudent, promoteToAdmin, updateStudentSchool, updateStudentLevel } = useAllStudents();
   const { feedback, loading: feedbackLoading, error: feedbackError } = useAdminFeedback();
   const { entries: schoolRanks } = useSchoolLeaderboard();
   const { code: signupCode, loading: codeLoading, updateCode } = useSignupAccessCode();
@@ -427,7 +427,7 @@ export default function AdminDash() {
                   <th>Student</th>
                   <th>School</th>
                   <th>Grade</th>
-                  <th>Level</th>
+                  <th>Program Level</th>
                   <th>XP</th>
                   <th>Rank</th>
                   <th></th>
@@ -458,9 +458,15 @@ export default function AdminDash() {
                     </td>
                     <td style={{ fontFamily: 'monospace' }}>{s.grade ? `${s.grade}th` : '—'}</td>
                     <td>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'var(--blue-dim)', color: 'var(--blue)' }}>
-                        L{s.level}
-                      </span>
+                      <select
+                        value={s.courseLevel}
+                        onChange={e => updateStudentLevel(s.id, Number(e.target.value))}
+                        style={{ fontSize: 11, padding: '3px 6px', fontWeight: 700, color: 'var(--blue)' }}
+                      >
+                        <option value={1}>Level 1</option>
+                        <option value={2}>Level 2</option>
+                        <option value={3}>Level 3</option>
+                      </select>
                     </td>
                     <td style={{ fontFamily: 'monospace', color: '#00e676', fontWeight: 600 }}>{s.xp.toLocaleString()}</td>
                     <td style={{ fontFamily: 'monospace' }}>{s.rank ? `#${s.rank}` : '—'}</td>

@@ -14,7 +14,8 @@ function makeUser(name: string, xp = 0): AppState['u'][Role] {
   return {
     name,
     email: `${name.toLowerCase().replace(' ', '.')}@interstock.edu`,
-    avatar: name[0].toUpperCase(),
+    avatar: name[0]?.toUpperCase() ?? '?',
+    courseLevel: 1,
     avatarUrl: null as string | null,
     linkedinUrl: null as string | null,
     bio: null as string | null,
@@ -135,7 +136,7 @@ type Action =
   | { type: 'SET_CERT_RESULT'; score: number; passed: boolean }
   | { type: 'EARN_DIPLOMA'; courseId: string; score: number }
   | { type: 'SET_ETF'; etf: AppState['etf'] }
-  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string; school_id?: string | null }; studentData?: { name: string; xp: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; hasAgreedToCoC?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null; isPrivate?: boolean; loginStreak?: number; portfolio: AppState['u']['student']['portfolio']; tournamentPortfolios?: TournamentPortfolio[] } }
+  | { type: 'LOGIN'; role: Role; basicData?: { name: string; supabaseId: string; school_id?: string | null }; studentData?: { name: string; xp: number; courseLevel?: number; cash: number; achievements: string[]; createdAt?: string; supabaseId?: string; portfolioId?: string; hasAssessment?: boolean; hasAgreedToCoC?: boolean; school_id?: string | null; grade?: number | null; age?: number | null; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null; isPrivate?: boolean; loginStreak?: number; portfolio: AppState['u']['student']['portfolio']; tournamentPortfolios?: TournamentPortfolio[] } }
   | { type: 'AGREE_TO_CODE_OF_CONDUCT' }
   | { type: 'UPDATE_STUDENT_INFO'; grade: number | null; age: number | null; school_id: string | null }
   | { type: 'UPDATE_STUDENT_PROFILE_DETAILS'; avatarUrl?: string | null; linkedinUrl?: string | null; bio?: string | null; isPrivate?: boolean }
@@ -189,8 +190,9 @@ function reducer(state: AppState, action: Action): AppState {
             student: {
               ...state.u.student,
               name: d.name,
-              avatar: d.name[0].toUpperCase(),
+              avatar: d.name?.[0]?.toUpperCase() ?? '?',
               xp: d.xp,
+              courseLevel: d.courseLevel ?? 1,
               cash: d.cash,
               achievements: d.achievements,
               portfolio: d.portfolio,
@@ -611,30 +613,16 @@ function defaultView(role: Role): string {
   return defaults[role];
 }
 
-// Views fully locked for students right now — no XP threshold unlocks these,
-// they're just off.
-const LOCKED_VIEWS = ['lessons', 'diplomas', 'portfolio', 'options', 'futures', 'order-history', 'class-fund'];
+// Feature access is gated by course_level (1/2/3), not XP. Level 1 keeps
+// today's fully-locked-trading behavior; level 2 unlocks regular stock
+// trading; level 3 unlocks everything.
+const LEVEL_1_LOCKED_VIEWS = ['lessons', 'diplomas', 'portfolio', 'options', 'futures', 'order-history', 'class-fund'];
+const LEVEL_2_LOCKED_VIEWS = ['lessons', 'diplomas', 'options', 'futures', 'class-fund'];
 
-export function isLocked(view: string, _xp: number): boolean {
-  return LOCKED_VIEWS.includes(view);
-}
-
-export function getLevelName(xp: number): string {
-  if (xp >= 3000) return 'Wall Street Pro';
-  if (xp >= 2500) return 'Fund Manager';
-  if (xp >= 2000) return 'Senior Analyst';
-  if (xp >= 1500) return 'Junior Analyst';
-  if (xp >= 1200) return 'Trader';
-  if (xp >= 1000) return 'Investor';
-  if (xp >= 500) return 'Analyst Trainee';
-  if (xp >= 200) return 'Market Watcher';
-  if (xp >= 100) return 'Rookie';
-  return 'Beginner';
-}
-
-export function getNextLevelXP(xp: number): number {
-  const thresholds = [100, 200, 500, 1000, 1200, 1500, 2000, 2500, 3000];
-  return thresholds.find(t => t > xp) ?? 3000;
+export function isLocked(view: string, courseLevel: number): boolean {
+  if (courseLevel >= 3) return false;
+  if (courseLevel === 2) return LEVEL_2_LOCKED_VIEWS.includes(view);
+  return LEVEL_1_LOCKED_VIEWS.includes(view);
 }
 
 interface AppContextValue {

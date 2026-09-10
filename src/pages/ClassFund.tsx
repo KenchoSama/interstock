@@ -58,7 +58,7 @@ export default function ClassFund() {
     setShares(1);
   }
 
-  if (isLocked('class-fund', user.xp)) {
+  if (isLocked('class-fund', user.courseLevel)) {
     return (
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="empty-state">

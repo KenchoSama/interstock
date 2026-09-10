@@ -34,6 +34,7 @@ type Course = typeof DIPLOMA_COURSES[0];
 export default function Diplomas() {
   const { state, dispatch } = useApp();
   const userXp      = state.u[state.role].xp;
+  const userCourseLevel = state.u[state.role].courseLevel;
   const userDiplomas = state.u[state.role].diplomas;
 
   const [activeExam, setActiveExam]   = useState<Course | null>(null);
@@ -70,7 +71,7 @@ export default function Diplomas() {
 
   const answeredCount = Object.keys(examAnswers).length;
 
-  if (isLocked('diplomas', userXp)) {
+  if (isLocked('diplomas', userCourseLevel)) {
     return (
       <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="empty-state">

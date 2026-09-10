@@ -107,7 +107,7 @@ export default function Sidebar() {
   const { state, dispatch } = useApp();
   const items = NAV[state.role] ?? [];
   const user = state.u[state.role];
-  const userXp = user.xp;
+  const userCourseLevel = user.courseLevel;
   const { count: unreadCount } = useUnreadCount(user.supabaseId);
   const { count: unreadAnnouncementCount } = useUnreadAnnouncementCount(user.supabaseId);
 
@@ -150,7 +150,7 @@ export default function Sidebar() {
             {isExpanded && (
               <div className="sidebar-group-items">
                 {group.items.map(item => {
-                  const locked = state.role === 'student' && isLocked(item.id, userXp);
+                  const locked = state.role === 'student' && isLocked(item.id, userCourseLevel);
                   const badgeCount =
                     item.id === 'messages' ? unreadCount :
                     item.id === 'announcements' ? unreadAnnouncementCount :

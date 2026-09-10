@@ -34,6 +34,7 @@ interface UsePublicStudentProfileResult {
   isPrivate: boolean;
   name: string | null;
   xp: number;
+  courseLevel: number;
   schoolName: string | null;
   globalRank: number | null;
   mentor: PublicMentor | null;
@@ -53,6 +54,7 @@ export function usePublicStudentProfile(studentId: string | undefined, viewerId?
   const [isPrivate, setIsPrivate] = useState(false);
   const [name, setName] = useState<string | null>(null);
   const [xp, setXp] = useState(0);
+  const [courseLevel, setCourseLevel] = useState(1);
   const [schoolName, setSchoolName] = useState<string | null>(null);
   const [globalRank, setGlobalRank] = useState<number | null>(null);
   const [mentor, setMentor] = useState<PublicMentor | null>(null);
@@ -79,7 +81,7 @@ export function usePublicStudentProfile(studentId: string | undefined, viewerId?
 
     const profileRes = await supabase
       .from('profiles')
-      .select('full_name, xp, school_id, avatar_url, linkedin_url, bio, is_private')
+      .select('full_name, xp, course_level, school_id, avatar_url, linkedin_url, bio, is_private')
       .eq('id', studentId)
       .maybeSingle();
 
@@ -126,6 +128,7 @@ export function usePublicStudentProfile(studentId: string | undefined, viewerId?
     ]);
 
     setXp(profileRes.data.xp ?? 0);
+    setCourseLevel(profileRes.data.course_level ?? 1);
     setAvatarUrl(profileRes.data.avatar_url ?? null);
     setLinkedinUrl(profileRes.data.linkedin_url ?? null);
     setBio(profileRes.data.bio ?? null);
@@ -201,6 +204,7 @@ export function usePublicStudentProfile(studentId: string | undefined, viewerId?
     isPrivate,
     name,
     xp,
+    courseLevel,
     schoolName,
     globalRank,
     mentor,
